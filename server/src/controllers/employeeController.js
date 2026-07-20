@@ -1,10 +1,21 @@
 const Employee = require('../models/Employee');
 const Department = require('../models/Department');
+const User = require('../models/User');
 const Rsvp = require('../models/Rsvp');
 const WallPost = require('../models/WallPost');
 const Notification = require('../models/Notification');
+const Attendance = require('../models/Attendance');
 const writeAudit = require('../utils/audit');
 const { EMP_ID_PREFIX, EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
+const { ADMIN_ROLES } = require('../utils/roles');
+
+// Mobile numbers are only shown to admin-panel roles — everyone else gets the
+// directory view (name/email/role/photo/designation/dates) with phone stripped.
+function shapeForViewer(emp, viewerRole) {
+  const obj = emp.toObject();
+  if (!ADMIN_ROLES.includes(viewerRole)) delete obj.phone;
+  return obj;
+}
 
 function yearsSince(date) {
   const now = new Date();
@@ -33,11 +44,18 @@ async function list(req, res) {
       .sort({ createdAt: -1 })
       .skip((pg - 1) * lim)
       .limit(lim)
-      .populate('managerRef', 'name'),
+      .populate('managerRef', 'name')
+      .populate('userRef', 'role avatarUrl'),
     Employee.countDocuments(filter),
   ]);
 
-  res.json({ items, total, page: pg, limit: lim, pages: Math.ceil(total / lim) || 1 });
+  res.json({
+    items: items.map((e) => shapeForViewer(e, req.user.role)),
+    total,
+    page: pg,
+    limit: lim,
+    pages: Math.ceil(total / lim) || 1,
+  });
 }
 
 async function summary(req, res) {
@@ -51,7 +69,7 @@ async function summary(req, res) {
 }
 
 async function getOne(req, res) {
-  const emp = await Employee.findById(req.params.id).populate('managerRef', 'name').populate('userRef', 'email role');
+  const emp = await Employee.findById(req.params.id).populate('managerRef', 'name').populate('userRef', 'email role avatarUrl');
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 
   const [wishesReceived, postsCount, eventsRsvpCount] = await Promise.all([
@@ -63,7 +81,7 @@ async function getOne(req, res) {
   const years = yearsSince(emp.joined);
   const milestones = [1, 3, 5, 7, 10].filter((y) => years >= y);
 
-  res.json({ employee: emp, years, milestones, stats: { wishesReceived, postsCount, eventsRsvpCount } });
+  res.json({ employee: shapeForViewer(emp, req.user.role), years, milestones, stats: { wishesReceived, postsCount, eventsRsvpCount } });
 }
 
 async function nextId(req, res) {
@@ -71,7 +89,7 @@ async function nextId(req, res) {
 }
 
 async function create(req, res) {
-  const { name, dept, desig, joined, dob, email, phone, location, status, managerRef } = req.body;
+  const { name, dept, desig, roleLabel, joined, dob, email, phone, location, status, managerRef } = req.body;
   let { empId } = req.body;
   if (!name || !dept || !desig || !joined || !dob || !email) {
     return res.status(400).json({ message: 'name, dept, desig, joined, dob and email are required.' });
@@ -90,6 +108,7 @@ async function create(req, res) {
     dept: department.name,
     deptRef: department._id,
     desig,
+    roleLabel: roleLabel || 'Employee',
     joined: new Date(joined),
     dob: new Date(dob),
     email,
@@ -138,6 +157,23 @@ async function update(req, res) {
   const emp = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 
+  // Keep the linked User login in sync so the employee's own Profile page
+  // matches what an admin just set here.
+  if (emp.userRef) {
+    const userUpdates = {};
+    if (updates.name !== undefined) userUpdates.name = updates.name;
+    if (updates.email !== undefined) userUpdates.email = updates.email;
+    if (updates.phone !== undefined) userUpdates.phone = updates.phone;
+    if (updates.location !== undefined) userUpdates.location = updates.location;
+    if (Object.keys(userUpdates).length) {
+      try {
+        await User.findByIdAndUpdate(emp.userRef, userUpdates, { runValidators: true });
+      } catch (err) {
+        console.error('[employees] could not sync User account:', err.message);
+      }
+    }
+  }
+
   await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'employees', recordId: emp.empId, detail: `Updated employee: ${emp.name}` });
   res.json({ employee: emp });
 }
@@ -154,8 +190,19 @@ async function setStatus(req, res) {
 async function remove(req, res) {
   const emp = await Employee.findByIdAndDelete(req.params.id);
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
-  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'employees', recordId: emp.empId, detail: `Deleted employee: ${emp.name}` });
-  res.json({ message: 'Employee deleted.' });
+
+  await Attendance.deleteMany({ employeeRef: emp._id });
+  if (emp.userRef) await User.findByIdAndDelete(emp.userRef);
+
+  await writeAudit({
+    ip: req.ip,
+    user: req.user,
+    action: 'DELETE',
+    entity: 'employees',
+    recordId: emp.empId,
+    detail: `Permanently deleted employee: ${emp.name}${emp.userRef ? ' (and their login account)' : ''}`,
+  });
+  res.json({ message: 'Employee permanently deleted.' });
 }
 
 module.exports = { list, summary, getOne, create, update, setStatus, remove, yearsSince, nextId };

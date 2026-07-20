@@ -23,8 +23,8 @@ async function list(req, res) {
       .sort({ createdAt: -1 })
       .skip((pg - 1) * lim)
       .limit(lim)
-      .populate('authorRef', 'name avatarIndex')
-      .populate('comments.authorRef', 'name avatarIndex'),
+      .populate('authorRef', 'name avatarIndex avatarUrl')
+      .populate('comments.authorRef', 'name avatarIndex avatarUrl'),
     WallPost.countDocuments(filter),
   ]);
 
@@ -35,9 +35,26 @@ async function create(req, res) {
   const { text, tag } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Post text is required.' });
   const post = await WallPost.create({ authorRef: req.user._id, text: text.trim(), tag: tag || 'general' });
-  await post.populate('authorRef', 'name avatarIndex');
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post._id, detail: 'Posted on Celebration Wall' });
   res.status(201).json({ post: shapePost(post, req.user._id) });
+}
+
+async function update(req, res) {
+  const { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ message: 'Post text is required.' });
+  const post = await WallPost.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  if (String(post.authorRef) !== String(req.user._id)) {
+    return res.status(403).json({ message: 'You can only edit your own posts.' });
+  }
+
+  post.text = text.trim();
+  await post.save();
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'wall_posts', recordId: post._id, detail: 'Edited wall post' });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function react(req, res) {
@@ -47,15 +64,18 @@ async function react(req, res) {
   const post = await WallPost.findById(req.params.id);
   if (!post) return res.status(404).json({ message: 'Post not found.' });
 
+  // A user may only have one active reaction per post — drop it from every
+  // type first, then re-add to the requested type unless that's what was toggled off.
   const uid = String(req.user._id);
-  const arr = post.reactions[type];
-  const idx = arr.findIndex((id) => String(id) === uid);
-  if (idx >= 0) arr.splice(idx, 1);
-  else arr.push(req.user._id);
+  const wasActive = post.reactions[type].some((id) => String(id) === uid);
+  REACTION_TYPES.forEach((t) => {
+    post.reactions[t] = post.reactions[t].filter((id) => String(id) !== uid);
+  });
+  if (!wasActive) post.reactions[type].push(req.user._id);
 
   await post.save();
-  await post.populate('authorRef', 'name avatarIndex');
-  await post.populate('comments.authorRef', 'name avatarIndex');
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
   res.json({ post: shapePost(post, req.user._id) });
 }
 
@@ -67,9 +87,43 @@ async function addComment(req, res) {
 
   post.comments.push({ authorRef: req.user._id, text: text.trim() });
   await post.save();
-  await post.populate('authorRef', 'name avatarIndex');
-  await post.populate('comments.authorRef', 'name avatarIndex');
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
   res.status(201).json({ post: shapePost(post, req.user._id) });
+}
+
+async function editComment(req, res) {
+  const { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text is required.' });
+  const post = await WallPost.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  const comment = post.comments.id(req.params.commentId);
+  if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+  if (String(comment.authorRef) !== String(req.user._id)) {
+    return res.status(403).json({ message: 'You can only edit your own comments.' });
+  }
+
+  comment.text = text.trim();
+  await post.save();
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  res.json({ post: shapePost(post, req.user._id) });
+}
+
+async function deleteComment(req, res) {
+  const post = await WallPost.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  const comment = post.comments.id(req.params.commentId);
+  if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+  if (String(comment.authorRef) !== String(req.user._id) && !['superadmin', 'hr'].includes(req.user.role)) {
+    return res.status(403).json({ message: 'You can only delete your own comments.' });
+  }
+
+  comment.deleteOne();
+  await post.save();
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function remove(req, res) {
@@ -83,4 +137,4 @@ async function remove(req, res) {
   res.json({ message: 'Post deleted.' });
 }
 
-module.exports = { list, create, react, addComment, remove };
+module.exports = { list, create, update, react, addComment, editComment, deleteComment, remove };

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import { formatDateTime } from '../utils/avatar';
 
 const ACTION_BADGE = { LOGIN: 'b-bl', LOGIN_FAILED: 'b-re', CREATE: 'b-gr', UPDATE: 'b-or', DELETE: 'b-re', EXPORT: 'b-pu' };
 
@@ -74,7 +75,7 @@ export default function AuditPage() {
             <tbody>
               {data?.items.map((l) => (
                 <tr key={l._id}>
-                  <td style={{ fontSize: 10.5, color: 'var(--t3)', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{new Date(l.createdAt).toLocaleString()}</td>
+                  <td style={{ fontSize: 10.5, color: 'var(--t3)', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{formatDateTime(l.createdAt)}</td>
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Avatar name={l.actorName} size={22} fontSize={7} />{l.actorName}</div></td>
                   <td><span className={`badge ${ACTION_BADGE[l.action] || 'b-gy'}`}>{l.action}</span></td>
                   <td><code style={{ fontSize: 10, background: 'var(--bg3)', padding: '2px 6px', borderRadius: 5, color: 'var(--t1)' }}>{l.entity}</code></td>

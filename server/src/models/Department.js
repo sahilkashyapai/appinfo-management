@@ -5,7 +5,7 @@ const departmentSchema = new Schema(
     name: { type: String, required: true, unique: true, trim: true },
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     headRef: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
-    emoji: { type: String, default: '🏢' },
+    icon: { type: String, default: 'fa-solid fa-building' }, // Font Awesome icon class
     color: { type: String, default: '#2E86AB' },
     description: { type: String, default: '' },
   },

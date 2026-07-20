@@ -19,6 +19,9 @@ import AuditPage from './pages/AuditPage';
 import SettingsPage from './pages/SettingsPage';
 import RegistrationsPage from './pages/RegistrationsPage';
 import ProfilePage from './pages/ProfilePage';
+import AttendancePage from './pages/AttendancePage';
+import MessagesPage from './pages/MessagesPage';
+import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
 
 export default function App() {
   return (
@@ -35,18 +38,20 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
+        <Route path="attendance" element={<AttendancePage />} />
         <Route path="birthdays" element={<BirthdaysPage />} />
         <Route path="anniversaries" element={<AnniversariesPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="wall" element={<WallPage />} />
+        <Route path="messages" element={<MessagesPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
-        <Route path="departments" element={<DepartmentsPage />} />
-        <Route path="holidays" element={<HolidaysPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="audit" element={<AuditPage />} />
+        <Route path="departments" element={<ProtectedRoute roles={ADMIN_ROLES}><DepartmentsPage /></ProtectedRoute>} />
+        <Route path="holidays" element={<ProtectedRoute roles={ADMIN_ROLES}><HolidaysPage /></ProtectedRoute>} />
+        <Route path="reports" element={<ProtectedRoute roles={ADMIN_ROLES}><ReportsPage /></ProtectedRoute>} />
+        <Route path="audit" element={<ProtectedRoute roles={ADMIN_ROLES}><AuditPage /></ProtectedRoute>} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="registrations" element={<RegistrationsPage />} />
+        <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>

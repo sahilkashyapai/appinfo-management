@@ -1,14 +1,14 @@
 // Static demo data ported 1:1 from the original AII_Celebrations_Platform.html mock arrays.
 
 const DEPARTMENTS = [
-  { name: 'Engineering', code: 'ENG', head: 'Rahul Sharma', emoji: '⚙️', color: '#2E86AB', desc: 'Product development, QA, DevOps, Architecture' },
-  { name: 'Human Resources', code: 'HR', head: 'Priya Nair', emoji: '👥', color: '#E74C3C', desc: 'Talent acquisition, culture, engagement' },
-  { name: 'Sales', code: 'SLS', head: 'Vijay Kumar', emoji: '📈', color: '#27AE60', desc: 'Business development, key accounts, partnerships' },
-  { name: 'Marketing', code: 'MKT', head: 'Sneha Patel', emoji: '📣', color: '#E67E22', desc: 'Brand management, campaigns, digital' },
-  { name: 'Finance', code: 'FIN', head: 'Lakshmi Iyer', emoji: '💰', color: '#8E44AD', desc: 'Accounting, budgeting, payroll, compliance' },
-  { name: 'Operations', code: 'OPS', head: 'Rohan Das', emoji: '🏭', color: '#16A085', desc: 'Facilities, supply chain, administration' },
-  { name: 'IT & Infrastructure', code: 'IT', head: 'Rohit Mehta', emoji: '🖥️', color: '#2980B9', desc: 'Systems, networking, cloud, security' },
-  { name: 'Legal', code: 'LEG', head: 'Meera Joshi', emoji: '⚖️', color: '#D35400', desc: 'Contracts, regulatory, IP protection' },
+  { name: 'Engineering', code: 'ENG', head: 'Rahul Sharma', icon: 'fa-solid fa-gear', color: '#2E86AB', desc: 'Product development, QA, DevOps, Architecture' },
+  { name: 'Human Resources', code: 'HR', head: 'Priya Nair', icon: 'fa-solid fa-users', color: '#E74C3C', desc: 'Talent acquisition, culture, engagement' },
+  { name: 'Sales', code: 'SLS', head: 'Vijay Kumar', icon: 'fa-solid fa-chart-line', color: '#27AE60', desc: 'Business development, key accounts, partnerships' },
+  { name: 'Marketing', code: 'MKT', head: 'Sneha Patel', icon: 'fa-solid fa-bullhorn', color: '#E67E22', desc: 'Brand management, campaigns, digital' },
+  { name: 'Finance', code: 'FIN', head: 'Lakshmi Iyer', icon: 'fa-solid fa-sack-dollar', color: '#8E44AD', desc: 'Accounting, budgeting, payroll, compliance' },
+  { name: 'Operations', code: 'OPS', head: 'Rohan Das', icon: 'fa-solid fa-industry', color: '#16A085', desc: 'Facilities, supply chain, administration' },
+  { name: 'IT & Infrastructure', code: 'IT', head: 'Rohit Mehta', icon: 'fa-solid fa-server', color: '#2980B9', desc: 'Systems, networking, cloud, security' },
+  { name: 'Legal', code: 'LEG', head: 'Meera Joshi', icon: 'fa-solid fa-scale-balanced', color: '#D35400', desc: 'Contracts, regulatory, IP protection' },
 ];
 
 // The 10 named employees from the mock, plus the 2 department heads referenced by DEPARTMENTS

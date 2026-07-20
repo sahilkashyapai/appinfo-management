@@ -72,8 +72,7 @@ export default function LoginPage() {
       <div className="ar">
         <div className="af">
           <div className="af-logo">
-            <div className="af-logo-ic"><i className="fa-solid fa-champagne-glasses" /></div>
-            <div className="af-logo-t">Applied Information India</div>
+            <img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" />
           </div>
 
           {!pending2fa ? (

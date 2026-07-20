@@ -23,7 +23,7 @@ const TITLES = {
   '/profile': 'My Profile',
 };
 
-export default function Header({ onOpenNotifications }) {
+export default function Header({ onToggleSidebar, onOpenNotifications }) {
   const { pathname } = useLocation();
   const { dark, toggleDark } = useTheme();
   const { user } = useAuth();
@@ -33,6 +33,9 @@ export default function Header({ onOpenNotifications }) {
 
   return (
     <header id="hdr">
+      <div className="hbtn hb-menu" onClick={onToggleSidebar}>
+        <i className="fa-solid fa-bars" />
+      </div>
       <div className="hbc">
         <span className="hr">AII</span>
         <i className="fa-solid fa-chevron-right" />
@@ -47,9 +50,9 @@ export default function Header({ onOpenNotifications }) {
         <i className={`fa-solid ${dark ? 'fa-sun' : 'fa-moon'}`} />
       </div>
       <div className="hbtn" onClick={() => navigate('/settings')}>
-        <i className="fa-solid fa-circle-question" />
+        <i className="fa-solid fa-gear" />
       </div>
-      <Avatar name={user?.name} index={user?.avatarIndex} size={34} onClick={() => navigate('/profile')} style={{ border: '2px solid var(--bg2)' }} />
+      <Avatar name={user?.name} index={user?.avatarIndex} src={user?.avatarUrl} size={34} onClick={() => navigate('/profile')} style={{ border: '2px solid var(--bg2)' }} />
     </header>
   );
 }

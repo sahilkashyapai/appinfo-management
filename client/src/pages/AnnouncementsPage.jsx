@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import AnnouncementFormModal from '../components/AnnouncementFormModal';
+import { formatDate } from '../utils/avatar';
 
 const PRIORITY_BADGE = { high: 'b-re', medium: 'b-or', low: 'b-gr' };
 
@@ -46,7 +47,7 @@ export default function AnnouncementsPage() {
               <span className={`badge ${PRIORITY_BADGE[a.priority]}`}>{a.priority}</span>
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 5 }}>{a.body}</div>
-            <div style={{ fontSize: 10, color: 'var(--t3)' }}>Posted by <strong>{a.postedByRef?.name || 'Unknown'}</strong> · {new Date(a.createdAt).toLocaleDateString()}</div>
+            <div style={{ fontSize: 10, color: 'var(--t3)' }}>Posted by <strong>{a.postedByRef?.name || 'Unknown'}</strong> · {formatDate(a.createdAt)}</div>
           </div>
           {canManage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, marginLeft: 8 }}>

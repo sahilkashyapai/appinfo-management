@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useToast } from '../context/ToastContext';
 import HolidayFormModal from '../components/HolidayFormModal';
+import { formatDate } from '../utils/avatar';
 
 const TYPE_BADGE = { National: 'b-re', Festival: 'b-or', Optional: 'b-gy' };
 
@@ -42,7 +43,7 @@ export default function HolidaysPage() {
               {items.map((h) => (
                 <tr key={h._id}>
                   <td style={{ fontWeight: 700, color: 'var(--t1)' }}>{h.name}</td>
-                  <td>{new Date(h.date).toLocaleDateString()}</td>
+                  <td>{formatDate(h.date)}</td>
                   <td>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'long' })}</td>
                   <td><span className={`badge ${TYPE_BADGE[h.type]}`}>{h.type}</span></td>
                   <td style={{ color: 'var(--t3)' }}>{h.description}</td>

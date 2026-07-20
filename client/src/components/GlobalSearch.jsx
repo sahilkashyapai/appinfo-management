@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import { formatDate } from '../utils/avatar';
 
 export default function GlobalSearch() {
   const [q, setQ] = useState('');
@@ -76,7 +77,7 @@ export default function GlobalSearch() {
               <div style={{ fontSize: 20, width: 26, textAlign: 'center' }}>{e.emoji}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{e.title}</div>
-                <div style={{ fontSize: 10, color: 'var(--t3)' }}>{new Date(e.date).toLocaleDateString()}</div>
+                <div style={{ fontSize: 10, color: 'var(--t3)' }}>{formatDate(e.date)}</div>
               </div>
               <span className="sr-tag" style={{ background: '#D1FAE5', color: '#065F46' }}>Event</span>
             </div>

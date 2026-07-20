@@ -1,4 +1,5 @@
 import { useNotifications, useNotificationActions } from '../hooks/useNotifications';
+import { formatDateTime } from '../utils/avatar';
 
 export default function NotificationPanel({ open, onClose }) {
   const { data: notifs = [] } = useNotifications();
@@ -25,7 +26,7 @@ export default function NotificationPanel({ open, onClose }) {
               <div style={{ fontSize: 12, fontWeight: n.unread ? 700 : 600, color: 'var(--t1)' }}>{n.title}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1, lineHeight: 1.5 }}>{n.body}</div>
               <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 3 }}>
-                <i className="fa-solid fa-clock" style={{ fontSize: 10 }} /> {new Date(n.createdAt).toLocaleString()}
+                <i className="fa-solid fa-clock" style={{ fontSize: 10 }} /> {formatDateTime(n.createdAt)}
               </div>
             </div>
             {n.unread && <div className="npi-pip" />}

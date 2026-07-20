@@ -74,7 +74,7 @@ async function wipeCollections() {
 
 async function seedDepartments() {
   const depts = await Department.insertMany(
-    DEPARTMENTS.map((d) => ({ name: d.name, code: d.code, emoji: d.emoji, color: d.color, description: d.desc }))
+    DEPARTMENTS.map((d) => ({ name: d.name, code: d.code, icon: d.icon, color: d.color, description: d.desc }))
   );
   return Object.fromEntries(depts.map((d) => [d.name, d]));
 }

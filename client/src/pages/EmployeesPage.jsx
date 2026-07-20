@@ -5,12 +5,30 @@ import api from '../api/client';
 import Avatar from '../components/Avatar';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
-import { yearsSince } from '../utils/avatar';
+import { useAuth } from '../context/AuthContext';
+import { yearsSince, formatDate } from '../utils/avatar';
+import { ADMIN_ROLES } from '../utils/roles';
+import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
+
+const ROLE_LABEL_BADGE = {
+  CEO: 'b-pu',
+  CTO: 'b-pu',
+  CFO: 'b-pu',
+  HR: 'b-go',
+  'Team Lead': 'b-bl',
+  Manager: 'b-bl',
+  'Senior Employee': 'b-gr',
+  Employee: 'b-gy',
+  Intern: 'b-gy',
+};
 
 export default function EmployeesPage() {
   const [params] = useSearchParams();
   const { openEmployee } = useDrawers();
   const { openEditEmployee } = useOutletContext();
+  const { user } = useAuth();
+  const isAdmin = ADMIN_ROLES.includes(user?.role);
+  const canDelete = user?.role === 'superadmin';
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -30,6 +48,10 @@ export default function EmployeesPage() {
     queryKey: ['employees', dept, q, page],
     queryFn: () => api.get('/employees', { params: { dept, q, page, limit: 10 } }).then((r) => r.data),
   });
+  const { data: todayStatuses = {} } = useQuery({
+    queryKey: ['attendance-today'],
+    queryFn: () => api.get('/attendance/today').then((r) => r.data.statuses),
+  });
 
   const deactivate = useMutation({
     mutationFn: (emp) => api.patch(`/employees/${emp._id}/status`, { status: emp.status === 'active' ? 'inactive' : 'active' }),
@@ -40,6 +62,22 @@ export default function EmployeesPage() {
     },
   });
 
+  const deleteEmployee = useMutation({
+    mutationFn: (emp) => api.delete(`/employees/${emp._id}`),
+    onSuccess: (_res, emp) => {
+      toast(`${emp.name} permanently deleted`, 'warning');
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      qc.invalidateQueries({ queryKey: ['employees-summary'] });
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not delete employee.', 'error'),
+  });
+
+  function confirmDelete(emp) {
+    if (window.confirm(`Permanently delete ${emp.name}? This removes their employee record and login account from the database and cannot be undone.`)) {
+      deleteEmployee.mutate(emp);
+    }
+  }
+
   return (
     <div className="page on">
       <div className="ph">
@@ -47,9 +85,11 @@ export default function EmployeesPage() {
           <div className="pgt">Employees</div>
           <div className="pgs">{summary ? `${summary.active} active · ${summary.inactive} inactive · ${summary.leave} on leave` : '—'}</div>
         </div>
-        <div className="ph-r">
-          <button className="btn bp bsm" onClick={() => openEditEmployee(null)}><i className="fa-solid fa-user-plus" /> Add Employee</button>
-        </div>
+        {isAdmin && (
+          <div className="ph-r">
+            <button className="btn bp bsm" onClick={() => openEditEmployee(null)}><i className="fa-solid fa-user-plus" /> Add Employee</button>
+          </div>
+        )}
       </div>
 
       <div className="chips">
@@ -72,7 +112,8 @@ export default function EmployeesPage() {
           <table>
             <thead>
               <tr>
-                <th>Employee</th><th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Status</th><th>Actions</th>
+                <th>Employee</th><th>Position</th><th>Account Role</th><th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Today</th><th>Status</th>
+                {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -80,26 +121,40 @@ export default function EmployeesPage() {
                 <tr key={e._id} style={{ cursor: 'pointer' }} onClick={() => openEmployee(e._id)}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Avatar name={e.name} index={e.avatarIndex} size={28} fontSize={9} />
+                      <Avatar name={e.name} index={e.avatarIndex} src={e.userRef?.avatarUrl} size={28} fontSize={9} />
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 700 }}>{e.name}</div>
                         <div style={{ fontSize: 10, color: 'var(--t3)' }}>{e.email}</div>
                       </div>
                     </div>
                   </td>
+                  <td><span className={`badge ${ROLE_LABEL_BADGE[e.roleLabel] || 'b-gy'}`}>{e.roleLabel || 'Employee'}</span></td>
+                  <td style={{ textTransform: 'capitalize' }}>{e.userRef?.role || '—'}</td>
                   <td><span className="badge b-bl">{e.dept}</span></td>
                   <td>{e.desig}</td>
-                  <td>{new Date(e.joined).toLocaleDateString()}</td>
-                  <td>{new Date(e.dob).toLocaleDateString()}</td>
+                  <td>{formatDate(e.joined)}</td>
+                  <td>{formatDate(e.dob)}</td>
                   <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{yearsSince(e.joined)}yr</td>
-                  <td><span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`}>{e.status}</span></td>
-                  <td onClick={(ev) => ev.stopPropagation()}>
-                    <div style={{ display: 'flex', gap: 3 }}>
-                      <button className="btn bs bxs bico" onClick={() => openEmployee(e._id)}><i className="fa-solid fa-eye" /></button>
-                      <button className="btn bs bxs bico" onClick={() => openEditEmployee(e)}><i className="fa-solid fa-pen-to-square" /></button>
-                      <button className="btn brd bxs bico" onClick={() => deactivate.mutate(e)}><i className="fa-solid fa-user-slash" /></button>
-                    </div>
+                  <td>
+                    {todayStatuses[e._id] ? (
+                      <span className={`badge ${STATUS_BADGE[todayStatuses[e._id]]}`}>{STATUS_LABEL[todayStatuses[e._id]]}</span>
+                    ) : (
+                      <span className="badge b-gy">Not marked</span>
+                    )}
                   </td>
+                  <td><span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`}>{e.status}</span></td>
+                  {isAdmin && (
+                    <td onClick={(ev) => ev.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        <button className="btn bs bxs bico" onClick={() => openEmployee(e._id)}><i className="fa-solid fa-eye" /></button>
+                        <button className="btn bs bxs bico" onClick={() => openEditEmployee(e)}><i className="fa-solid fa-pen-to-square" /></button>
+                        <button className="btn brd bxs bico" onClick={() => deactivate.mutate(e)}><i className="fa-solid fa-user-slash" /></button>
+                        {canDelete && (
+                          <button className="btn brd bxs bico" onClick={() => confirmDelete(e)}><i className="fa-solid fa-trash" /></button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

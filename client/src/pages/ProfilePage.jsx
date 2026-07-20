@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { formatDateTime } from '../utils/avatar';
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 const ACTION_ICON = {
   LOGIN: 'fa-solid fa-right-to-bracket',
@@ -18,6 +21,7 @@ export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
+  const photoInputRef = useRef(null);
 
   const { data } = useQuery({ queryKey: ['profile'], queryFn: () => api.get('/profile').then((r) => r.data) });
 
@@ -36,6 +40,33 @@ export default function ProfilePage() {
       qc.invalidateQueries({ queryKey: ['profile'] });
     },
   });
+
+  const savePhoto = useMutation({
+    mutationFn: (avatarUrl) => api.put('/profile', { avatarUrl }),
+    onSuccess: async () => {
+      toast('Profile photo updated', 'success');
+      await refreshUser();
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not update photo.', 'error'),
+  });
+
+  function onPhotoSelected(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast('Please choose an image file.', 'error');
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast('Image must be under 2 MB.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => savePhoto.mutate(reader.result);
+    reader.readAsDataURL(file);
+  }
 
   const changePassword = useMutation({
     mutationFn: () => api.post('/auth/change-password', { currentPassword: pwd.currentPassword, newPassword: pwd.newPassword }),
@@ -82,7 +113,21 @@ export default function ProfilePage() {
         <div>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 'var(--rl)', overflow: 'hidden', marginBottom: 13, boxShadow: 'var(--sh)' }}>
             <div className="prof-banner">
-              <div className="prof-av-pos"><Avatar name={user.name} index={user.avatarIndex} size={58} fontSize={20} style={{ border: '3px solid var(--bg2)' }} /></div>
+              <div className="prof-banner-logo"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+              <div className="prof-av-pos">
+                <Avatar name={user.name} index={user.avatarIndex} src={user.avatarUrl} size={58} fontSize={20} style={{ border: '3px solid var(--bg2)' }} />
+                <button
+                  type="button"
+                  className="btn bs bico"
+                  disabled={savePhoto.isPending}
+                  onClick={() => photoInputRef.current?.click()}
+                  style={{ position: 'absolute', bottom: -2, right: -2, width: 22, height: 22, fontSize: 10, borderRadius: '50%' }}
+                  title="Change profile photo"
+                >
+                  <i className="fa-solid fa-camera" />
+                </button>
+                <input ref={photoInputRef} type="file" accept="image/*" hidden onChange={onPhotoSelected} />
+              </div>
             </div>
             <div style={{ padding: '34px 20px 18px' }}>
               <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--t1)' }}>{user.name}</div>
@@ -107,7 +152,7 @@ export default function ProfilePage() {
                 <div className="tl-dot" style={{ background: 'var(--bg3)' }}><i className={ACTION_ICON[a.action] || 'fa-solid fa-file-pen'} /></div>
                 <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 8, padding: '8px 11px', border: '1px solid var(--bd)' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>{a.detail}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 2 }}><i className="fa-solid fa-clock" style={{ fontSize: 10 }} /> {new Date(a.createdAt).toLocaleString()}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 2 }}><i className="fa-solid fa-clock" style={{ fontSize: 10 }} /> {formatDateTime(a.createdAt)}</div>
                 </div>
               </div>
             ))}

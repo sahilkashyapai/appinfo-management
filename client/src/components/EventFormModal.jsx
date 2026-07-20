@@ -31,7 +31,7 @@ export default function EventFormModal({ onClose }) {
       style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(13,27,42,.55)', zIndex: 950, alignItems: 'center', justifyContent: 'center' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
+      <div className="card" style={{ width: 'min(440px, 92vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="chd">
           <div className="cht"><i className="fa-solid fa-calendar-plus" /> Create Event</div>
           <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>

@@ -9,6 +9,7 @@ const userSchema = new Schema(
     employeeRef: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
     isActive: { type: Boolean, default: true },
     avatarIndex: { type: Number, default: 0 },
+    avatarUrl: { type: String, default: '' },
 
     // Display-only profile fields, mainly for accounts (e.g. Super Admin) with no Employee record.
     phone: { type: String, default: '' },
@@ -45,6 +46,7 @@ userSchema.methods.toSafeJSON = function toSafeJSON() {
     employeeRef: this.employeeRef,
     isActive: this.isActive,
     avatarIndex: this.avatarIndex,
+    avatarUrl: this.avatarUrl,
     totpEnabled: this.totpEnabled,
     lastLogin: this.lastLogin,
     phone: this.phone,

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 import KpiCard from '../components/KpiCard';
 import Avatar from '../components/Avatar';
+import { formatDate } from '../utils/avatar';
 
 function currentMonthValue() {
   const d = new Date();
@@ -34,7 +35,7 @@ export default function ReportsPage() {
   function exportExcel() {
     downloadCsv(
       `birthday-report-${month}.csv`,
-      birthdayReport.map((r) => [r.name, r.dept, new Date(r.dob).toLocaleDateString(), r.years, r.wishesReceived]),
+      birthdayReport.map((r) => [r.name, r.dept, formatDate(r.dob), r.years, r.wishesReceived]),
       ['Employee', 'Department', 'Birthday', 'Years at AII', 'Wishes Received']
     );
   }
@@ -100,7 +101,7 @@ export default function ReportsPage() {
                 <tr key={r.id}>
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
-                  <td>{new Date(r.dob).toLocaleDateString()}</td>
+                  <td>{formatDate(r.dob)}</td>
                   <td style={{ fontWeight: 700 }}>{r.years} yrs</td>
                   <td><span className="badge b-pu">{r.wishesReceived} wishes</span></td>
                 </tr>

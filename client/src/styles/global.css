@@ -190,7 +190,8 @@ body.dark {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px
+  padding: 40px;
+  overflow-y: auto
 }
 
 .af {
@@ -201,29 +202,12 @@ body.dark {
 .af-logo {
   display: flex;
   align-items: center;
-  gap: 9px;
   margin-bottom: 24px
 }
 
-.af-logo-ic {
-  width: 34px;
-  height: 34px;
-  background: var(--accent);
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center
-}
-
-.af-logo-ic i {
-  color: #fff;
-  font-size: 18px
-}
-
-.af-logo-t {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--t1)
+.af-logo img {
+  height: 30px;
+  display: block
 }
 
 .af-h {
@@ -398,40 +382,53 @@ body.dark {
   flex-shrink: 0
 }
 
+@media (max-width: 1024px) {
+  .hb-menu {
+    display: flex
+  }
+
+  #sb {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 600;
+    transform: translateX(-100%);
+    transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+    box-shadow: var(--sh2)
+  }
+
+  #sb.mobile-open {
+    transform: translateX(0)
+  }
+}
+
 .sb-brand {
   padding: 14px 12px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, .06);
   display: flex;
-  align-items: center;
-  gap: 9px
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px
 }
 
-.sb-bic {
-  width: 34px;
-  height: 34px;
-  background: var(--accent);
-  border-radius: 9px;
+.sb-blogo {
+  border-radius: 8px;
+  padding: 5px 9px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0
+  align-items: center
 }
 
-.sb-bic i {
-  color: #fff;
-  font-size: 18px
-}
-
-.sb-bt .l1 {
-  color: #fff;
-  font-size: 12px;
-  font-weight: 800
+.sb-blogo img {
+  height: 44px;
+  display: block;
+  margin: 0 auto;
 }
 
 .sb-bt .l2 {
   color: rgba(255, 255, 255, .3);
-  font-size: 10px;
-  margin-top: 1px
+  font-size: 14px;
+  margin-left: 8px
 }
 
 .sb-nav {
@@ -664,6 +661,10 @@ body.dark {
 
 .hbtn:hover {
   background: var(--bg3)
+}
+
+.hb-menu {
+  display: none
 }
 
 .hbtn i {
@@ -1339,6 +1340,17 @@ tbody tr:hover td {
   color: var(--accent)
 }
 
+/* MESSAGES */
+.msg-wrap {
+  display: flex;
+  gap: 13px;
+  height: calc(100vh - 170px)
+}
+
+.msg-back {
+  display: none
+}
+
 /* CALENDAR */
 .cal-hd {
   display: grid;
@@ -1469,10 +1481,10 @@ tbody tr:hover td {
 /* NOTIFICATION PANEL */
 #np {
   position: fixed;
-  top: var(--hh);
+  top: 0;
   right: 0;
   width: 340px;
-  height: calc(100vh - var(--hh));
+  height: 100dvh;
   background: var(--bg2);
   border-left: 1px solid var(--bd);
   z-index: 500;
@@ -1580,6 +1592,21 @@ tbody tr:hover td {
   position: absolute;
   bottom: -24px;
   left: 18px
+}
+
+.ep-banner-logo {
+  position: absolute;
+  top: 18px;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.ep-banner-logo img {
+  height: 55px;
+  display: block
 }
 
 .ep-mav {
@@ -1706,7 +1733,7 @@ tbody tr:hover td {
 .rsvp-card {
   background: var(--bg2);
   border-radius: var(--rxl);
-  width: 440px;
+  width: min(440px, 92vw);
   overflow: hidden;
   box-shadow: var(--sh2)
 }
@@ -1765,7 +1792,6 @@ tbody tr:hover td {
   background: linear-gradient(135deg, var(--blue), var(--accent));
   border-radius: var(--rl) var(--rl) 0 0;
   position: relative;
-  overflow: hidden
 }
 
 .prof-banner::before {
@@ -1777,6 +1803,24 @@ tbody tr:hover td {
   border: 1.5px solid rgba(255, 255, 255, .1);
   bottom: -80px;
   right: -60px
+}
+
+.prof-banner-logo {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.prof-banner-logo img {
+  height: 80px;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
 }
 
 .prof-av-pos {
@@ -1880,10 +1924,125 @@ tbody tr:hover td {
   display: block
 }
 
+/* RESPONSIVE
+   Desktop-first: base rules above target laptop/desktop. These
+   breakpoints scale things down for tablet and mobile. */
+@media (max-width: 1024px) {
+  .g4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .g3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .g6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr))
+  }
+}
+
+@media (max-width: 768px) {
+  #content {
+    padding: 14px
+  }
+
+  .ph {
+    flex-wrap: wrap
+  }
+
+  .g2 {
+    grid-template-columns: 1fr
+  }
+
+  /* Auth: hide the decorative marketing panel, form takes the full screen */
+  .al {
+    display: none
+  }
+
+  .ar {
+    align-items: flex-start;
+    padding: 28px 20px
+  }
+
+  #np,
+  #epd {
+    width: 100vw
+  }
+
+  .msg-wrap {
+    height: calc(100vh - 150px)
+  }
+
+  .msg-list,
+  .msg-thread {
+    width: 100% !important
+  }
+
+  .msg-wrap.has-selected .msg-list {
+    display: none
+  }
+
+  .msg-wrap:not(.has-selected) .msg-thread {
+    display: none
+  }
+
+  .msg-back {
+    display: inline-flex
+  }
+}
+
+@media (max-width: 640px) {
+  .g3 {
+    grid-template-columns: 1fr
+  }
+
+  .g6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr))
+  }
+
+  .fg2 {
+    grid-template-columns: 1fr
+  }
+
+  .hs-inner {
+    width: 130px
+  }
+
+  .hs-inner:focus-within {
+    width: 160px
+  }
+
+  .hbc .hr,
+  .hbc>i {
+    display: none
+  }
+}
+
+@media (max-width: 480px) {
+  .g4 {
+    grid-template-columns: 1fr
+  }
+
+  .g6 {
+    grid-template-columns: 1fr
+  }
+
+  #hdr {
+    padding: 0 10px;
+    gap: 6px
+  }
+
+  .hs-wrap {
+    display: none
+  }
+}
+
 /* ICONS
    All icons are rendered via self-hosted Font Awesome Free classes
    (e.g. <i class="fa-solid fa-bell">), imported in main.jsx from the
    @fortawesome/fontawesome-free npm package — no CDN dependency. */
-i.fa-solid, i.fa-regular, i.fa-brands {
+i.fa-solid,
+i.fa-regular,
+i.fa-brands {
   line-height: 1
 }

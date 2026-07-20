@@ -10,13 +10,15 @@ import { useDrawers } from '../context/DrawerContext';
 
 export default function Layout() {
   const [npOpen, setNpOpen] = useState(false);
+  const [sbOpen, setSbOpen] = useState(false);
   const [editEmployee, setEditEmployee] = useState(undefined); // undefined = closed, null = create, object = edit
   const { employeeId, rsvpEventId, closeEmployee, closeRsvp } = useDrawers();
 
-  const overlayOn = npOpen || !!employeeId || !!rsvpEventId || editEmployee !== undefined;
+  const overlayOn = npOpen || sbOpen || !!employeeId || !!rsvpEventId || editEmployee !== undefined;
 
   function closeAll() {
     setNpOpen(false);
+    setSbOpen(false);
     closeEmployee();
     closeRsvp();
     setEditEmployee(undefined);
@@ -24,9 +26,9 @@ export default function Layout() {
 
   return (
     <div id="app" style={{ display: 'flex' }}>
-      <Sidebar onOpenNotifications={() => setNpOpen(true)} />
+      <Sidebar open={sbOpen} onNavigate={() => setSbOpen(false)} onOpenNotifications={() => setNpOpen(true)} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        <Header onOpenNotifications={() => setNpOpen(true)} />
+        <Header onToggleSidebar={() => setSbOpen((o) => !o)} onOpenNotifications={() => setNpOpen(true)} />
         <div id="content">
           <Outlet context={{ openEditEmployee: setEditEmployee }} />
         </div>

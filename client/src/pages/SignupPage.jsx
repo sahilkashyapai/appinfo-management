@@ -47,7 +47,7 @@ export default function SignupPage() {
       return;
     }
     if (!EMP_ID_REGEX.test(form.empId)) {
-      setErr('Employee ID must look like APIIND000071 — check the ID given to you by HR.');
+      setErr('Employee ID must look like APIIND000000 — check the ID given to you by HR.');
       return;
     }
     if (form.password.length < 8) {
@@ -84,7 +84,7 @@ export default function SignupPage() {
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-bullhorn" /></div>Stay on top of announcements</div>
         </div>
       </div>
-      <div className="ar" style={{ overflowY: 'auto', alignItems: 'flex-start', padding: '40px 40px' }}>
+      <div className="ar" style={{ alignItems: 'flex-start' }}>
         <div className="af" style={{ maxWidth: 460 }}>
           <div className="af-logo">
             <div className="af-logo-ic"><i className="fa-solid fa-champagne-glasses" /></div>
@@ -112,7 +112,7 @@ export default function SignupPage() {
                 </div>
                 <div className="fg">
                   <label className="fl">Employee ID</label>
-                  <input className="fc" value={form.empId} onChange={(e) => set('empId', e.target.value.toUpperCase())} placeholder="APIIND000071" maxLength={12} />
+                  <input className="fc" value={form.empId} onChange={(e) => set('empId', e.target.value.toUpperCase())} placeholder="APIIND000000" maxLength={12} />
                 </div>
                 <div className="fg" style={{ gridColumn: '1 / -1' }}>
                   <label className="fl">Official Email</label>

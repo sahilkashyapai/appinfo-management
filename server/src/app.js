@@ -20,6 +20,8 @@ const searchRoutes = require('./routes/searchRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -28,7 +30,7 @@ app.use(helmet());
 const corsOrigin =
   process.env.NODE_ENV === 'production' ? process.env.CLIENT_ORIGIN : [process.env.CLIENT_ORIGIN, /^http:\/\/localhost:\d+$/].filter(Boolean);
 app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // raised from the 100kb default for base64 profile photos + chat attachments
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
@@ -48,8 +50,11 @@ app.use('/api/search', searchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/registrations', registrationRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+module.exports.corsOrigin = corsOrigin;

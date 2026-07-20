@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { ADMIN_ROLES } from '../utils/roles';
 
 function ToggleRow({ label, hint, checked, onChange }) {
   return (
@@ -20,6 +22,8 @@ function ToggleRow({ label, hint, checked, onChange }) {
 }
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const isAdmin = ADMIN_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((r) => r.data.settings) });
@@ -46,71 +50,79 @@ export default function SettingsPage() {
   if (!data) return null;
   const smtp = smtpForm || data.smtp;
 
+  const notificationsCard = (
+    <div className={`card${isAdmin ? ' mb13' : ''}`}>
+      <div className="chd"><div className="cht"><i className="fa-solid fa-bell" /> Notification Channels</div></div>
+      <ToggleRow label="Birthday Notifications" hint="Auto-send on employee birthdays" checked={data.notifications.birthday} onChange={(v) => putNotifications.mutate({ birthday: v })} />
+      <ToggleRow label="Anniversary Notifications" hint="Auto-send on work anniversaries" checked={data.notifications.anniversary} onChange={(v) => putNotifications.mutate({ anniversary: v })} />
+      <ToggleRow label="Event Reminders (D-7)" hint="7 days before event" checked={data.notifications.eventReminder7} onChange={(v) => putNotifications.mutate({ eventReminder7: v })} />
+      <ToggleRow label="Event Reminders (D-1)" hint="1 day before event" checked={data.notifications.eventReminder1} onChange={(v) => putNotifications.mutate({ eventReminder1: v })} />
+      <ToggleRow label="Email Delivery" hint="Send via SMTP" checked={data.notifications.emailDelivery} onChange={(v) => putNotifications.mutate({ emailDelivery: v })} />
+      <ToggleRow label="Browser Push (FCM)" hint="Firebase Cloud Messaging" checked={data.notifications.browserPush} onChange={(v) => putNotifications.mutate({ browserPush: v })} />
+    </div>
+  );
+
   return (
     <div className="page on">
       <div className="ph">
         <div className="ph-l">
-          <div className="pgt">System Settings</div>
-          <div className="pgs">Configure notifications, security, and integrations</div>
+          <div className="pgt">{isAdmin ? 'System Settings' : 'Settings'}</div>
+          <div className="pgs">{isAdmin ? 'Configure notifications, security, and integrations' : 'Notification preferences'}</div>
         </div>
       </div>
-      <div className="g2">
-        <div>
-          <div className="card mb13">
-            <div className="chd"><div className="cht"><i className="fa-solid fa-bell" /> Notification Channels</div></div>
-            <ToggleRow label="Birthday Notifications" hint="Auto-send on employee birthdays" checked={data.notifications.birthday} onChange={(v) => putNotifications.mutate({ birthday: v })} />
-            <ToggleRow label="Anniversary Notifications" hint="Auto-send on work anniversaries" checked={data.notifications.anniversary} onChange={(v) => putNotifications.mutate({ anniversary: v })} />
-            <ToggleRow label="Event Reminders (D-7)" hint="7 days before event" checked={data.notifications.eventReminder7} onChange={(v) => putNotifications.mutate({ eventReminder7: v })} />
-            <ToggleRow label="Event Reminders (D-1)" hint="1 day before event" checked={data.notifications.eventReminder1} onChange={(v) => putNotifications.mutate({ eventReminder1: v })} />
-            <ToggleRow label="Email Delivery" hint="Send via SMTP" checked={data.notifications.emailDelivery} onChange={(v) => putNotifications.mutate({ emailDelivery: v })} />
-            <ToggleRow label="Browser Push (FCM)" hint="Firebase Cloud Messaging" checked={data.notifications.browserPush} onChange={(v) => putNotifications.mutate({ browserPush: v })} />
-          </div>
-          <div className="card">
-            <div className="chd"><div className="cht"><i className="fa-solid fa-plug" /> Integrations</div></div>
-            <ToggleRow label="Microsoft Teams" hint="Webhook integration" checked={data.integrations.teams} onChange={(v) => putIntegrations.mutate({ teams: v })} />
-            <ToggleRow label="Slack" hint="Incoming webhook" checked={data.integrations.slack} onChange={(v) => putIntegrations.mutate({ slack: v })} />
-            <ToggleRow label="WhatsApp Business" hint="API notifications" checked={data.integrations.whatsapp} onChange={(v) => putIntegrations.mutate({ whatsapp: v })} />
-          </div>
-        </div>
-        <div>
-          <div className="card mb13">
-            <div className="chd"><div className="cht"><i className="fa-solid fa-envelope" /> Email Configuration (SMTP)</div></div>
-            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10 }}>
-              Real SMTP credentials (host/user/password) live in <code>server/.env</code> and are never exposed here. These fields only control the display name/address used in outgoing emails.
-            </div>
-            <div className="fg2">
-              <div className="fg"><label className="fl">SMTP Host</label><input className="fc" value={smtp.host} onChange={(e) => setSmtpForm({ ...smtp, host: e.target.value })} /></div>
-              <div className="fg"><label className="fl">SMTP Port</label><input className="fc" value={smtp.port} onChange={(e) => setSmtpForm({ ...smtp, port: Number(e.target.value) })} /></div>
-              <div className="fg"><label className="fl">From Email</label><input className="fc" value={smtp.fromEmail} onChange={(e) => setSmtpForm({ ...smtp, fromEmail: e.target.value })} /></div>
-              <div className="fg"><label className="fl">From Name</label><input className="fc" value={smtp.fromName} onChange={(e) => setSmtpForm({ ...smtp, fromName: e.target.value })} /></div>
-            </div>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <button className="btn bp bsm" onClick={() => putSmtp.mutate(smtp)} disabled={putSmtp.isPending}><i className="fa-solid fa-check" /> Save</button>
-              <button className="btn bs bsm" onClick={() => testEmail.mutate()} disabled={testEmail.isPending}><i className="fa-solid fa-paper-plane" /> Send Test Email</button>
+      {isAdmin ? (
+        <div className="g2">
+          <div>
+            {notificationsCard}
+            <div className="card">
+              <div className="chd"><div className="cht"><i className="fa-solid fa-plug" /> Integrations</div></div>
+              <ToggleRow label="Microsoft Teams" hint="Webhook integration" checked={data.integrations.teams} onChange={(v) => putIntegrations.mutate({ teams: v })} />
+              <ToggleRow label="Slack" hint="Incoming webhook" checked={data.integrations.slack} onChange={(v) => putIntegrations.mutate({ slack: v })} />
+              <ToggleRow label="WhatsApp Business" hint="API notifications" checked={data.integrations.whatsapp} onChange={(v) => putIntegrations.mutate({ whatsapp: v })} />
             </div>
           </div>
-          <div className="card">
-            <div className="chd"><div className="cht"><i className="fa-solid fa-shield" /> Security Policies</div></div>
-            <ToggleRow label="Account Lockout (5 attempts)" hint="30-minute lockout" checked={data.security.accountLockout} onChange={(v) => putSecurity.mutate({ accountLockout: v })} />
-            <ToggleRow label="Two-Factor Auth (TOTP)" hint="Enable from your Profile page" checked={data.security.twoFactor} onChange={(v) => putSecurity.mutate({ twoFactor: v })} />
-            <div className="trow">
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Session Timeout</div>
-                <div style={{ fontSize: 11, color: 'var(--t3)' }}>Auto-logout when idle (minutes)</div>
+          <div>
+            <div className="card mb13">
+              <div className="chd"><div className="cht"><i className="fa-solid fa-envelope" /> Email Configuration (SMTP)</div></div>
+              <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10 }}>
+                Real SMTP credentials (host/user/password) live in <code>server/.env</code> and are never exposed here. These fields only control the display name/address used in outgoing emails.
               </div>
-              <input
-                type="number"
-                className="fc"
-                style={{ width: 70 }}
-                defaultValue={data.security.sessionTimeoutMins}
-                onBlur={(e) => putSecurity.mutate({ sessionTimeoutMins: Number(e.target.value) })}
-              />
+              <div className="fg2">
+                <div className="fg"><label className="fl">SMTP Host</label><input className="fc" value={smtp.host} onChange={(e) => setSmtpForm({ ...smtp, host: e.target.value })} /></div>
+                <div className="fg"><label className="fl">SMTP Port</label><input className="fc" value={smtp.port} onChange={(e) => setSmtpForm({ ...smtp, port: Number(e.target.value) })} /></div>
+                <div className="fg"><label className="fl">From Email</label><input className="fc" value={smtp.fromEmail} onChange={(e) => setSmtpForm({ ...smtp, fromEmail: e.target.value })} /></div>
+                <div className="fg"><label className="fl">From Name</label><input className="fc" value={smtp.fromName} onChange={(e) => setSmtpForm({ ...smtp, fromName: e.target.value })} /></div>
+              </div>
+              <div style={{ display: 'flex', gap: 7 }}>
+                <button className="btn bp bsm" onClick={() => putSmtp.mutate(smtp)} disabled={putSmtp.isPending}><i className="fa-solid fa-check" /> Save</button>
+                <button className="btn bs bsm" onClick={() => testEmail.mutate()} disabled={testEmail.isPending}><i className="fa-solid fa-paper-plane" /> Send Test Email</button>
+              </div>
             </div>
-            <ToggleRow label="Audit Logging" hint="Log all data changes" checked={data.security.auditLogging} onChange={(v) => putSecurity.mutate({ auditLogging: v })} />
-            <ToggleRow label="CSRF Protection" hint="Informational — auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
+            <div className="card">
+              <div className="chd"><div className="cht"><i className="fa-solid fa-shield" /> Security Policies</div></div>
+              <ToggleRow label="Account Lockout (5 attempts)" hint="30-minute lockout" checked={data.security.accountLockout} onChange={(v) => putSecurity.mutate({ accountLockout: v })} />
+              <ToggleRow label="Two-Factor Auth (TOTP)" hint="Enable from your Profile page" checked={data.security.twoFactor} onChange={(v) => putSecurity.mutate({ twoFactor: v })} />
+              <div className="trow">
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Session Timeout</div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)' }}>Auto-logout when idle (minutes)</div>
+                </div>
+                <input
+                  type="number"
+                  className="fc"
+                  style={{ width: 70 }}
+                  defaultValue={data.security.sessionTimeoutMins}
+                  onBlur={(e) => putSecurity.mutate({ sessionTimeoutMins: Number(e.target.value) })}
+                />
+              </div>
+              <ToggleRow label="Audit Logging" hint="Log all data changes" checked={data.security.auditLogging} onChange={(v) => putSecurity.mutate({ auditLogging: v })} />
+              <ToggleRow label="CSRF Protection" hint="Informational — auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        notificationsCard
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { DrawerProvider } from './context/DrawerContext.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import './styles/global.css';
 
@@ -22,9 +23,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <ThemeProvider>
           <ToastProvider>
             <AuthProvider>
-              <DrawerProvider>
-                <App />
-              </DrawerProvider>
+              <SocketProvider>
+                <DrawerProvider>
+                  <App />
+                </DrawerProvider>
+              </SocketProvider>
             </AuthProvider>
           </ToastProvider>
         </ThemeProvider>

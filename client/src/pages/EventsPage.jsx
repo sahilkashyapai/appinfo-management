@@ -5,6 +5,7 @@ import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import EventFormModal from '../components/EventFormModal';
+import { formatDate } from '../utils/avatar';
 
 const TYPES = [
   { key: 'all', label: 'All' },
@@ -72,7 +73,7 @@ export default function EventsPage() {
             <div style={{ padding: 13 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)', marginBottom: 5 }}>{e.title}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <i className="fa-solid fa-calendar" style={{ fontSize: 10 }} />{new Date(e.date).toLocaleDateString()}
+                <i className="fa-solid fa-calendar" style={{ fontSize: 10 }} />{formatDate(e.date)}
               </div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 9, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <i className="fa-solid fa-location-dot" style={{ fontSize: 10 }} />{e.venue}

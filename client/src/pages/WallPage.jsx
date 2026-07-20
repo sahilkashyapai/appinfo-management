@@ -4,6 +4,7 @@ import api from '../api/client';
 import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { formatDateTime } from '../utils/avatar';
 
 const TAG_BADGE = { birthday: 'b-or', anniversary: 'b-go', event: 'b-bl', general: 'b-gy' };
 
@@ -11,6 +12,10 @@ export default function WallPage() {
   const [tag, setTag] = useState('all');
   const [text, setText] = useState('');
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editPostText, setEditPostText] = useState('');
   const { user } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
@@ -31,6 +36,23 @@ export default function WallPage() {
     },
   });
 
+  const editPost = useMutation({
+    mutationFn: ({ id, text: t }) => api.put(`/wall/${id}`, { text: t }),
+    onSuccess: () => {
+      setEditingPostId(null);
+      setEditPostText('');
+      invalidate();
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not update post.', 'error'),
+  });
+  const deletePost = useMutation({
+    mutationFn: (id) => api.delete(`/wall/${id}`),
+    onSuccess: () => {
+      toast('Post deleted', 'info');
+      invalidate();
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not delete post.', 'error'),
+  });
   const react = useMutation({ mutationFn: ({ id, type }) => api.post(`/wall/${id}/react`, { type }), onSuccess: invalidate });
   const comment = useMutation({
     mutationFn: ({ id, text: t }) => api.post(`/wall/${id}/comments`, { text: t }),
@@ -38,6 +60,20 @@ export default function WallPage() {
       setCommentDrafts((d) => ({ ...d, [vars.id]: '' }));
       invalidate();
     },
+  });
+  const editComment = useMutation({
+    mutationFn: ({ postId, commentId, text: t }) => api.put(`/wall/${postId}/comments/${commentId}`, { text: t }),
+    onSuccess: () => {
+      setEditingCommentId(null);
+      setEditText('');
+      invalidate();
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not update comment.', 'error'),
+  });
+  const deleteComment = useMutation({
+    mutationFn: ({ postId, commentId }) => api.delete(`/wall/${postId}/comments/${commentId}`),
+    onSuccess: invalidate,
+    onError: (err) => toast(err.response?.data?.message || 'Could not delete comment.', 'error'),
   });
 
   return (
@@ -60,7 +96,7 @@ export default function WallPage() {
 
       <div className="card mb13">
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Avatar name={user?.name} index={user?.avatarIndex} size={36} fontSize={12} />
+          <Avatar name={user?.name} index={user?.avatarIndex} src={user?.avatarUrl} size={36} fontSize={12} />
           <div style={{ flex: 1 }}>
             <textarea
               className="fc"
@@ -78,17 +114,62 @@ export default function WallPage() {
         </div>
       </div>
 
-      {data?.items.map((p) => (
+      {data?.items.map((p) => {
+        const isOwnPost = p.authorRef?._id === user?.id;
+        const canDeletePost = isOwnPost || ['superadmin', 'hr'].includes(user?.role);
+        const isEditingPost = editingPostId === p._id;
+        return (
         <div className="wp" key={p._id}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-            <Avatar name={p.authorRef?.name} index={p.authorRef?.avatarIndex} size={34} fontSize={11} />
+            <Avatar name={p.authorRef?.name} index={p.authorRef?.avatarIndex} src={p.authorRef?.avatarUrl} size={34} fontSize={11} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>{p.authorRef?.name || 'Unknown'}</div>
-              <div style={{ fontSize: 10, color: 'var(--t3)' }}>{new Date(p.createdAt).toLocaleString()}</div>
+              <div style={{ fontSize: 10, color: 'var(--t3)' }}>{formatDateTime(p.createdAt)}</div>
             </div>
             <span className={`badge ${TAG_BADGE[p.tag] || 'b-gy'}`}>{p.tag}</span>
+            {!isEditingPost && canDeletePost && (
+              <div style={{ display: 'flex', gap: 10 }}>
+                {isOwnPost && (
+                  <i
+                    className="fa-solid fa-pen"
+                    style={{ fontSize: 11, color: 'var(--t3)', cursor: 'pointer' }}
+                    onClick={() => {
+                      setEditingPostId(p._id);
+                      setEditPostText(p.text);
+                    }}
+                  />
+                )}
+                <i
+                  className="fa-solid fa-trash"
+                  style={{ fontSize: 11, color: 'var(--red)', cursor: 'pointer' }}
+                  onClick={() => deletePost.mutate(p._id)}
+                />
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.65, marginBottom: 10 }}>{p.text}</div>
+          {isEditingPost ? (
+            <div style={{ marginBottom: 10 }}>
+              <textarea
+                className="fc"
+                style={{ resize: 'none', height: 60, marginBottom: 6 }}
+                value={editPostText}
+                onChange={(e) => setEditPostText(e.target.value)}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button className="btn bs bsm" onClick={() => setEditingPostId(null)}><i className="fa-solid fa-xmark" /> Cancel</button>
+                <button
+                  className="btn bp bsm"
+                  disabled={!editPostText.trim() || editPost.isPending}
+                  onClick={() => editPost.mutate({ id: p._id, text: editPostText })}
+                >
+                  <i className="fa-solid fa-check" /> Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.65, marginBottom: 10 }}>{p.text}</div>
+          )}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <button className={`react${p.myReactions.like ? ' on' : ''}`} onClick={() => react.mutate({ id: p._id, type: 'like' })}><i className="fa-solid fa-thumbs-up" /> {p.counts.like}</button>
             <button className={`react${p.myReactions.love ? ' on' : ''}`} onClick={() => react.mutate({ id: p._id, type: 'love' })}><i className="fa-solid fa-heart" /> {p.counts.love}</button>
@@ -97,17 +178,71 @@ export default function WallPage() {
           </div>
           {p.comments.length > 0 && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
-              {p.comments.map((c) => (
-                <div key={c._id} style={{ display: 'flex', gap: 7, marginBottom: 7 }}>
-                  <Avatar name={c.authorRef?.name} index={c.authorRef?.avatarIndex} size={24} fontSize={7} />
-                  <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '6px 10px', flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t1)' }}>
-                      {c.authorRef?.name} <span style={{ fontWeight: 400, color: 'var(--t3)', fontSize: 10 }}>{new Date(c.createdAt).toLocaleString()}</span>
+              {p.comments.map((c) => {
+                const isOwn = c.authorRef?._id === user?.id;
+                const canDelete = isOwn || ['superadmin', 'hr'].includes(user?.role);
+                const isEditing = editingCommentId === c._id;
+                return (
+                  <div key={c._id} style={{ display: 'flex', gap: 7, marginBottom: 7 }}>
+                    <Avatar name={c.authorRef?.name} index={c.authorRef?.avatarIndex} src={c.authorRef?.avatarUrl} size={24} fontSize={7} />
+                    <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: '6px 10px', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--t1)' }}>
+                          {c.authorRef?.name} <span style={{ fontWeight: 400, color: 'var(--t3)', fontSize: 10 }}>{formatDateTime(c.createdAt)}</span>
+                        </div>
+                        {!isEditing && canDelete && (
+                          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                            {isOwn && (
+                              <i
+                                className="fa-solid fa-pen"
+                                style={{ fontSize: 10, color: 'var(--t3)', cursor: 'pointer' }}
+                                onClick={() => {
+                                  setEditingCommentId(c._id);
+                                  setEditText(c.text);
+                                }}
+                              />
+                            )}
+                            {canDelete && (
+                              <i
+                                className="fa-solid fa-trash"
+                                style={{ fontSize: 10, color: 'var(--red)', cursor: 'pointer' }}
+                                onClick={() => deleteComment.mutate({ postId: p._id, commentId: c._id })}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                          <input
+                            className="fc"
+                            style={{ flex: 1 }}
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && editText.trim()) editComment.mutate({ postId: p._id, commentId: c._id, text: editText });
+                              if (e.key === 'Escape') setEditingCommentId(null);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            className="btn bp bsm"
+                            disabled={!editText.trim() || editComment.isPending}
+                            onClick={() => editComment.mutate({ postId: p._id, commentId: c._id, text: editText })}
+                          >
+                            <i className="fa-solid fa-check" />
+                          </button>
+                          <button className="btn bs bsm" onClick={() => setEditingCommentId(null)}>
+                            <i className="fa-solid fa-xmark" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: 'var(--t2)' }}>{c.text}</div>
+                      )}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--t2)' }}>{c.text}</div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
@@ -129,7 +264,8 @@ export default function WallPage() {
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
       {data?.items.length === 0 && <div style={{ color: 'var(--t3)', fontSize: 12 }}>No posts yet — be the first to share!</div>}
     </div>
   );

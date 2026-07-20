@@ -4,7 +4,7 @@ const writeAudit = require('../utils/audit');
 
 // Unauthenticated — powers the department dropdown on the public signup page.
 async function publicList(req, res) {
-  const depts = await Department.find({}, 'name code emoji').sort({ name: 1 });
+  const depts = await Department.find({}, 'name code icon').sort({ name: 1 });
   res.json({ items: depts });
 }
 
@@ -18,9 +18,9 @@ async function list(req, res) {
 }
 
 async function create(req, res) {
-  const { name, code, headRef, emoji, color, description } = req.body;
+  const { name, code, headRef, icon, color, description } = req.body;
   if (!name || !code) return res.status(400).json({ message: 'name and code are required.' });
-  const dept = await Department.create({ name, code, headRef: headRef || null, emoji, color, description });
+  const dept = await Department.create({ name, code, headRef: headRef || null, icon, color, description });
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'departments', recordId: dept.code, detail: `Created department: ${dept.name}` });
   res.status(201).json({ department: dept });
 }

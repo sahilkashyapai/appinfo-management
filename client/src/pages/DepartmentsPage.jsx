@@ -22,8 +22,8 @@ export default function DepartmentsPage() {
       <div className="g3">
         {items.map((d) => (
           <div key={d._id} className="card" style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-            <div style={{ width: 42, height: 42, borderRadius: 11, background: `${d.color}16`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-              {d.emoji}
+            <div style={{ width: 42, height: 42, borderRadius: 11, background: `${d.color}16`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: d.color, flexShrink: 0 }}>
+              <i className={d.icon} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)' }}>{d.name}</div>

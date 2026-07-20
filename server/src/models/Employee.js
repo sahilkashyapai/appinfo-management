@@ -7,6 +7,11 @@ const employeeSchema = new Schema(
     deptRef: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
     dept: { type: String, required: true }, // denormalized department name, kept in sync on write
     desig: { type: String, required: true, trim: true },
+    roleLabel: {
+      type: String,
+      enum: ['CEO', 'CTO', 'CFO', 'HR', 'Team Lead', 'Manager', 'Senior Employee', 'Employee', 'Intern'],
+      default: 'Employee',
+    },
     joined: { type: Date, required: true },
     dob: { type: Date, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },

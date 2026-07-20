@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 const EMP_ID_REGEX = /^APIIND\d{6}$/;
+const ROLE_LABELS = ['CEO', 'CTO', 'CFO', 'HR', 'Team Lead', 'Manager', 'Senior Employee', 'Employee', 'Intern'];
 
 function toInputDate(d) {
   if (!d) return '';
@@ -20,6 +21,7 @@ export default function EmployeeFormModal({ employee, onClose }) {
     name: employee?.name || '',
     dept: employee?.dept || '',
     desig: employee?.desig || '',
+    roleLabel: employee?.roleLabel || 'Employee',
     joined: toInputDate(employee?.joined) || '',
     dob: toInputDate(employee?.dob) || '',
     email: employee?.email || '',
@@ -73,7 +75,7 @@ export default function EmployeeFormModal({ employee, onClose }) {
       style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(13,27,42,.55)', zIndex: 950, alignItems: 'center', justifyContent: 'center' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card" style={{ width: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+      <div className="card" style={{ width: 'min(480px, 92vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="chd">
           <div className="cht"><i className="fa-solid fa-user-plus" /> {isEdit ? 'Edit Employee' : 'Add Employee'}</div>
           <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
@@ -86,10 +88,10 @@ export default function EmployeeFormModal({ employee, onClose }) {
               value={form.empId}
               disabled={!canEditEmpId}
               onChange={(e) => set('empId', e.target.value.toUpperCase())}
-              placeholder="APIIND000071"
+              placeholder="APIIND000000"
             />
             {canEditEmpId && form.empId && !empIdValid && (
-              <div style={{ fontSize: 10, color: 'var(--red, #E74C3C)', marginTop: 3 }}>Must look like APIIND000071.</div>
+              <div style={{ fontSize: 10, color: 'var(--red, #E74C3C)', marginTop: 3 }}>Must look like APIIND000000.</div>
             )}
             {!canEditEmpId && <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 3 }}>Only a super admin can change an existing employee ID.</div>}
           </div>
@@ -102,6 +104,12 @@ export default function EmployeeFormModal({ employee, onClose }) {
             </select>
           </div>
           <div className="fg"><label className="fl">Designation</label><input className="fc" value={form.desig} onChange={(e) => set('desig', e.target.value)} /></div>
+          <div className="fg">
+            <label className="fl">Role Label</label>
+            <select className="fc" value={form.roleLabel} onChange={(e) => set('roleLabel', e.target.value)}>
+              {ROLE_LABELS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
           <div className="fg"><label className="fl">Date Joined</label><input type="date" className="fc" value={form.joined} onChange={(e) => set('joined', e.target.value)} /></div>
           <div className="fg"><label className="fl">Date of Birth</label><input type="date" className="fc" value={form.dob} onChange={(e) => set('dob', e.target.value)} /></div>
           <div className="fg"><label className="fl">Email</label><input className="fc" value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
