@@ -9,8 +9,11 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { DrawerProvider } from './context/DrawerContext.jsx';
 import { SocketProvider } from './context/SocketContext.jsx';
+import { registerServiceWorker } from './utils/push.js';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import './styles/global.css';
+
+registerServiceWorker();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15000 } },

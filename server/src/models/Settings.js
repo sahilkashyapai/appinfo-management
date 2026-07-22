@@ -33,6 +33,17 @@ const settingsSchema = new Schema(
       // double-submit-cookie CSRF defense isn't an applicable attack vector here.
       csrfProtection: { type: Boolean, default: true },
     },
+    timeTracking: {
+      enabled: { type: Boolean, default: false },
+    },
+    leavePolicy: {
+      allocations: {
+        casual: { type: Number, default: 12 },
+        sick: { type: Number, default: 10 },
+        earned: { type: Number, default: 15 },
+      },
+      blockOverlapping: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );

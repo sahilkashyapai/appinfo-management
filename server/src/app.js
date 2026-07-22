@@ -22,6 +22,11 @@ const profileRoutes = require('./routes/profileRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const timeTrackingRoutes = require('./routes/timeTrackingRoutes');
+const leaveRoutes = require('./routes/leaveRoutes');
+const pushRoutes = require('./routes/pushRoutes');
+const documentRoutes = require('./routes/documentRoutes');
+const assetRoutes = require('./routes/assetRoutes');
 
 const app = express();
 
@@ -52,6 +57,11 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/time-tracking', timeTrackingRoutes);
+app.use('/api/leave', leaveRoutes);
+app.use('/api/push', pushRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/assets', assetRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

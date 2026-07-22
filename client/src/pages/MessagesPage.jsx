@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
@@ -23,7 +24,9 @@ export default function MessagesPage() {
   const { user } = useAuth();
   const toast = useToast();
   const qc = useQueryClient();
-  const [selectedId, setSelectedId] = useState(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [selectedId, setSelectedId] = useState(location.state?.conversationId || searchParams.get('conversation') || null);
   const [showNew, setShowNew] = useState(false);
   const [text, setText] = useState('');
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -43,6 +46,12 @@ export default function MessagesPage() {
   });
 
   const selected = conversations.find((c) => c._id === selectedId);
+
+  useEffect(() => {
+    const id = location.state?.conversationId || searchParams.get('conversation');
+    if (id) setSelectedId(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.conversationId, searchParams.get('conversation')]);
 
   const markRead = useMutation({ mutationFn: (id) => api.patch(`/chat/conversations/${id}/read`) });
 
@@ -148,7 +157,9 @@ export default function MessagesPage() {
             <>
               <div className="chd" style={{ padding: '12px 14px' }}>
                 <div className="cht">
-                  <button className="btn bs bxs bico msg-back" onClick={() => setSelectedId(null)}><i className="fa-solid fa-arrow-left" /></button>
+                  <button className="btn bs bxs bico" title="Back" onClick={() => setSelectedId(null)}>
+                    <i className="fa-solid fa-arrow-left" />
+                  </button>
                   {selected.isGroup ? <i className="fa-solid fa-users" /> : <i className="fa-solid fa-user" />} {conversationTitle(selected, user?.id)}
                 </div>
                 {selected.isGroup && (

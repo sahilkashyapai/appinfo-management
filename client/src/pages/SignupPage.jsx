@@ -116,7 +116,7 @@ export default function SignupPage() {
                 </div>
                 <div className="fg" style={{ gridColumn: '1 / -1' }}>
                   <label className="fl">Official Email</label>
-                  <input className="fc" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@appliedinformation.in" />
+                  <input className="fc" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="name@appinfoinc.com" />
                 </div>
                 <div className="fg">
                   <label className="fl">Mobile Number</label>

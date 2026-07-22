@@ -144,6 +144,11 @@ async function me(req, res) {
   res.json({ user: req.user.toSafeJSON() });
 }
 
+async function logout(req, res) {
+  await writeAudit({ ip: req.ip, user: req.user, action: 'LOGOUT', entity: 'users', recordId: req.user._id, detail: 'Signed out' });
+  res.json({ message: 'Signed out.' });
+}
+
 async function changePassword(req, res) {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword || newPassword.length < 8) {
@@ -233,6 +238,7 @@ module.exports = {
   login,
   verify2fa,
   me,
+  logout,
   changePassword,
   forgotPassword,
   resetPassword,

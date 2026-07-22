@@ -43,4 +43,13 @@ function emitToUsers(userIds, event, payload) {
   userIds.forEach((id) => io.to(String(id)).emit(event, payload));
 }
 
-module.exports = { initSocket, emitToUser, emitToUsers };
+// Whether a user has at least one live socket connection right now — used to
+// skip sending a push notification when the user is already getting a
+// real-time update over the socket.
+function isUserOnline(userId) {
+  if (!io) return false;
+  const room = io.sockets.adapter.rooms.get(String(userId));
+  return !!room && room.size > 0;
+}
+
+module.exports = { initSocket, emitToUser, emitToUsers, isUserOnline };

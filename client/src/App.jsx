@@ -21,6 +21,10 @@ import RegistrationsPage from './pages/RegistrationsPage';
 import ProfilePage from './pages/ProfilePage';
 import AttendancePage from './pages/AttendancePage';
 import MessagesPage from './pages/MessagesPage';
+import TimeTrackingPage from './pages/TimeTrackingPage';
+import LeavePage from './pages/LeavePage';
+import OrgChartPage from './pages/OrgChartPage';
+import AssetsPage from './pages/AssetsPage';
 import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
 
 export default function App() {
@@ -50,6 +54,10 @@ export default function App() {
         <Route path="holidays" element={<ProtectedRoute roles={ADMIN_ROLES}><HolidaysPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute roles={ADMIN_ROLES}><ReportsPage /></ProtectedRoute>} />
         <Route path="audit" element={<ProtectedRoute roles={ADMIN_ROLES}><AuditPage /></ProtectedRoute>} />
+        <Route path="time-tracking" element={<ProtectedRoute roles={ADMIN_ROLES}><TimeTrackingPage /></ProtectedRoute>} />
+        <Route path="leave" element={<LeavePage />} />
+        <Route path="org-chart" element={<OrgChartPage />} />
+        <Route path="assets" element={<ProtectedRoute roles={ADMIN_ROLES}><AssetsPage /></ProtectedRoute>} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProfilePage />} />

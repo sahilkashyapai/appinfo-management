@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../api/client';
 import KpiCard from '../components/KpiCard';
 import Avatar from '../components/Avatar';
+import WorkTimerCard from '../components/WorkTimerCard';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +52,8 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      <WorkTimerCard />
 
       <div className="g4 mb14">
         <KpiCard value={data.kpis.totalEmployees} label="Total Employees" delta={`↑ ${data.kpis.newHiresThisMonth} this month`} deltaClass="up" bg="#EBF5FB" icon="fa-solid fa-users" iconColor="#2E86AB" />

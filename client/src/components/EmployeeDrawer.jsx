@@ -1,12 +1,18 @@
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import Avatar from './Avatar';
+import ConfirmModal from './ConfirmModal';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { formatDate } from '../utils/avatar';
+import { formatDate, daysUntilNext } from '../utils/avatar';
 import { ADMIN_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
+
+const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
+const ASSET_STATUS_BADGE = { unassigned: 'b-gy', assigned: 'b-bl', returned: 'b-gy', damaged: 'b-re', lost: 'b-re' };
 
 const MILESTONE_STYLE = {
   1: ['fa-solid fa-medal', '1 Year', '#FEF9C3', '#854D0E'],
@@ -18,8 +24,10 @@ const MILESTONE_STYLE = {
 
 export default function EmployeeDrawer({ onEdit }) {
   const { employeeId, closeEmployee } = useDrawers();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const toast = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const canManage = ['superadmin', 'hr'].includes(user?.role);
   const canSeePhone = ADMIN_ROLES.includes(user?.role);
@@ -36,13 +44,52 @@ export default function EmployeeDrawer({ onEdit }) {
   });
 
   const sendWish = useMutation({
-    mutationFn: () =>
-      api.post('/wall', { text: `Happy Birthday, ${data.employee.name}! Wishing you a fantastic year ahead!`, tag: 'birthday' }),
+    mutationFn: () => {
+      const bday = daysUntilNext(data.employee.dob) === 0;
+      const text = bday
+        ? `Happy Birthday, ${data.employee.name}! Wishing you a fantastic year ahead!`
+        : `Congratulations ${data.employee.name} on your work anniversary! 🎉`;
+      return api.post('/wall', { text, tag: bday ? 'birthday' : 'anniversary' });
+    },
     onSuccess: () => {
-      toast(`Birthday wish posted for ${data.employee.name}!`, 'birthday');
+      toast(`Wish posted for ${data.employee.name}!`, 'birthday');
       qc.invalidateQueries({ queryKey: ['wall'] });
     },
   });
+
+  const startChat = useMutation({
+    mutationFn: () => api.post('/chat/conversations', { memberIds: [data.employee.userRef._id], isGroup: false }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['chat-conversations'] });
+      closeEmployee();
+      navigate('/messages', { state: { conversationId: res.data.conversation._id } });
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not start chat.', 'error'),
+  });
+
+  const docFileInputRef = useRef(null);
+  const uploadDoc = useMutation({
+    mutationFn: (body) => api.post('/documents', body),
+    onSuccess: () => {
+      toast('Document uploaded ✓', 'success');
+      qc.invalidateQueries({ queryKey: ['employee', employeeId] });
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not upload document.', 'error'),
+  });
+
+  function onDocFileSelected(ev) {
+    const file = ev.target.files?.[0];
+    ev.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_DOCUMENT_BYTES) {
+      toast(`${file.name} is over 4MB.`, 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      uploadDoc.mutate({ employeeRef: employeeId, name: file.name, fileName: file.name, fileType: file.type, fileUrl: reader.result });
+    reader.readAsDataURL(file);
+  }
 
   const deactivate = useMutation({
     mutationFn: () => api.patch(`/employees/${employeeId}/status`, { status: 'inactive' }),
@@ -64,15 +111,14 @@ export default function EmployeeDrawer({ onEdit }) {
     onError: (err) => toast(err.response?.data?.message || 'Could not delete employee.', 'error'),
   });
 
-  function confirmDelete() {
-    if (window.confirm(`Permanently delete ${data.employee.name}? This removes their employee record and login account from the database and cannot be undone.`)) {
-      deleteEmployee.mutate();
-    }
-  }
-
   if (!employeeId || !data) return <div id="epd" />;
 
   const { employee: e, years, milestones, stats } = data;
+  const canWishToday = daysUntilNext(e.dob) === 0 || (years >= 1 && daysUntilNext(e.joined) === 0);
+  const canChat = e.userRef && e.userRef._id !== user?.id;
+  const isOwnRecord = e.userRef?._id === user?.id;
+  const canManageAssets = ADMIN_ROLES.includes(user?.role);
+  const canSeeDocsAssets = canManageAssets || isOwnRecord;
 
   return (
     <div id="epd" className="open">
@@ -127,6 +173,38 @@ export default function EmployeeDrawer({ onEdit }) {
           <div className="ep-row" key={l}><div className="ep-lbl">{l}</div><div className="ep-val" style={{ textTransform: 'capitalize' }}>{v}</div></div>
         ))}
       </div>
+      {canSeeDocsAssets && (
+        <div className="ep-sec">
+          <div className="ep-sec-t" style={{ display: 'flex', alignItems: 'center' }}>
+            Documents
+            {canManageAssets && (
+              <button className="btn bs bxs bico" style={{ marginLeft: 'auto' }} onClick={() => docFileInputRef.current?.click()} disabled={uploadDoc.isPending}>
+                <i className="fa-solid fa-upload" />
+              </button>
+            )}
+          </div>
+          <input ref={docFileInputRef} type="file" hidden onChange={onDocFileSelected} />
+          {(data.documents || []).map((d) => (
+            <div className="ep-row" key={d._id}>
+              <div className="ep-lbl"><i className="fa-solid fa-file" /> {d.name}</div>
+              <div className="ep-val"><a href={d.fileUrl} download={d.fileName || d.name}>Download</a></div>
+            </div>
+          ))}
+          {(data.documents || []).length === 0 && <span style={{ fontSize: 12, color: 'var(--t3)' }}>No documents uploaded</span>}
+        </div>
+      )}
+      {canSeeDocsAssets && (
+        <div className="ep-sec">
+          <div className="ep-sec-t">Assets</div>
+          {(data.assets || []).map((a) => (
+            <div className="ep-row" key={a._id}>
+              <div className="ep-lbl">{a.name} <span style={{ color: 'var(--t3)' }}>({a.category})</span></div>
+              <div className="ep-val"><span className={`badge ${ASSET_STATUS_BADGE[a.status]}`}>{a.status}</span></div>
+            </div>
+          ))}
+          {(data.assets || []).length === 0 && <span style={{ fontSize: 12, color: 'var(--t3)' }}>No assets assigned</span>}
+        </div>
+      )}
       <div className="ep-sec">
         <div className="ep-sec-t">Milestone Badges</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 4 }}>
@@ -144,9 +222,16 @@ export default function EmployeeDrawer({ onEdit }) {
       <div className="ep-sec">
         <div className="ep-sec-t">Quick Actions</div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          <button className="btn bp bsm" onClick={() => sendWish.mutate()} disabled={sendWish.isPending}>
-            <i className="fa-solid fa-paper-plane" /> Send Wish
-          </button>
+          {canWishToday && (
+            <button className="btn bp bsm" onClick={() => sendWish.mutate()} disabled={sendWish.isPending}>
+              <i className="fa-solid fa-paper-plane" /> Send Wish
+            </button>
+          )}
+          {!canWishToday && canChat && (
+            <button className="btn bp bsm" onClick={() => startChat.mutate()} disabled={startChat.isPending}>
+              <i className="fa-solid fa-comment-dots" /> Chat
+            </button>
+          )}
           {canManage && (
             <button className="btn bs bsm" onClick={() => onEdit?.(e)}>
               <i className="fa-solid fa-pen-to-square" /> Edit
@@ -158,12 +243,26 @@ export default function EmployeeDrawer({ onEdit }) {
             </button>
           )}
           {canDelete && (
-            <button className="btn bor bsm" onClick={confirmDelete} disabled={deleteEmployee.isPending} style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
+            <button className="btn bor bsm" onClick={() => setConfirmingDelete(true)} disabled={deleteEmployee.isPending} style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
               <i className="fa-solid fa-trash" /> Delete Permanently
             </button>
           )}
         </div>
       </div>
+      {confirmingDelete && (
+        <ConfirmModal
+          title="Delete Employee"
+          message={`Permanently delete ${e.name}? This removes their employee record and login account from the database and cannot be undone.`}
+          confirmLabel="Delete Permanently"
+          danger
+          pending={deleteEmployee.isPending}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            deleteEmployee.mutate();
+          }}
+          onClose={() => setConfirmingDelete(false)}
+        />
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ export default function LoginPage() {
               <div className={`af-err${err ? ' show' : ''}`}><i className="fa-solid fa-circle-exclamation" /><span>{err}</span></div>
               <div className="af-g">
                 <label className="af-lbl">Email Address</label>
-                <input className="af-inp" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@appliedinformation.in" />
+                <input className="af-inp" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@appinfoinc.com" />
               </div>
               <div className="af-g">
                 <label className="af-lbl">Password</label>

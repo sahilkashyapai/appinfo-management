@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import ConfirmModal from '../components/ConfirmModal';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,7 @@ export default function EmployeesPage() {
   const [dept, setDept] = useState('all');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const [deletingEmp, setDeletingEmp] = useState(null);
 
   useEffect(() => {
     const openId = params.get('open');
@@ -72,11 +74,6 @@ export default function EmployeesPage() {
     onError: (err) => toast(err.response?.data?.message || 'Could not delete employee.', 'error'),
   });
 
-  function confirmDelete(emp) {
-    if (window.confirm(`Permanently delete ${emp.name}? This removes their employee record and login account from the database and cannot be undone.`)) {
-      deleteEmployee.mutate(emp);
-    }
-  }
 
   return (
     <div className="page on">
@@ -150,7 +147,7 @@ export default function EmployeesPage() {
                         <button className="btn bs bxs bico" onClick={() => openEditEmployee(e)}><i className="fa-solid fa-pen-to-square" /></button>
                         <button className="btn brd bxs bico" onClick={() => deactivate.mutate(e)}><i className="fa-solid fa-user-slash" /></button>
                         {canDelete && (
-                          <button className="btn brd bxs bico" onClick={() => confirmDelete(e)}><i className="fa-solid fa-trash" /></button>
+                          <button className="btn brd bxs bico" onClick={() => setDeletingEmp(e)}><i className="fa-solid fa-trash" /></button>
                         )}
                       </div>
                     </td>
@@ -172,6 +169,20 @@ export default function EmployeesPage() {
           </div>
         )}
       </div>
+      {deletingEmp && (
+        <ConfirmModal
+          title="Delete Employee"
+          message={`Permanently delete ${deletingEmp.name}? This removes their employee record and login account from the database and cannot be undone.`}
+          confirmLabel="Delete Permanently"
+          danger
+          pending={deleteEmployee.isPending}
+          onConfirm={() => {
+            deleteEmployee.mutate(deletingEmp);
+            setDeletingEmp(null);
+          }}
+          onClose={() => setDeletingEmp(null)}
+        />
+      )}
     </div>
   );
 }

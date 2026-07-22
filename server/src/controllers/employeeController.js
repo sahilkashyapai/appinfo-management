@@ -5,6 +5,8 @@ const Rsvp = require('../models/Rsvp');
 const WallPost = require('../models/WallPost');
 const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
+const Document = require('../models/Document');
+const Asset = require('../models/Asset');
 const writeAudit = require('../utils/audit');
 const { EMP_ID_PREFIX, EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
 const { ADMIN_ROLES } = require('../utils/roles');
@@ -72,20 +74,52 @@ async function getOne(req, res) {
   const emp = await Employee.findById(req.params.id).populate('managerRef', 'name').populate('userRef', 'email role avatarUrl');
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 
-  const [wishesReceived, postsCount, eventsRsvpCount] = await Promise.all([
+  // Documents/assets are personal records — only visible to admin-panel roles
+  // or the employee viewing their own record, never to a coworker browsing the directory.
+  const canSeeDocsAssets = ADMIN_ROLES.includes(req.user.role) || (emp.userRef && String(emp.userRef._id) === String(req.user._id));
+
+  const [wishesReceived, postsCount, eventsRsvpCount, documents, assets] = await Promise.all([
     Notification.countDocuments({ title: new RegExp(emp.name, 'i'), type: 'birthday' }),
     emp.userRef ? WallPost.countDocuments({ authorRef: emp.userRef }) : 0,
     Rsvp.countDocuments({ employeeRef: emp._id, status: 'yes' }),
+    canSeeDocsAssets ? Document.find({ employeeRef: emp._id }).sort({ createdAt: -1 }) : [],
+    canSeeDocsAssets ? Asset.find({ employeeRef: emp._id }).sort({ createdAt: -1 }) : [],
   ]);
 
   const years = yearsSince(emp.joined);
-  const milestones = [1, 3, 5, 7, 10].filter((y) => years >= y);
+  const reachedMilestones = [1, 3, 5, 7, 10].filter((y) => years >= y);
+  const milestones = reachedMilestones.length ? [reachedMilestones[reachedMilestones.length - 1]] : [];
 
-  res.json({ employee: shapeForViewer(emp, req.user.role), years, milestones, stats: { wishesReceived, postsCount, eventsRsvpCount } });
+  res.json({
+    employee: shapeForViewer(emp, req.user.role),
+    years,
+    milestones,
+    stats: { wishesReceived, postsCount, eventsRsvpCount },
+    documents,
+    assets,
+  });
 }
 
 async function nextId(req, res) {
   res.json({ empId: await nextEmpId(Employee) });
+}
+
+async function orgChart(req, res) {
+  const employees = await Employee.find({ status: 'active' })
+    .select('name desig dept avatarIndex managerRef userRef')
+    .populate('userRef', 'avatarUrl')
+    .lean();
+
+  const items = employees.map((e) => ({
+    _id: e._id,
+    name: e.name,
+    desig: e.desig,
+    dept: e.dept,
+    avatarIndex: e.avatarIndex,
+    avatarUrl: e.userRef?.avatarUrl || '',
+    managerRef: e.managerRef ? String(e.managerRef) : null,
+  }));
+  res.json({ items });
 }
 
 async function create(req, res) {
@@ -205,4 +239,4 @@ async function remove(req, res) {
   res.json({ message: 'Employee permanently deleted.' });
 }
 
-module.exports = { list, summary, getOne, create, update, setStatus, remove, yearsSince, nextId };
+module.exports = { list, summary, getOne, create, update, setStatus, remove, yearsSince, nextId, orgChart };

@@ -1,7 +1,9 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const { emitToUsers } = require('../realtime/io');
+const Notification = require('../models/Notification');
+const { emitToUsers, isUserOnline } = require('../realtime/io');
+const { sendPushToUser } = require('../services/pushService');
 
 const MEMBER_SELECT = 'name avatarIndex avatarUrl role';
 const MAX_ATTACHMENTS = 5;
@@ -156,6 +158,21 @@ async function sendMessage(req, res) {
   await conversation.save();
 
   emitToUsers(conversation.members, 'message:new', { conversationId: String(conversation._id), message });
+
+  // Offline recipients (no live socket connection) get an in-app notification + push;
+  // online recipients already got the real-time message:new event above.
+  const notifyTitle = `New message from ${req.user.name}`;
+  const notifyBody = message.text || '📎 Sent an attachment';
+  const notifyLink = `/messages?conversation=${conversation._id}`;
+  conversation.members
+    .filter((id) => String(id) !== String(req.user._id) && !isUserOnline(id))
+    .forEach((id) => {
+      Notification.create({ recipientRef: id, icon: '💬', type: 'chat', title: notifyTitle, body: notifyBody, link: notifyLink }).catch((e) =>
+        console.error('[chat] failed to create notification:', e.message)
+      );
+      sendPushToUser(id, { title: notifyTitle, body: notifyBody, url: notifyLink }).catch((e) => console.error('[push] chat message failed:', e.message));
+    });
+
   res.status(201).json({ message });
 }
 

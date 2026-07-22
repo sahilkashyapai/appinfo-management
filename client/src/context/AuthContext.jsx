@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
   const idleTimer = useRef(null);
 
   const logout = useCallback(() => {
+    api.post('/auth/logout').catch(() => {});
     localStorage.removeItem('aii_token');
     setUser(null);
   }, []);

@@ -18,7 +18,10 @@ export function setUnauthorizedHandler(fn) {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 && onUnauthorized) onUnauthorized();
+    // Exclude the logout call itself — otherwise a 401 there (e.g. an already-expired
+    // token) re-triggers logout(), which fires another logout call, forever.
+    const isLogoutCall = err.config?.url?.includes('/auth/logout');
+    if (err.response?.status === 401 && onUnauthorized && !isLogoutCall) onUnauthorized();
     return Promise.reject(err);
   }
 );

@@ -1,13 +1,33 @@
 const WallPost = require('../models/WallPost');
+const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
+const { sendPushToUser } = require('../services/pushService');
 
 const REACTION_TYPES = ['like', 'love', 'celebrate'];
+const REACTION_ICON = { like: '👍', love: '❤️', celebrate: '🎉' };
+
+async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' }) {
+  try {
+    await Notification.create({ recipientRef: authorId, icon, type: 'wall', title, body, link });
+  } catch (err) {
+    console.error('[wall] failed to create notification:', err.message);
+  }
+  sendPushToUser(authorId, { title, body, url: link }).catch((e) => console.error('[push] wall notify failed:', e.message));
+}
 
 function shapePost(post, userId) {
   const obj = post.toObject();
   const uid = String(userId);
   obj.counts = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].length]));
   obj.myReactions = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].some((id) => String(id) === uid)]));
+
+  // Polls are fully anonymous — even for HR/superadmin, only aggregate counts
+  // are ever exposed, never who voted for what.
+  if (obj.poll) {
+    obj.poll.myVoteIndex = obj.poll.options.findIndex((o) => o.votes.some((id) => String(id) === uid));
+    obj.poll.totalVotes = obj.poll.options.reduce((n, o) => n + o.votes.length, 0);
+    obj.poll.options = obj.poll.options.map((o) => ({ text: o.text, count: o.votes.length }));
+  }
   return obj;
 }
 
@@ -32,9 +52,26 @@ async function list(req, res) {
 }
 
 async function create(req, res) {
-  const { text, tag } = req.body;
+  const { text, tag, poll } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Post text is required.' });
-  const post = await WallPost.create({ authorRef: req.user._id, text: text.trim(), tag: tag || 'general' });
+
+  const postData = { authorRef: req.user._id, text: text.trim(), tag: tag || 'general' };
+
+  if (tag === 'poll') {
+    if (!poll?.question?.trim()) return res.status(400).json({ message: 'A poll question is required.' });
+    const options = (poll.options || []).map((o) => (typeof o === 'string' ? o : o.text)).map((t) => (t || '').trim()).filter(Boolean);
+    if (options.length < 2) return res.status(400).json({ message: 'A poll needs at least 2 options.' });
+    let closesAt = null;
+    if (poll.closesAt) {
+      closesAt = new Date(poll.closesAt);
+      if (Number.isNaN(closesAt.getTime()) || closesAt <= new Date()) {
+        return res.status(400).json({ message: 'closesAt must be a valid future date.' });
+      }
+    }
+    postData.poll = { question: poll.question.trim(), options: options.map((t) => ({ text: t, votes: [] })), closesAt };
+  }
+
+  const post = await WallPost.create(postData);
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post._id, detail: 'Posted on Celebration Wall' });
   res.status(201).json({ post: shapePost(post, req.user._id) });
@@ -68,10 +105,46 @@ async function react(req, res) {
   // type first, then re-add to the requested type unless that's what was toggled off.
   const uid = String(req.user._id);
   const wasActive = post.reactions[type].some((id) => String(id) === uid);
+  const authorId = post.authorRef;
   REACTION_TYPES.forEach((t) => {
     post.reactions[t] = post.reactions[t].filter((id) => String(id) !== uid);
   });
-  if (!wasActive) post.reactions[type].push(req.user._id);
+  const becameActive = !wasActive;
+  if (becameActive) post.reactions[type].push(req.user._id);
+
+  await post.save();
+  await post.populate('authorRef', 'name avatarIndex avatarUrl');
+  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+
+  if (becameActive && String(authorId) !== uid) {
+    notifyPostAuthor(authorId, {
+      icon: REACTION_ICON[type],
+      title: 'New reaction on your post',
+      body: `${req.user.name} reacted ${REACTION_ICON[type]} to your Wall post.`,
+    });
+  }
+
+  res.json({ post: shapePost(post, req.user._id) });
+}
+
+async function votePoll(req, res) {
+  const { optionIndex } = req.body;
+  const post = await WallPost.findById(req.params.id);
+  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  if (!post.poll) return res.status(400).json({ message: 'This post is not a poll.' });
+  if (post.poll.closesAt && post.poll.closesAt < new Date()) return res.status(400).json({ message: 'This poll is closed.' });
+  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= post.poll.options.length) {
+    return res.status(400).json({ message: 'Invalid option.' });
+  }
+
+  // One active vote per user across all options — clicking your current choice
+  // again retracts it, clicking a different option switches your vote.
+  const uid = String(req.user._id);
+  const wasVotedIdx = post.poll.options.findIndex((o) => o.votes.some((id) => String(id) === uid));
+  post.poll.options.forEach((o) => {
+    o.votes = o.votes.filter((id) => String(id) !== uid);
+  });
+  if (wasVotedIdx !== optionIndex) post.poll.options[optionIndex].votes.push(req.user._id);
 
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
@@ -85,10 +158,20 @@ async function addComment(req, res) {
   const post = await WallPost.findById(req.params.id);
   if (!post) return res.status(404).json({ message: 'Post not found.' });
 
+  const authorId = post.authorRef;
   post.comments.push({ authorRef: req.user._id, text: text.trim() });
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+
+  if (String(authorId) !== String(req.user._id)) {
+    notifyPostAuthor(authorId, {
+      icon: '💬',
+      title: 'New comment on your post',
+      body: `${req.user.name} commented on your Wall post.`,
+    });
+  }
+
   res.status(201).json({ post: shapePost(post, req.user._id) });
 }
 
@@ -137,4 +220,4 @@ async function remove(req, res) {
   res.json({ message: 'Post deleted.' });
 }
 
-module.exports = { list, create, update, react, addComment, editComment, deleteComment, remove };
+module.exports = { list, create, update, react, votePoll, addComment, editComment, deleteComment, remove };

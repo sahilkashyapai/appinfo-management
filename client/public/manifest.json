@@ -1,0 +1,12 @@
+{
+  "name": "Applied Information India – Employee Celebrations Platform",
+  "short_name": "AII Celebrations",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#2E86AB",
+  "icons": [
+    { "src": "/images/ai-icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/images/ai-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

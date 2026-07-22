@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ADMIN_ROLES } from '../utils/roles';
+import { subscribeToPush, unsubscribeFromPush } from '../utils/push';
 
 function ToggleRow({ label, hint, checked, onChange }) {
   return (
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const putNotifications = useMutation({ mutationFn: (body) => api.put('/settings/notifications', body), onSuccess: invalidate });
   const putIntegrations = useMutation({ mutationFn: (body) => api.put('/settings/integrations', body), onSuccess: invalidate });
   const putSecurity = useMutation({ mutationFn: (body) => api.put('/settings/security', body), onSuccess: invalidate });
+  const putTimeTracking = useMutation({ mutationFn: (body) => api.put('/settings/timeTracking', body), onSuccess: invalidate });
   const putSmtp = useMutation({
     mutationFn: (body) => api.put('/settings/smtp', body),
     onSuccess: () => {
@@ -58,7 +60,20 @@ export default function SettingsPage() {
       <ToggleRow label="Event Reminders (D-7)" hint="7 days before event" checked={data.notifications.eventReminder7} onChange={(v) => putNotifications.mutate({ eventReminder7: v })} />
       <ToggleRow label="Event Reminders (D-1)" hint="1 day before event" checked={data.notifications.eventReminder1} onChange={(v) => putNotifications.mutate({ eventReminder1: v })} />
       <ToggleRow label="Email Delivery" hint="Send via SMTP" checked={data.notifications.emailDelivery} onChange={(v) => putNotifications.mutate({ emailDelivery: v })} />
-      <ToggleRow label="Browser Push (FCM)" hint="Firebase Cloud Messaging" checked={data.notifications.browserPush} onChange={(v) => putNotifications.mutate({ browserPush: v })} />
+      <ToggleRow
+        label="Browser Push"
+        hint="Get notified even when this tab isn't open"
+        checked={data.notifications.browserPush}
+        onChange={async (v) => {
+          try {
+            if (v) await subscribeToPush(api);
+            else await unsubscribeFromPush(api);
+            putNotifications.mutate({ browserPush: v });
+          } catch (err) {
+            toast(err.message === 'Permission denied' ? 'Browser notification permission was denied.' : err.message || 'Could not enable push notifications.', 'error');
+          }
+        }}
+      />
     </div>
   );
 
@@ -117,6 +132,7 @@ export default function SettingsPage() {
               </div>
               <ToggleRow label="Audit Logging" hint="Log all data changes" checked={data.security.auditLogging} onChange={(v) => putSecurity.mutate({ auditLogging: v })} />
               <ToggleRow label="CSRF Protection" hint="Informational — auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
+              <ToggleRow label="Employee Time Tracking" hint="Log start time + IP address on every login" checked={data.timeTracking.enabled} onChange={(v) => putTimeTracking.mutate({ enabled: v })} />
             </div>
           </div>
         </div>

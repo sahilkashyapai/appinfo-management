@@ -31,5 +31,7 @@ module.exports = {
   updateIntegrations: updateSection('integrations'),
   updateSmtp: updateSection('smtp'),
   updateSecurity: updateSection('security'),
+  updateTimeTracking: updateSection('timeTracking'),
+  updateLeavePolicy: updateSection('leavePolicy'),
   sendTestEmail,
 };

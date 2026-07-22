@@ -1,9 +1,17 @@
+import { useNavigate } from 'react-router-dom';
 import { useNotifications, useNotificationActions } from '../hooks/useNotifications';
 import { formatDateTime } from '../utils/avatar';
 
 export default function NotificationPanel({ open, onClose }) {
+  const navigate = useNavigate();
   const { data: notifs = [] } = useNotifications();
   const { markRead, markAllRead } = useNotificationActions();
+
+  function handleClick(n) {
+    if (n.unread) markRead.mutate(n._id);
+    if (n.link) navigate(n.link);
+    onClose();
+  }
 
   return (
     <div id="np" className={open ? 'open' : ''}>
@@ -20,7 +28,7 @@ export default function NotificationPanel({ open, onClose }) {
       </div>
       <div className="np-body">
         {notifs.map((n) => (
-          <div key={n._id} className={`npi${n.unread ? ' unr' : ''}`} onClick={() => n.unread && markRead.mutate(n._id)}>
+          <div key={n._id} className={`npi${n.unread ? ' unr' : ''}`} onClick={() => handleClick(n)}>
             <div className="npi-ico" style={{ background: n.bg }}>{n.icon}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: n.unread ? 700 : 600, color: 'var(--t1)' }}>{n.title}</div>

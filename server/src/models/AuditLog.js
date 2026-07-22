@@ -4,7 +4,7 @@ const auditLogSchema = new Schema(
   {
     actorRef: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     actorName: { type: String, default: 'System' },
-    action: { type: String, enum: ['LOGIN', 'LOGIN_FAILED', 'CREATE', 'UPDATE', 'DELETE', 'EXPORT'], required: true },
+    action: { type: String, enum: ['LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'CREATE', 'UPDATE', 'DELETE', 'EXPORT'], required: true },
     entity: { type: String, required: true },
     recordId: { type: String, default: '—' },
     ip: { type: String, default: '' },

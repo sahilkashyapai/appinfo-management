@@ -10,5 +10,9 @@ router.get('/summary', ctrl.summary);
 router.get('/birthdays-by-department', ctrl.birthdaysByDepartment);
 router.get('/event-type-distribution', ctrl.eventTypeDistribution);
 router.get('/birthday-report', ctrl.birthdayReport);
+router.get('/anniversary-report', ctrl.anniversaryReport);
+router.get('/wall-posts-report', ctrl.wallPostsReport);
+router.get('/notifications-report', ctrl.notificationsReport);
+router.get('/attendance-report', ctrl.attendanceReport);
 
 module.exports = router;

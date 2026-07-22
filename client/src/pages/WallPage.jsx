@@ -6,11 +6,14 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDateTime } from '../utils/avatar';
 
-const TAG_BADGE = { birthday: 'b-or', anniversary: 'b-go', event: 'b-bl', general: 'b-gy' };
+const TAG_BADGE = { birthday: 'b-or', anniversary: 'b-go', event: 'b-bl', general: 'b-gy', poll: 'b-pu' };
 
 export default function WallPage() {
   const [tag, setTag] = useState('all');
   const [text, setText] = useState('');
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editText, setEditText] = useState('');
@@ -27,13 +30,31 @@ export default function WallPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['wall'] });
 
+  const pollValid = pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2;
+
   const post = useMutation({
-    mutationFn: () => api.post('/wall', { text, tag: 'general' }),
+    mutationFn: () =>
+      api.post('/wall', {
+        text,
+        tag: pollOpen && pollValid ? 'poll' : 'general',
+        ...(pollOpen && pollValid
+          ? { poll: { question: pollQuestion.trim(), options: pollOptions.filter((o) => o.trim()).map((t) => ({ text: t.trim() })) } }
+          : {}),
+      }),
     onSuccess: () => {
       setText('');
+      setPollOpen(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
       toast('Posted on Celebration Wall!', 'success');
       invalidate();
     },
+  });
+
+  const votePoll = useMutation({
+    mutationFn: ({ id, optionIndex }) => api.post(`/wall/${id}/poll/vote`, { optionIndex }),
+    onSuccess: invalidate,
+    onError: (err) => toast(err.response?.data?.message || 'Could not record vote.', 'error'),
   });
 
   const editPost = useMutation({
@@ -90,6 +111,7 @@ export default function WallPage() {
             <option value="anniversary">Anniversaries</option>
             <option value="event">Events</option>
             <option value="general">General</option>
+            <option value="poll">Polls</option>
           </select>
         </div>
       </div>
@@ -105,8 +127,40 @@ export default function WallPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <button className="btn bp bsm" disabled={!text.trim() || post.isPending} onClick={() => post.mutate()}>
+            {pollOpen && (
+              <div style={{ marginBottom: 8 }}>
+                <input
+                  className="fc"
+                  placeholder="Poll question"
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                  style={{ marginBottom: 6 }}
+                />
+                {pollOptions.map((opt, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                    <input
+                      className="fc"
+                      placeholder={`Option ${i + 1}`}
+                      value={opt}
+                      onChange={(e) => setPollOptions((o) => o.map((x, j) => (j === i ? e.target.value : x)))}
+                    />
+                    {pollOptions.length > 2 && (
+                      <button className="btn bs bxs bico" onClick={() => setPollOptions((o) => o.filter((_, j) => j !== i))}>
+                        <i className="fa-solid fa-xmark" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button className="btn bs bxs" onClick={() => setPollOptions((o) => [...o, ''])}>
+                  <i className="fa-solid fa-plus" /> Add Option
+                </button>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button className="btn bs bsm" onClick={() => setPollOpen((o) => !o)}>
+                <i className="fa-solid fa-square-poll-vertical" /> {pollOpen ? 'Remove Poll' : 'Add Poll'}
+              </button>
+              <button className="btn bp bsm" disabled={!text.trim() || post.isPending || (pollOpen && !pollValid)} onClick={() => post.mutate()}>
                 <i className="fa-solid fa-paper-plane" /> Post
               </button>
             </div>
@@ -176,6 +230,34 @@ export default function WallPage() {
             <button className={`react${p.myReactions.celebrate ? ' on' : ''}`} onClick={() => react.mutate({ id: p._id, type: 'celebrate' })}><i className="fa-solid fa-champagne-glasses" /> {p.counts.celebrate}</button>
             <span className="react" style={{ marginLeft: 'auto', cursor: 'default' }}><i className="fa-solid fa-comment" /> {p.comments.length}</span>
           </div>
+          {p.poll && (() => {
+            const closed = p.poll.closesAt && new Date(p.poll.closesAt) < new Date();
+            return (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)', marginBottom: 8 }}>{p.poll.question}</div>
+                {p.poll.options.map((opt, i) => {
+                  const pct = p.poll.totalVotes ? Math.round((opt.count / p.poll.totalVotes) * 100) : 0;
+                  const mine = i === p.poll.myVoteIndex;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => !closed && votePoll.mutate({ id: p._id, optionIndex: i })}
+                      style={{ cursor: closed ? 'default' : 'pointer', marginBottom: 8, opacity: closed && !mine ? 0.7 : 1 }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                        <span style={{ fontWeight: mine ? 700 : 400, color: mine ? 'var(--accent)' : 'var(--t2)' }}>
+                          {opt.text}{mine && <i className="fa-solid fa-check" style={{ marginLeft: 5 }} />}
+                        </span>
+                        <span style={{ color: 'var(--t3)' }}>{pct}% · {opt.count}</span>
+                      </div>
+                      <div className="sbar"><div className="sfill" style={{ width: `${pct}%`, background: mine ? 'var(--accent)' : 'var(--bd2)' }} /></div>
+                    </div>
+                  );
+                })}
+                <div style={{ fontSize: 10, color: 'var(--t3)' }}>{closed ? 'Poll closed' : `${p.poll.totalVotes} vote${p.poll.totalVotes !== 1 ? 's' : ''}`}</div>
+              </div>
+            );
+          })()}
           {p.comments.length > 0 && (
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
               {p.comments.map((c) => {

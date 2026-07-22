@@ -13,7 +13,9 @@ const ADMIN_NAV = [
     section: 'People',
     items: [
       { to: '/employees', label: 'Employees', icon: 'fa-solid fa-users' },
+      { to: '/org-chart', label: 'Org Chart', icon: 'fa-solid fa-sitemap' },
       { to: '/attendance', label: 'Attendance', icon: 'fa-solid fa-calendar-check' },
+      { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
       { to: '/birthdays', label: 'Birthdays', icon: 'fa-solid fa-cake-candles' },
       { to: '/anniversaries', label: 'Anniversaries', icon: 'fa-solid fa-medal' },
     ],
@@ -42,6 +44,8 @@ const ADMIN_NAV = [
       { to: '/holidays', label: 'Holidays', icon: 'fa-solid fa-umbrella-beach' },
       { to: '/reports', label: 'Reports', icon: 'fa-solid fa-chart-column' },
       { to: '/audit', label: 'Audit Logs', icon: 'fa-solid fa-magnifying-glass-chart' },
+      { to: '/time-tracking', label: 'Time Tracking', icon: 'fa-solid fa-clock' },
+      { to: '/assets', label: 'Assets', icon: 'fa-solid fa-boxes-stacked', roles: ADMIN_ROLES },
       { to: '/settings', label: 'Settings', icon: 'fa-solid fa-gear' },
     ],
   },
@@ -55,7 +59,9 @@ const EMPLOYEE_NAV = [
     section: 'People',
     items: [
       { to: '/employees', label: 'Employees', icon: 'fa-solid fa-users' },
+      { to: '/org-chart', label: 'Org Chart', icon: 'fa-solid fa-sitemap' },
       { to: '/attendance', label: 'Attendance', icon: 'fa-solid fa-calendar-check' },
+      { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
     ],
   },
   {
@@ -79,7 +85,7 @@ const EMPLOYEE_NAV = [
 ];
 
 export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { data: notifs = [] } = useNotifications();
   const unread = notifs.filter((n) => n.unread).length;
   const { data: conversations = [] } = useQuery({
@@ -140,6 +146,17 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
         </div>
         <i className="fa-solid fa-chevron-right" style={{ color: 'rgba(255,255,255,.2)', fontSize: 12, marginLeft: 'auto' }} />
       </NavLink>
+      <div
+        className="ni"
+        style={{ margin: '4px 8px 10px' }}
+        onClick={() => {
+          logout();
+          onNavigate?.();
+        }}
+      >
+        <i className="fa-solid fa-right-from-bracket" />
+        Sign Out
+      </div>
     </aside>
   );
 }
