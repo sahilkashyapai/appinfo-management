@@ -98,7 +98,7 @@ export default function ReferralFormModal({ referral, onClose }) {
           <label className="fl">Department</label>
           <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
             <option value="">Select department</option>
-            {depts.filter((d) => d.name.toLowerCase() !== 'head of company').map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
+            {depts.filter((d) => d.name.toLowerCase() !== 'Head of Company').map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
           </Select>
         </div>
         <div className="fg">

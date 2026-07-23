@@ -26,6 +26,7 @@ async function register(req, res) {
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const trimmedEmpId = String(empId).trim().toUpperCase();
+  const trimmedPhone = String(phone).trim();
   if (!EMP_ID_REGEX.test(trimmedEmpId)) {
     return res.status(400).json({ message: `Employee ID must look like ${EMP_ID_PREFIX}000071 (as given to you by HR).` });
   }
@@ -33,29 +34,42 @@ async function register(req, res) {
   const dept = await Department.findOne({ name: new RegExp(`^${department}$`, 'i') });
   if (!dept) return res.status(400).json({ message: `Unknown department: ${department}` });
 
-  const [existingUser, existingEmployeeByEmail, existingEmployeeByEmpId] = await Promise.all([
+  const [existingUser, existingEmployeeByEmail, existingEmployeeByEmpId, existingUserByPhone, existingEmployeeByPhone] = await Promise.all([
     User.findOne({ email: normalizedEmail }),
     Employee.findOne({ email: normalizedEmail }),
     Employee.findOne({ empId: trimmedEmpId }),
+    User.findOne({ phone: trimmedPhone }),
+    Employee.findOne({ phone: trimmedPhone }),
   ]);
   if (existingUser) return res.status(409).json({ message: 'An account with this email already exists.' });
   if (existingEmployeeByEmail || existingEmployeeByEmpId) {
     return res.status(409).json({ message: 'This employee ID or email is already on file. Please contact HR instead of registering again.' });
   }
+  if (existingUserByPhone || existingEmployeeByPhone) {
+    return res.status(409).json({ message: 'This mobile number is already on file. Please contact HR instead of registering again.' });
+  }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await User.create({
-    name,
-    email: normalizedEmail,
-    passwordHash,
-    role: 'employee',
-    empId: trimmedEmpId,
-    phone,
-    dob: new Date(dob),
-    joined: new Date(joined),
-    department: dept.name,
-    approvalStatus: 'pending',
-  });
+  let user;
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    user = await User.create({
+      name,
+      email: normalizedEmail,
+      passwordHash,
+      role: 'employee',
+      empId: trimmedEmpId,
+      phone: trimmedPhone,
+      dob: new Date(dob),
+      joined: new Date(joined),
+      department: dept.name,
+      approvalStatus: 'pending',
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'An account with this email already exists.' });
+    }
+    throw err;
+  }
 
   await writeAudit({ ip: req.ip, user, action: 'CREATE', entity: 'users', recordId: user._id, detail: `Self-registration submitted by ${user.name}, awaiting approval` });
   res.status(201).json({ message: 'Registration submitted. An admin will review your details and activate your account.' });

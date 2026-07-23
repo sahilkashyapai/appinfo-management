@@ -137,7 +137,7 @@ export default function EmployeeDrawer({ onEdit }) {
             <div className="ep-name">{e.name}</div>
             <div className="ep-role">{e.desig} · {e.dept}</div>
             <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
-              <span className="badge b-pu">{e.roleLabel || 'Employee'}</span>
+              <span className="badge b-pu">{e.roleLabel || 'Engineer / Developer'}</span>
               {todayStatuses[e._id] ? (
                 <span className={`badge ${STATUS_BADGE[todayStatuses[e._id]]}`}>{STATUS_LABEL[todayStatuses[e._id]]} today</span>
               ) : (
@@ -145,7 +145,7 @@ export default function EmployeeDrawer({ onEdit }) {
               )}
             </div>
           </div>
-          <span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`}>{e.status}</span>
+          <span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`} style={{ textTransform: 'capitalize' }}>{e.status}</span>
         </div>
         <div className="ep-stats">
           <div className="ep-stat"><div className="sv">{years}</div><div className="sl">Years</div></div>
@@ -159,7 +159,7 @@ export default function EmployeeDrawer({ onEdit }) {
         {[
           ['Employee ID', e.empId],
           ['Email', e.email],
-          ['Account Role', e.userRef?.role || '—'],
+          ['Account Role', e.userRef?.role ? e.userRef.role.charAt(0).toUpperCase() + e.userRef.role.slice(1) : '—'],
           ...(canSeePhone ? [['Phone', e.phone || '—']] : []),
           ['Date of Birth', formatDate(e.dob)],
           ['Location', e.location],
@@ -199,7 +199,7 @@ export default function EmployeeDrawer({ onEdit }) {
           {(data.assets || []).map((a) => (
             <div className="ep-row" key={a._id}>
               <div className="ep-lbl">{a.name} <span style={{ color: 'var(--t3)' }}>({a.category})</span></div>
-              <div className="ep-val"><span className={`badge ${ASSET_STATUS_BADGE[a.status]}`}>{a.status}</span></div>
+              <div className="ep-val"><span className={`badge ${ASSET_STATUS_BADGE[a.status]}`} style={{ textTransform: 'capitalize' }}>{a.status}</span></div>
             </div>
           ))}
           {(data.assets || []).length === 0 && <span style={{ fontSize: 12, color: 'var(--t3)' }}>No assets assigned</span>}

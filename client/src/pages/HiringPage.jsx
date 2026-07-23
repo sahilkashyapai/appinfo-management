@@ -143,7 +143,7 @@ export default function HiringPage() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--t1)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
                 {a.pinned ? '📌 ' : ''}{a.title}
-                <span className={`badge ${PRIORITY_BADGE[a.priority]}`}>{a.priority}</span>
+                <span className={`badge ${PRIORITY_BADGE[a.priority]}`} style={{ textTransform: 'capitalize' }}>{a.priority}</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 6 }}>{a.body}</div>
               <div style={{ fontSize: 12.5, color: 'var(--t3)' }}>Posted by <strong>{a.postedByRef?.name || 'Unknown'}</strong> · {formatDate(a.createdAt)}</div>

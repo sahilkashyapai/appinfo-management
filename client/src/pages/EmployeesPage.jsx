@@ -11,17 +11,8 @@ import { yearsSince, formatDate } from '../utils/avatar';
 import { ADMIN_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
-const ROLE_LABEL_BADGE = {
-  CEO: 'b-pu',
-  CTO: 'b-pu',
-  CFO: 'b-pu',
-  HR: 'b-go',
-  'Team Lead': 'b-bl',
-  Manager: 'b-bl',
-  'Senior Employee': 'b-gr',
-  Employee: 'b-gy',
-  Intern: 'b-gy',
-};
+const LOGIN_ROLE_BADGE = { employee: 'b-gy', manager: 'b-bl', hr: 'b-bl', superadmin: 'b-go' };
+const LOGIN_ROLE_LABEL = { employee: 'Employee', manager: 'Admin', hr: 'Admin', superadmin: 'Superadmin' };
 
 export default function EmployeesPage() {
   const [params] = useSearchParams();
@@ -109,7 +100,7 @@ export default function EmployeesPage() {
           <table>
             <thead>
               <tr>
-                <th>Employee</th><th>Position</th><th>Account Role</th><th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Today</th><th>Status</th>
+                <th>Employee</th><th>Login Access</th><th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Today</th><th>Status</th>
                 {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
@@ -125,8 +116,13 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                   </td>
-                  <td><span className={`badge ${ROLE_LABEL_BADGE[e.roleLabel] || 'b-gy'}`}>{e.roleLabel || 'Employee'}</span></td>
-                  <td style={{ textTransform: 'capitalize' }}>{e.userRef?.role || '—'}</td>
+                  <td>
+                    {e.userRef?.role ? (
+                      <span className={`badge ${LOGIN_ROLE_BADGE[e.userRef.role] || 'b-gy'}`}><i className="fa-solid fa-key" style={{ fontSize: 9, marginRight: 4 }} />{LOGIN_ROLE_LABEL[e.userRef.role] || e.userRef.role}</span>
+                    ) : (
+                      <span style={{ color: 'var(--t3)', fontSize: 11 }}>No Login</span>
+                    )}
+                  </td>
                   <td><span className="badge b-bl">{e.dept}</span></td>
                   <td>{e.desig}</td>
                   <td>{formatDate(e.joined)}</td>
@@ -139,7 +135,7 @@ export default function EmployeesPage() {
                       <span className="badge b-gy">Not marked</span>
                     )}
                   </td>
-                  <td><span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`}>{e.status}</span></td>
+                  <td><span className={`badge ${e.status === 'active' ? 'b-gr' : 'b-re'}`} style={{ textTransform: 'capitalize' }}>{e.status}</span></td>
                   {isAdmin && (
                     <td onClick={(ev) => ev.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 3 }}>

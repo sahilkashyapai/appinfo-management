@@ -122,7 +122,7 @@ export default function RegistrationsPage() {
                 <div style={{ fontSize: 12.5, fontWeight: 800 }}>{r.name}</div>
                 <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{r.email}</div>
               </div>
-              <Badge color={STATUS_COLOR[r.approvalStatus] || 'gray'}>{r.approvalStatus}</Badge>
+              <Badge color={STATUS_COLOR[r.approvalStatus] || 'gray'}>{r.approvalStatus.charAt(0).toUpperCase() + r.approvalStatus.slice(1)}</Badge>
             </div>
             {[['Employee ID', r.empId], ['Mobile', r.phone], ['Department', r.department], ['Date of Birth', formatDate(r.dob)], ['Date of Joining', formatDate(r.joined)]].map(([l, v]) => (
               <div key={l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '3px 0', borderBottom: '1px solid var(--bd)' }}>

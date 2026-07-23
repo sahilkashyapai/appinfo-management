@@ -214,7 +214,7 @@ export default function DocumentsPage() {
                           <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 3 }}>Reason: {r.decisionNote}</div>
                         )}
                       </td>
-                      <td><span className={`badge ${REQUEST_STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                      <td><span className={`badge ${REQUEST_STATUS_BADGE[r.status]}`} style={{ textTransform: 'capitalize' }}>{r.status}</span></td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
                           {r.status === 'fulfilled' && r.documentRef && (

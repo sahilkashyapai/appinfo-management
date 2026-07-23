@@ -66,7 +66,7 @@ function daysAgo(n) {
 async function main() {
   await connectDB();
 
-  const depts = await Department.find({ name: { $not: /head of company/i } }).select('name');
+  const depts = await Department.find({ name: { $not: /Head of Company/i } }).select('name');
   if (depts.length === 0) throw new Error('No departments found — seed departments first.');
 
   const referrers = await User.find({ isActive: true, employeeRef: { $ne: null } }).limit(3).select('_id name');

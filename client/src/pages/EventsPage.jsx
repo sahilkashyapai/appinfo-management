@@ -74,7 +74,7 @@ export default function EventsPage() {
           <div key={e._id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ height: 72, background: `${e.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
               <div style={{ fontSize: 30 }}>{e.emoji}</div>
-              <span className={`badge ${e.status === 'published' ? 'b-gr' : 'b-gy'}`}>{e.status}</span>
+              <span className={`badge ${e.status === 'published' ? 'b-gr' : 'b-gy'}`} style={{ textTransform: 'capitalize' }}>{e.status}</span>
             </div>
             <div style={{ padding: 13 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)', marginBottom: 5 }}>{e.title}</div>

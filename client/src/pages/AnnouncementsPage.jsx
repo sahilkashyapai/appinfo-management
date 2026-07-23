@@ -45,7 +45,7 @@ export default function AnnouncementsPage() {
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--t1)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {a.pinned ? '📌 ' : ''}{a.title}
-              <span className={`badge ${PRIORITY_BADGE[a.priority]}`}>{a.priority}</span>
+              <span className={`badge ${PRIORITY_BADGE[a.priority]}`} style={{ textTransform: 'capitalize' }}>{a.priority}</span>
               {a.type === 'hiring' && <span className="badge b-gr"><i className="fa-solid fa-briefcase" /> Hiring</span>}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 5 }}>{a.body}</div>

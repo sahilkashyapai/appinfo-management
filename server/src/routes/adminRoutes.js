@@ -8,6 +8,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', requireRole(...ADMIN_ROLES), ctrl.list);
+router.get('/eligible-employees', requireRole('superadmin'), ctrl.eligibleEmployees);
 router.post('/', requireRole('superadmin'), ctrl.create);
 router.put('/:id', requireRole(...ADMIN_ROLES), ctrl.update);
 router.delete('/:id', requireRole('superadmin'), ctrl.remove);

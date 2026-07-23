@@ -58,7 +58,7 @@ async function main() {
   const superadmin = await User.findOne({ role: 'superadmin' });
   if (!superadmin) throw new Error('No superadmin user found — cannot attribute seeded actions.');
 
-  const depts = await Department.find({ name: { $not: /head of company/i } });
+  const depts = await Department.find({ name: { $not: /Head of Company/i } });
   if (!depts.length) throw new Error('No departments found — seed departments first.');
   const deptNames = depts.map((d) => d.name);
   function deptFor(i) {

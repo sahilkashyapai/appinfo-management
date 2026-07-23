@@ -253,7 +253,7 @@ export default function AttendancePage() {
                         <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 3 }}>Reason: {r.decisionNote}</div>
                       )}
                     </td>
-                    <td><span className={`badge ${CORRECTION_STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                    <td><span className={`badge ${CORRECTION_STATUS_BADGE[r.status]}`} style={{ textTransform: 'capitalize' }}>{r.status}</span></td>
                   </tr>
                 ))}
                 {myCorrections.length === 0 && (

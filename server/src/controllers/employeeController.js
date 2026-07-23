@@ -45,8 +45,10 @@ async function list(req, res) {
   await excludeSuperadminEmployees(filter, req.user.role, '_id');
 
   const [items, total] = await Promise.all([
+    // Real employees before demo/seed data, regardless of when each was created —
+    // otherwise a freshly-seeded demo batch buries real employees on later pages.
     Employee.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ isDemo: 1, createdAt: -1 })
       .skip((pg - 1) * lim)
       .limit(lim)
       .populate('managerRef', 'name')
@@ -143,27 +145,49 @@ async function create(req, res) {
   if (empId && !EMP_ID_REGEX.test(empId)) {
     return res.status(400).json({ message: `Employee ID must look like ${EMP_ID_PREFIX}000071.` });
   }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const trimmedPhone = phone ? String(phone).trim() : '';
+
+  const [dupeEmail, dupeEmpId, dupePhone] = await Promise.all([
+    Employee.findOne({ email: normalizedEmail }),
+    empId ? Employee.findOne({ empId }) : null,
+    trimmedPhone ? Employee.findOne({ phone: trimmedPhone }) : null,
+  ]);
+  if (dupeEmail) return res.status(409).json({ message: `An employee with email ${normalizedEmail} already exists.` });
+  if (dupeEmpId) return res.status(409).json({ message: `Employee ID ${empId} is already in use.` });
+  if (dupePhone) return res.status(409).json({ message: `An employee with mobile number ${trimmedPhone} already exists.` });
+
   if (!empId) empId = await nextEmpId(Employee);
 
   const department = await Department.findOne({ name: new RegExp(`^${dept}$`, 'i') });
   if (!department) return res.status(400).json({ message: `Unknown department: ${dept}` });
 
-  const emp = await Employee.create({
-    empId,
-    name,
-    dept: department.name,
-    deptRef: department._id,
-    desig,
-    roleLabel: roleLabel || 'Employee',
-    joined: new Date(joined),
-    dob: new Date(dob),
-    email,
-    phone,
-    location,
-    status: status || 'active',
-    managerRef: managerRef || null,
-    avatarIndex: Math.floor(Math.random() * 10),
-  });
+  let emp;
+  try {
+    emp = await Employee.create({
+      empId,
+      name,
+      dept: department.name,
+      deptRef: department._id,
+      desig,
+      roleLabel: roleLabel || 'Engineer / Developer',
+      joined: new Date(joined),
+      dob: new Date(dob),
+      email: normalizedEmail,
+      phone: trimmedPhone,
+      location,
+      status: status || 'active',
+      managerRef: managerRef || null,
+      avatarIndex: Math.floor(Math.random() * 10),
+    });
+  } catch (err) {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0] || 'field';
+      return res.status(409).json({ message: `That ${field} is already in use by another employee.` });
+    }
+    throw err;
+  }
 
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'employees', recordId: emp.empId, detail: `Created employee: ${emp.name}` });
   res.status(201).json({ employee: emp });
@@ -204,6 +228,21 @@ async function update(req, res) {
   if (updates.joined) updates.joined = new Date(updates.joined);
   if (updates.dob) updates.dob = new Date(updates.dob);
 
+  if (updates.email !== undefined) {
+    const normalizedEmail = String(updates.email).toLowerCase().trim();
+    const dupe = await Employee.findOne({ email: normalizedEmail, _id: { $ne: req.params.id } });
+    if (dupe) return res.status(409).json({ message: `Email ${normalizedEmail} is already in use by another employee.` });
+    updates.email = normalizedEmail;
+  }
+  if (updates.phone !== undefined) {
+    const trimmedPhone = String(updates.phone).trim();
+    if (trimmedPhone) {
+      const dupe = await Employee.findOne({ phone: trimmedPhone, _id: { $ne: req.params.id } });
+      if (dupe) return res.status(409).json({ message: `Mobile number ${trimmedPhone} is already in use by another employee.` });
+    }
+    updates.phone = trimmedPhone;
+  }
+
   if (updates.managerRef !== undefined && updates.managerRef) {
     if (String(updates.managerRef) === String(req.params.id)) {
       return res.status(400).json({ message: 'An employee cannot be their own manager.' });
@@ -221,7 +260,16 @@ async function update(req, res) {
     }
   }
 
-  const emp = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+  let emp;
+  try {
+    emp = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
+  } catch (err) {
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern || {})[0] || 'field';
+      return res.status(409).json({ message: `That ${field} is already in use by another employee.` });
+    }
+    throw err;
+  }
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 
   // Keep the linked User login in sync so the employee's own Profile page

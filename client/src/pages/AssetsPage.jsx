@@ -94,7 +94,7 @@ export default function AssetsPage() {
                       <span style={{ color: 'var(--t3)' }}>—</span>
                     )}
                   </td>
-                  <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                  <td><span className={`badge ${STATUS_BADGE[a.status]}`} style={{ textTransform: 'capitalize' }}>{a.status}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                       <button className="btn bs bxs" onClick={() => setAssigning(a)}>Assign</button>

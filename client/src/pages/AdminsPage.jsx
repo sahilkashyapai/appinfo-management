@@ -46,8 +46,8 @@ export default function AdminsPage() {
 
   const remove = useMutation({
     mutationFn: (id) => api.delete(`/admins/${id}`),
-    onSuccess: () => {
-      toast('Admin account deleted', 'warning');
+    onSuccess: (res) => {
+      toast(res.data.message, 'warning');
       setDeleting(null);
       qc.invalidateQueries({ queryKey: ['admins'] });
     },
@@ -132,10 +132,14 @@ export default function AdminsPage() {
       {formOpen && <AdminFormModal admin={editing} onClose={() => setFormOpen(false)} />}
       {deleting && (
         <ConfirmModal
-          title="Delete Admin Account"
-          message={`Permanently delete ${deleting.name}'s ${ROLE_LABEL[deleting.role]} account? This cannot be undone.`}
-          confirmLabel="Delete"
-          danger
+          title={deleting.promotedAdmin ? 'Revoke Admin Access' : 'Delete Admin Account'}
+          message={
+            deleting.promotedAdmin
+              ? `Revoke ${deleting.name}'s ${ROLE_LABEL[deleting.role]} access? Their employee login stays active — they just drop back to a regular employee account.`
+              : `Permanently delete ${deleting.name}'s ${ROLE_LABEL[deleting.role]} account? This cannot be undone.`
+          }
+          confirmLabel={deleting.promotedAdmin ? 'Revoke' : 'Delete'}
+          danger={!deleting.promotedAdmin}
           pending={remove.isPending}
           onConfirm={() => remove.mutate(deleting._id)}
           onClose={() => setDeleting(null)}

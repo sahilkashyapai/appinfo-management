@@ -8,7 +8,11 @@ import { useAuth } from '../context/AuthContext';
 import { OFFICE_LOCATIONS } from '../utils/offices';
 
 const EMP_ID_REGEX = /^APIIND\d{6}$/;
-const ROLE_LABELS = ['CEO', 'CTO', 'CFO', 'HR', 'Team Lead', 'Manager', 'Senior Employee', 'Employee', 'Intern'];
+const ROLE_LABELS = [
+  'President & CTO', 'COO / SVP / VP', 'Director & VP', 'Director', 'Senior Manager', 'Manager',
+  'Team Lead', 'Senior Engineer', 'Engineer / Developer', 'Associate', 'Intern',
+  'HR Manager / HR Head', 'HR Executive', 'Front Office Executive',
+];
 
 function toInputDate(d) {
   if (!d) return '';
@@ -24,7 +28,7 @@ export default function EmployeeFormModal({ employee, onClose }) {
     name: employee?.name || '',
     dept: employee?.dept || '',
     desig: employee?.desig || '',
-    roleLabel: employee?.roleLabel || 'Employee',
+    roleLabel: employee?.roleLabel || 'Engineer / Developer',
     joined: toInputDate(employee?.joined) || '',
     dob: toInputDate(employee?.dob) || '',
     email: employee?.email || '',

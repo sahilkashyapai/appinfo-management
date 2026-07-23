@@ -35,6 +35,12 @@ const userSchema = new Schema(
     passwordResetExpires: { type: Date, default: null },
 
     isDemo: { type: Boolean, default: false },
+
+    // True when this login pre-existed as a plain employee account and was later
+    // promoted to Manager/HR (see adminController.create) rather than created
+    // solely for admin access — determines whether removing admin access deletes
+    // the login outright or just demotes it back to 'employee' (see adminController.remove).
+    promotedAdmin: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

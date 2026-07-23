@@ -5,15 +5,20 @@ import { useDrawers } from '../context/DrawerContext';
 // Colored underline per role tier — same idea as the classic org-chart mockups
 // (a colored bar under each title), but drawn from our own theme palette.
 const ROLE_COLOR = {
-  CEO: 'var(--gold)',
-  CTO: 'var(--gold)',
-  CFO: 'var(--gold)',
+  'President & CTO': 'var(--gold)',
+  'COO / SVP / VP': 'var(--gold)',
+  'Director & VP': 'var(--purple)',
+  Director: 'var(--purple)',
+  'Senior Manager': 'var(--purple)',
   Manager: 'var(--purple)',
   'Team Lead': 'var(--accent)',
-  'Senior Employee': 'var(--green)',
-  Employee: 'var(--sky)',
+  'Senior Engineer': 'var(--green)',
+  'Engineer / Developer': 'var(--sky)',
+  Associate: 'var(--orange)',
   Intern: 'var(--orange)',
-  HR: 'var(--purple)',
+  'HR Manager / HR Head': 'var(--purple)',
+  'HR Executive': 'var(--sky)',
+  'Front Office Executive': 'var(--sky)',
 };
 
 export default function OrgChartNode({ node, canManage, draggingId, setDraggingId, dragOverId, invalidDropIds, registerNode }) {
