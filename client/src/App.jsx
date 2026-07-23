@@ -15,6 +15,8 @@ import AnnouncementsPage from './pages/AnnouncementsPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import HolidaysPage from './pages/HolidaysPage';
 import ReportsPage from './pages/ReportsPage';
+import MyReportPage from './pages/MyReportPage';
+import TeamAttendanceTodayPage from './pages/TeamAttendanceTodayPage';
 import AuditPage from './pages/AuditPage';
 import SettingsPage from './pages/SettingsPage';
 import RegistrationsPage from './pages/RegistrationsPage';
@@ -25,6 +27,8 @@ import TimeTrackingPage from './pages/TimeTrackingPage';
 import LeavePage from './pages/LeavePage';
 import OrgChartPage from './pages/OrgChartPage';
 import AssetsPage from './pages/AssetsPage';
+import DocumentsPage from './pages/DocumentsPage';
+import AdminsPage from './pages/AdminsPage';
 import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
 
 export default function App() {
@@ -43,6 +47,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="attendance" element={<AttendancePage />} />
+        <Route path="attendance/today" element={<TeamAttendanceTodayPage />} />
         <Route path="birthdays" element={<BirthdaysPage />} />
         <Route path="anniversaries" element={<AnniversariesPage />} />
         <Route path="events" element={<EventsPage />} />
@@ -53,13 +58,16 @@ export default function App() {
         <Route path="departments" element={<ProtectedRoute roles={ADMIN_ROLES}><DepartmentsPage /></ProtectedRoute>} />
         <Route path="holidays" element={<ProtectedRoute roles={ADMIN_ROLES}><HolidaysPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute roles={ADMIN_ROLES}><ReportsPage /></ProtectedRoute>} />
+        <Route path="my-report" element={<MyReportPage />} />
         <Route path="audit" element={<ProtectedRoute roles={ADMIN_ROLES}><AuditPage /></ProtectedRoute>} />
         <Route path="time-tracking" element={<ProtectedRoute roles={ADMIN_ROLES}><TimeTrackingPage /></ProtectedRoute>} />
         <Route path="leave" element={<LeavePage />} />
         <Route path="org-chart" element={<OrgChartPage />} />
         <Route path="assets" element={<ProtectedRoute roles={ADMIN_ROLES}><AssetsPage /></ProtectedRoute>} />
+        <Route path="documents" element={<DocumentsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
+        <Route path="admins" element={<ProtectedRoute roles={ADMIN_ROLES}><AdminsPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>

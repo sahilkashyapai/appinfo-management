@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import DatePicker from './DatePicker';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 const TYPE_EMOJI = { festival: '🪔', workshop: '🎓', town_hall: '🏛️', team_outing: '🏔️', sports: '🏆', birthday: '🎂', other: '🎉' };
@@ -40,21 +42,21 @@ export default function EventFormModal({ onClose }) {
         <div className="fg2">
           <div className="fg">
             <label className="fl">Type</label>
-            <select className="fc" value={form.type} onChange={(e) => set('type', e.target.value)}>
+            <Select value={form.type} onChange={(e) => set('type', e.target.value)}>
               {Object.keys(TYPE_EMOJI).map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
-            </select>
+            </Select>
           </div>
-          <div className="fg"><label className="fl">Date</label><input type="date" className="fc" value={form.date} onChange={(e) => set('date', e.target.value)} /></div>
+          <div className="fg"><label className="fl">Date</label><DatePicker value={form.date} onChange={(v) => set('date', v)} /></div>
         </div>
         <div className="fg"><label className="fl">Venue</label><input className="fc" value={form.venue} onChange={(e) => set('venue', e.target.value)} /></div>
         <div className="fg2">
           <div className="fg"><label className="fl">Capacity</label><input type="number" className="fc" value={form.capacity} onChange={(e) => set('capacity', Number(e.target.value))} /></div>
           <div className="fg">
             <label className="fl">Status</label>
-            <select className="fc" value={form.status} onChange={(e) => set('status', e.target.value)}>
+            <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
               <option value="draft">Draft</option>
               <option value="published">Published</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>

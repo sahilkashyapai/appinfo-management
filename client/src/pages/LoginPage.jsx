@@ -58,8 +58,8 @@ export default function LoginPage() {
   return (
     <div id="auth">
       <div className="al">
-        <div className="al-icon"><i className="fa-solid fa-champagne-glasses" /></div>
-        <div className="al-h">Employee Celebrations<br />&amp; Events Platform</div>
+        <div className="al-icon"><img src="/images/ai-icon.png" alt="Applied Information" /></div>
+        <div className="al-h">Employee &amp; Events <br/> Management System</div>
         <div className="al-sub">Applied Information India's unified hub for birthdays, anniversaries, events, attendance, and team collaboration.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>Automated birthday &amp; anniversary notifications</div>

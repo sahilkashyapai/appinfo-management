@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
 import ConfirmModal from '../components/ConfirmModal';
+import DatePicker from '../components/DatePicker';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
@@ -124,8 +125,8 @@ export default function TimeTrackingPage() {
       <div className="card mb13">
         <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="fg"><label className="fl">From</label><input type="date" className="fc" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} /></div>
-            <div className="fg"><label className="fl">To</label><input type="date" className="fc" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} /></div>
+            <div className="fg"><label className="fl">From</label><DatePicker value={from} onChange={(v) => { setFrom(v); setPage(1); }} max={to || undefined} /></div>
+            <div className="fg"><label className="fl">To</label><DatePicker value={to} onChange={(v) => { setTo(v); setPage(1); }} min={from || undefined} /></div>
             <div className="fg">
               <label className="fl" style={{ visibility: 'hidden' }}>Reset</label>
               <button className="btn bs" style={{ padding: '8px 13px' }} onClick={resetDateRange} disabled={!from && !to}>

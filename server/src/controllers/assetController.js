@@ -2,6 +2,7 @@ const Asset = require('../models/Asset');
 const Employee = require('../models/Employee');
 const writeAudit = require('../utils/audit');
 const { ADMIN_ROLES } = require('../utils/roles');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
 async function list(req, res) {
   const { status, category, employeeRef, page = 1, limit = 25 } = req.query;
@@ -12,8 +13,9 @@ async function list(req, res) {
   if (!ADMIN_ROLES.includes(req.user.role)) {
     if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
     filter.employeeRef = req.user.employeeRef;
-  } else if (employeeRef) {
-    filter.employeeRef = employeeRef;
+  } else {
+    if (employeeRef) filter.employeeRef = employeeRef;
+    await excludeSuperadminEmployees(filter, req.user.role);
   }
 
   const pg = Math.max(parseInt(page, 10) || 1, 1);

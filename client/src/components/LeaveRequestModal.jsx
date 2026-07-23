@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import DatePicker from './DatePicker';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 function daysBetween(start, end) {
@@ -47,15 +49,15 @@ export default function LeaveRequestModal({ onClose }) {
         </div>
         <div className="fg">
           <label className="fl">Type</label>
-          <select className="fc" value={form.type} onChange={(e) => set('type', e.target.value)}>
+          <Select value={form.type} onChange={(e) => set('type', e.target.value)}>
             <option value="casual">Casual</option>
             <option value="sick">Sick</option>
             <option value="earned">Earned</option>
-          </select>
+          </Select>
         </div>
         <div className="fg2">
-          <div className="fg"><label className="fl">Start Date</label><input type="date" className="fc" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} /></div>
-          <div className="fg"><label className="fl">End Date</label><input type="date" className="fc" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} /></div>
+          <div className="fg"><label className="fl">Start Date</label><DatePicker value={form.startDate} onChange={(v) => set('startDate', v)} /></div>
+          <div className="fg"><label className="fl">End Date</label><DatePicker value={form.endDate} onChange={(v) => set('endDate', v)} min={form.startDate} /></div>
         </div>
         {days > 0 && <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: -6, marginBottom: 10 }}>{days} day{days > 1 ? 's' : ''}</div>}
         <div className="fg"><label className="fl">Reason</label><textarea className="fc" style={{ resize: 'none', height: 60 }} value={form.reason} onChange={(e) => set('reason', e.target.value)} /></div>

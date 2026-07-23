@@ -2,11 +2,19 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import PromptModal from '../components/PromptModal';
+import AttendanceCorrectionModal from '../components/AttendanceCorrectionModal';
+import DatePicker from '../components/DatePicker';
+import MonthPicker from '../components/MonthPicker';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/avatar';
 import { ADMIN_ROLES } from '../utils/roles';
 import { STATUSES, STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
+
+const CORRECTION_STATUS_BADGE = { pending: 'b-or', approved: 'b-gr', rejected: 'b-re' };
+const STATUS_LABEL_WITH_NOT_MARKED = { ...STATUS_LABEL, not_marked: 'Not Marked' };
 
 function todayInputDate() {
   return new Date().toISOString().slice(0, 10);
@@ -27,6 +35,8 @@ export default function AttendancePage() {
   const [markDate, setMarkDate] = useState(todayInputDate());
   const [historyEmployeeId, setHistoryEmployeeId] = useState('');
   const [month, setMonth] = useState(currentMonthValue());
+  const [correctionDate, setCorrectionDate] = useState(null);
+  const [rejectingCorrection, setRejectingCorrection] = useState(null);
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-all-light'],
@@ -75,6 +85,42 @@ export default function AttendancePage() {
     onError: () => toast('Could not export PDF.', 'error'),
   });
 
+  const { data: myCorrections = [] } = useQuery({
+    queryKey: ['attendance-corrections', 'mine'],
+    queryFn: () => api.get('/attendance/corrections/mine').then((r) => r.data.items),
+    enabled: !canMark,
+  });
+  const { data: pendingCorrections = [] } = useQuery({
+    queryKey: ['attendance-corrections', 'pending'],
+    queryFn: () => api.get('/attendance/corrections', { params: { status: 'pending' } }).then((r) => r.data.items),
+    enabled: canMark,
+  });
+
+  const invalidateCorrections = () => {
+    qc.invalidateQueries({ queryKey: ['attendance-corrections'] });
+    qc.invalidateQueries({ queryKey: ['attendance-history'] });
+    qc.invalidateQueries({ queryKey: ['attendance-today'] });
+  };
+
+  const approveCorrection = useMutation({
+    mutationFn: (id) => api.patch(`/attendance/corrections/${id}/approve`),
+    onSuccess: () => {
+      toast('Correction approved ✓', 'success');
+      invalidateCorrections();
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not approve request.', 'error'),
+  });
+
+  const rejectCorrection = useMutation({
+    mutationFn: ({ id, note }) => api.patch(`/attendance/corrections/${id}/reject`, { note }),
+    onSuccess: () => {
+      toast('Correction rejected', 'warning');
+      setRejectingCorrection(null);
+      invalidateCorrections();
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not reject request.', 'error'),
+  });
+
   return (
     <div className="page on">
       <div className="ph">
@@ -82,13 +128,20 @@ export default function AttendancePage() {
           <div className="pgt">Attendance</div>
           <div className="pgs">{canMark ? 'Mark daily status and review history' : 'Your attendance history'}</div>
         </div>
+        {!canMark && (
+          <div className="ph-r">
+            <button className="btn bs bsm" onClick={() => setCorrectionDate(todayInputDate())}>
+              <i className="fa-solid fa-triangle-exclamation" /> Request Correction
+            </button>
+          </div>
+        )}
       </div>
 
       {canMark && (
         <div className="card mb13">
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-calendar-check" /> Mark Attendance</div>
-            <input type="date" className="fc" style={{ width: 160 }} value={markDate} onChange={(e) => setMarkDate(e.target.value)} max={todayInputDate()} />
+            <DatePicker style={{ width: 160 }} value={markDate} onChange={setMarkDate} max={todayInputDate()} />
           </div>
           {dayLoading ? (
             <div style={{ fontSize: 12, color: 'var(--t3)' }}>Loading…</div>
@@ -109,18 +162,17 @@ export default function AttendancePage() {
                       </td>
                       <td><span className="badge b-bl">{e.dept}</span></td>
                       <td>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <Select
+                          style={{ width: 150 }}
+                          value={dayStatuses[e._id] || ''}
+                          disabled={mark.isPending}
+                          onChange={(ev) => mark.mutate({ employeeRef: e._id, status: ev.target.value })}
+                        >
+                          <option value="" disabled>Select…</option>
                           {STATUSES.map((s) => (
-                            <button
-                              key={s}
-                              className={`btn bxs ${dayStatuses[e._id] === s ? 'bp' : 'bs'}`}
-                              disabled={mark.isPending}
-                              onClick={() => mark.mutate({ employeeRef: e._id, status: s })}
-                            >
-                              {STATUS_LABEL[s]}
-                            </button>
+                            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
                           ))}
-                        </div>
+                        </Select>
                       </td>
                     </tr>
                   ))}
@@ -136,12 +188,12 @@ export default function AttendancePage() {
           <div className="cht"><i className="fa-solid fa-clock-rotate-left" /> History</div>
           <div style={{ display: 'flex', gap: 7 }}>
             {canViewTeam && (
-              <select className="fc" style={{ width: 180 }} value={historyEmployeeId} onChange={(e) => setHistoryEmployeeId(e.target.value)}>
+              <Select style={{ width: 180 }} value={historyEmployeeId} onChange={(e) => setHistoryEmployeeId(e.target.value)}>
                 <option value="">Select employee…</option>
                 {employees.map((e) => <option key={e._id} value={e._id}>{e.name}</option>)}
-              </select>
+              </Select>
             )}
-            <input type="month" className="fc" style={{ width: 150 }} value={month} onChange={(e) => setMonth(e.target.value)} />
+            <MonthPicker style={{ width: 150 }} value={month} onChange={setMonth} />
             {canMark && (
               <button className="btn bs bsm" disabled={exportPdf.isPending} onClick={() => exportPdf.mutate()}>
                 <i className="fa-solid fa-file-pdf" /> Export PDF
@@ -155,7 +207,7 @@ export default function AttendancePage() {
           <div className="tbl">
             <table>
               <thead>
-                <tr><th>Date</th><th>Status</th><th>Marked By</th></tr>
+                <tr><th>Date</th><th>Status</th><th>Marked By</th>{!canMark && historyTargetId === user?.employeeRef && <th>Actions</th>}</tr>
               </thead>
               <tbody>
                 {history.map((h) => (
@@ -163,16 +215,110 @@ export default function AttendancePage() {
                     <td>{formatDate(h.date)}</td>
                     <td><span className={`badge ${STATUS_BADGE[h.status]}`}>{STATUS_LABEL[h.status]}</span></td>
                     <td>{h.markedBy?.name || '—'}</td>
+                    {!canMark && historyTargetId === user?.employeeRef && (
+                      <td>
+                        <button className="btn bs bxs bico" title="Request correction" onClick={() => setCorrectionDate(new Date(h.date).toISOString().slice(0, 10))}>
+                          <i className="fa-solid fa-triangle-exclamation" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {history.length === 0 && (
-                  <tr><td colSpan={3} style={{ color: 'var(--t3)', fontSize: 12 }}>No attendance records for this month.</td></tr>
+                  <tr><td colSpan={!canMark && historyTargetId === user?.employeeRef ? 4 : 3} style={{ color: 'var(--t3)', fontSize: 12 }}>No attendance records for this month.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {!canMark && (
+        <div className="card" style={{ marginTop: 13 }}>
+          <div className="chd"><div className="cht"><i className="fa-solid fa-file-circle-check" /> My Correction Requests</div></div>
+          <div className="tbl">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Current</th><th>Requested</th><th>Reason</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {myCorrections.map((r) => (
+                  <tr key={r._id}>
+                    <td>{formatDate(r.date)}</td>
+                    <td>{STATUS_LABEL_WITH_NOT_MARKED[r.currentStatus]}</td>
+                    <td style={{ fontWeight: 700 }}>{STATUS_LABEL[r.requestedStatus]}</td>
+                    <td style={{ color: 'var(--t3)' }}>
+                      {r.reason}
+                      {r.status === 'rejected' && r.decisionNote && (
+                        <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 3 }}>Reason: {r.decisionNote}</div>
+                      )}
+                    </td>
+                    <td><span className={`badge ${CORRECTION_STATUS_BADGE[r.status]}`}>{r.status}</span></td>
+                  </tr>
+                ))}
+                {myCorrections.length === 0 && (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--t3)', padding: 14 }}>No correction requests yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {canMark && (
+        <div className="card" style={{ marginTop: 13 }}>
+          <div className="chd"><div className="cht"><i className="fa-solid fa-inbox" /> Pending Correction Requests</div></div>
+          <div className="tbl">
+            <table>
+              <thead>
+                <tr><th>Employee</th><th>Date</th><th>Current</th><th>Requested</th><th>Reason</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {pendingCorrections.map((r) => (
+                  <tr key={r._id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Avatar name={r.employeeRef?.name} index={r.employeeRef?.avatarIndex} size={22} fontSize={7} />
+                        {r.employeeRef?.name}
+                      </div>
+                    </td>
+                    <td>{formatDate(r.date)}</td>
+                    <td>{STATUS_LABEL_WITH_NOT_MARKED[r.currentStatus]}</td>
+                    <td style={{ fontWeight: 700 }}>{STATUS_LABEL[r.requestedStatus]}</td>
+                    <td style={{ color: 'var(--t3)' }}>{r.reason}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button className="btn bgn bxs" onClick={() => approveCorrection.mutate(r._id)} disabled={approveCorrection.isPending}>
+                          <i className="fa-solid fa-check" /> Approve
+                        </button>
+                        <button className="btn brd bxs" onClick={() => setRejectingCorrection(r._id)} disabled={rejectCorrection.isPending}>
+                          <i className="fa-solid fa-xmark" /> Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {pendingCorrections.length === 0 && (
+                  <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--t3)', padding: 14 }}>No pending correction requests.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {correctionDate && <AttendanceCorrectionModal defaultDate={correctionDate} onClose={() => setCorrectionDate(null)} />}
+      {rejectingCorrection && (
+        <PromptModal
+          title="Reject Correction Request"
+          label="Reason (optional)"
+          placeholder="e.g. No supporting evidence for the change"
+          submitLabel="Reject"
+          pending={rejectCorrection.isPending}
+          onSubmit={(note) => rejectCorrection.mutate({ id: rejectingCorrection, note })}
+          onClose={() => setRejectingCorrection(null)}
+        />
+      )}
     </div>
   );
 }

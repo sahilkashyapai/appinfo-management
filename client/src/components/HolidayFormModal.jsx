@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import DatePicker from './DatePicker';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 function toInputDate(d) {
@@ -45,14 +47,14 @@ export default function HolidayFormModal({ holiday, onClose }) {
         </div>
         <div className="fg"><label className="fl">Name</label><input className="fc" value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
         <div className="fg2">
-          <div className="fg"><label className="fl">Date</label><input type="date" className="fc" value={form.date} onChange={(e) => set('date', e.target.value)} /></div>
+          <div className="fg"><label className="fl">Date</label><DatePicker value={form.date} onChange={(v) => set('date', v)} /></div>
           <div className="fg">
             <label className="fl">Type</label>
-            <select className="fc" value={form.type} onChange={(e) => set('type', e.target.value)}>
+            <Select value={form.type} onChange={(e) => set('type', e.target.value)}>
               <option value="National">National</option>
               <option value="Festival">Festival</option>
               <option value="Optional">Optional</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div className="fg"><label className="fl">Description</label><input className="fc" value={form.description} onChange={(e) => set('description', e.target.value)} /></div>

@@ -1,6 +1,7 @@
 const Event = require('../models/Event');
 const Rsvp = require('../models/Rsvp');
 const writeAudit = require('../utils/audit');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
 async function withRsvpCounts(events) {
   const ids = events.map((e) => e._id);
@@ -89,7 +90,9 @@ async function rsvp(req, res) {
 }
 
 async function listRsvps(req, res) {
-  const rsvps = await Rsvp.find({ eventRef: req.params.id }).populate('employeeRef', 'name dept desig');
+  const filter = { eventRef: req.params.id };
+  await excludeSuperadminEmployees(filter, req.user.role);
+  const rsvps = await Rsvp.find(filter).populate('employeeRef', 'name dept desig');
   res.json({ items: rsvps });
 }
 

@@ -15,13 +15,17 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
 }
 
+// Calls whose own job is to authenticate — a 401 from these means "wrong credentials",
+// not "your session died", so they must not trigger the global logout handler. Without
+// this, every failed login attempt fires a spurious extra POST /auth/logout (which then
+// itself 401s, since there was never a session to log out of).
+const AUTH_ATTEMPT_PATHS = ['/auth/login', '/auth/2fa/verify', '/auth/logout'];
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    // Exclude the logout call itself — otherwise a 401 there (e.g. an already-expired
-    // token) re-triggers logout(), which fires another logout call, forever.
-    const isLogoutCall = err.config?.url?.includes('/auth/logout');
-    if (err.response?.status === 401 && onUnauthorized && !isLogoutCall) onUnauthorized();
+    const isAuthAttempt = AUTH_ATTEMPT_PATHS.some((p) => err.config?.url?.includes(p));
+    if (err.response?.status === 401 && onUnauthorized && !isAuthAttempt) onUnauthorized();
     return Promise.reject(err);
   }
 );

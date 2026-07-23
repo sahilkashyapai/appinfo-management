@@ -1,6 +1,7 @@
 const Department = require('../models/Department');
 const Employee = require('../models/Employee');
 const writeAudit = require('../utils/audit');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
 // Unauthenticated — powers the department dropdown on the public signup page.
 async function publicList(req, res) {
@@ -10,7 +11,9 @@ async function publicList(req, res) {
 
 async function list(req, res) {
   const depts = await Department.find({}).populate('headRef', 'name').sort({ name: 1 });
-  const counts = await Employee.aggregate([{ $group: { _id: '$dept', count: { $sum: 1 } } }]);
+  const countFilter = {};
+  await excludeSuperadminEmployees(countFilter, req.user.role, '_id');
+  const counts = await Employee.aggregate([{ $match: countFilter }, { $group: { _id: '$dept', count: { $sum: 1 } } }]);
   const countMap = Object.fromEntries(counts.map((c) => [c._id, c.count]));
   res.json({
     items: depts.map((d) => ({ ...d.toObject(), count: countMap[d.name] || 0 })),

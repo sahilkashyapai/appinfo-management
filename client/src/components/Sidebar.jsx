@@ -16,6 +16,8 @@ const ADMIN_NAV = [
       { to: '/org-chart', label: 'Org Chart', icon: 'fa-solid fa-sitemap' },
       { to: '/attendance', label: 'Attendance', icon: 'fa-solid fa-calendar-check' },
       { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
+      { to: '/my-report', label: 'My Report', icon: 'fa-solid fa-chart-simple' },
+      { to: '/documents', label: 'My Documents', icon: 'fa-solid fa-file-lines' },
       { to: '/birthdays', label: 'Birthdays', icon: 'fa-solid fa-cake-candles' },
       { to: '/anniversaries', label: 'Anniversaries', icon: 'fa-solid fa-medal' },
     ],
@@ -40,6 +42,7 @@ const ADMIN_NAV = [
     section: 'Admin',
     items: [
       { to: '/registrations', label: 'Registrations', icon: 'fa-solid fa-user-check', roles: APPROVER_ROLES },
+      { to: '/admins', label: 'Admins', icon: 'fa-solid fa-user-shield' },
       { to: '/departments', label: 'Departments', icon: 'fa-solid fa-building' },
       { to: '/holidays', label: 'Holidays', icon: 'fa-solid fa-umbrella-beach' },
       { to: '/reports', label: 'Reports', icon: 'fa-solid fa-chart-column' },
@@ -60,8 +63,10 @@ const EMPLOYEE_NAV = [
     items: [
       { to: '/employees', label: 'Employees', icon: 'fa-solid fa-users' },
       { to: '/org-chart', label: 'Org Chart', icon: 'fa-solid fa-sitemap' },
-      { to: '/attendance', label: 'Attendance', icon: 'fa-solid fa-calendar-check' },
+      { to: '/attendance', label: 'My Attendance', icon: 'fa-solid fa-calendar-check' },
       { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
+      { to: '/my-report', label: 'My Report', icon: 'fa-solid fa-chart-simple' },
+      { to: '/documents', label: 'My Documents', icon: 'fa-solid fa-file-lines' },
     ],
   },
   {
@@ -139,12 +144,12 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
         ))}
       </nav>
       <NavLink to="/profile" className="sb-user" onClick={onNavigate}>
-        <Avatar name={user?.name} index={user?.avatarIndex} src={user?.avatarUrl} size={30} style={{ border: '2px solid rgba(255,255,255,.15)' }} />
+        <Avatar name={user?.name} index={user?.avatarIndex} src={user?.avatarUrl} size={30} style={{ border: '2px solid var(--sb-avatar-border)' }} />
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{user?.name}</div>
-          <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,.3)' }}>{user?.email}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--sb-user-name)' }}>{user?.name}</div>
+          <div style={{ fontSize: 9.5, color: 'var(--sb-user-email)' }}>{user?.email}</div>
         </div>
-        <i className="fa-solid fa-chevron-right" style={{ color: 'rgba(255,255,255,.2)', fontSize: 12, marginLeft: 'auto' }} />
+        <i className="fa-solid fa-chevron-right" style={{ color: 'var(--sb-chevron)', fontSize: 12, marginLeft: 'auto' }} />
       </NavLink>
       <div
         className="ni"

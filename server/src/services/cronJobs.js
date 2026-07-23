@@ -8,6 +8,7 @@ const { autoStopIfExpired } = require('../utils/timeTracking');
 const { sendMail, templates } = require('./emailService');
 const { broadcastPush } = require('./pushService');
 const { yearsSince } = require('../controllers/employeeController');
+const { superadminEmployeeIds } = require('../utils/hideSuperadmin');
 
 function isSameMonthDay(date, ref) {
   return date.getMonth() === ref.getMonth() && date.getDate() === ref.getDate();
@@ -22,7 +23,8 @@ async function alreadyNotifiedToday(title) {
 async function runBirthdayAndAnniversaryJob() {
   const settings = await getSettings();
   const today = new Date();
-  const employees = await Employee.find({ status: 'active' });
+  const saIds = await superadminEmployeeIds();
+  const employees = await Employee.find({ status: 'active', _id: { $nin: saIds } });
 
   for (const emp of employees) {
     if (settings.notifications.birthday && isSameMonthDay(emp.dob, today)) {

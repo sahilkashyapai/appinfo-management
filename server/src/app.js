@@ -27,6 +27,7 @@ const leaveRoutes = require('./routes/leaveRoutes');
 const pushRoutes = require('./routes/pushRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const assetRoutes = require('./routes/assetRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/leave', leaveRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/admins', adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

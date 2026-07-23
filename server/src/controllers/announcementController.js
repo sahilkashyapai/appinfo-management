@@ -1,9 +1,24 @@
 const Announcement = require('../models/Announcement');
 const writeAudit = require('../utils/audit');
+const { superadminUserIds } = require('../utils/hideSuperadmin');
 
 async function list(req, res) {
   const items = await Announcement.find({}).populate('postedByRef', 'name').sort({ pinned: -1, createdAt: -1 });
-  res.json({ items });
+
+  let shaped = items;
+  if (req.user.role !== 'superadmin') {
+    const saIds = new Set((await superadminUserIds()).map(String));
+    shaped = items.map((a) => {
+      if (a.postedByRef && saIds.has(String(a.postedByRef._id))) {
+        const obj = a.toObject();
+        obj.postedByRef = { ...obj.postedByRef, name: 'Admin' };
+        return obj;
+      }
+      return a;
+    });
+  }
+
+  res.json({ items: shaped });
 }
 
 async function create(req, res) {

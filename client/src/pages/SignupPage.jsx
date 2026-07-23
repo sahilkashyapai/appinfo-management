@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
+import DatePicker from '../components/DatePicker';
+import Select from '../components/Select';
 
 const EMP_ID_REGEX = /^APIIND\d{6}$/;
 
@@ -74,8 +76,8 @@ export default function SignupPage() {
   return (
     <div id="auth">
       <div className="al">
-        <div className="al-icon"><i className="fa-solid fa-champagne-glasses" /></div>
-        <div className="al-h">Employee Celebrations<br />&amp; Events Platform</div>
+        <div className="al-icon"><img src="/images/ai-icon.png" alt="Applied Information" /></div>
+        <div className="al-h">Employee &amp; Events <br/> Management System</div>
         <div className="al-sub">Create your employee account to see birthdays, anniversaries, events, and announcements from Applied Information India.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>See today's birthdays &amp; anniversaries</div>
@@ -84,11 +86,10 @@ export default function SignupPage() {
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-bullhorn" /></div>Stay on top of announcements</div>
         </div>
       </div>
-      <div className="ar" style={{ alignItems: 'flex-start' }}>
+      <div className="ar">
         <div className="af" style={{ maxWidth: 460 }}>
           <div className="af-logo">
-            <div className="af-logo-ic"><i className="fa-solid fa-champagne-glasses" /></div>
-            <div className="af-logo-t">Applied Information India</div>
+            <div className="af-logo-ic"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
           </div>
 
           {done ? (
@@ -124,18 +125,18 @@ export default function SignupPage() {
                 </div>
                 <div className="fg">
                   <label className="fl">Department</label>
-                  <select className="fc" value={form.department} onChange={(e) => set('department', e.target.value)}>
+                  <Select value={form.department} onChange={(e) => set('department', e.target.value)}>
                     <option value="">Select…</option>
                     {depts.map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
-                  </select>
+                  </Select>
                 </div>
                 <div className="fg">
                   <label className="fl">Date of Birth</label>
-                  <input className="fc" type="date" value={form.dob} onChange={(e) => set('dob', e.target.value)} />
+                  <DatePicker value={form.dob} onChange={(v) => set('dob', v)} />
                 </div>
                 <div className="fg">
                   <label className="fl">Date of Joining</label>
-                  <input className="fc" type="date" value={form.joined} onChange={(e) => set('joined', e.target.value)} />
+                  <DatePicker value={form.joined} onChange={(v) => set('joined', v)} />
                 </div>
                 <div className="fg">
                   <label className="fl">Password</label>

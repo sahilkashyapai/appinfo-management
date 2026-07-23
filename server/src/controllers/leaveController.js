@@ -6,6 +6,7 @@ const getSettings = require('../utils/getSettings');
 const writeAudit = require('../utils/audit');
 const { sendPushToUser, sendPushToUsers } = require('../services/pushService');
 const { ADMIN_ROLES, APPROVER_ROLES } = require('../utils/roles');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
 const LEAVE_TYPES = ['casual', 'sick', 'earned'];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -55,7 +56,9 @@ async function report(req, res) {
 
   let employees;
   if (isAdmin) {
-    employees = await Employee.find({ status: 'active' }).select('name dept desig avatarIndex');
+    const filter = { status: 'active' };
+    await excludeSuperadminEmployees(filter, req.user.role, '_id');
+    employees = await Employee.find(filter).select('name dept desig avatarIndex');
   } else {
     if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
     employees = await Employee.find({ _id: req.user.employeeRef }).select('name dept desig avatarIndex');
@@ -166,6 +169,7 @@ async function list(req, res) {
     const reports = await Employee.find({ managerRef: req.user.employeeRef }, '_id');
     filter.employeeRef = { $in: reports.map((r) => r._id) };
   }
+  await excludeSuperadminEmployees(filter, req.user.role);
 
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);

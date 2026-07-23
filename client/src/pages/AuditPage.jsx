@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import Select from '../components/Select';
 import { formatDateTime } from '../utils/avatar';
 
 const ACTION_BADGE = { LOGIN: 'b-bl', LOGIN_FAILED: 'b-re', CREATE: 'b-gr', UPDATE: 'b-or', DELETE: 'b-re', EXPORT: 'b-pu' };
@@ -44,7 +45,7 @@ export default function AuditPage() {
             <i className="fa-solid fa-magnifying-glass" />
             <input type="text" placeholder="Search actor, entity, action…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
           </div>
-          <select className="fc" style={{ width: 130 }} value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}>
+          <Select style={{ width: 130 }} value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}>
             <option value="all">All Actions</option>
             <option value="LOGIN">LOGIN</option>
             <option value="LOGIN_FAILED">LOGIN_FAILED</option>
@@ -52,8 +53,8 @@ export default function AuditPage() {
             <option value="UPDATE">UPDATE</option>
             <option value="DELETE">DELETE</option>
             <option value="EXPORT">EXPORT</option>
-          </select>
-          <select className="fc" style={{ width: 130 }} value={entity} onChange={(e) => { setEntity(e.target.value); setPage(1); }}>
+          </Select>
+          <Select style={{ width: 130 }} value={entity} onChange={(e) => { setEntity(e.target.value); setPage(1); }}>
             <option value="all">All Entities</option>
             <option value="users">users</option>
             <option value="employees">employees</option>
@@ -63,7 +64,7 @@ export default function AuditPage() {
             <option value="announcements">announcements</option>
             <option value="holidays">holidays</option>
             <option value="settings">settings</option>
-          </select>
+          </Select>
         </div>
       </div>
       <div className="card">

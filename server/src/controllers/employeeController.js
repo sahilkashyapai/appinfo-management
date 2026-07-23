@@ -10,6 +10,7 @@ const Asset = require('../models/Asset');
 const writeAudit = require('../utils/audit');
 const { EMP_ID_PREFIX, EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
 const { ADMIN_ROLES } = require('../utils/roles');
+const { superadminEmployeeIds, excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
 // Mobile numbers are only shown to admin-panel roles — everyone else gets the
 // directory view (name/email/role/photo/designation/dates) with phone stripped.
@@ -41,6 +42,8 @@ async function list(req, res) {
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
 
+  await excludeSuperadminEmployees(filter, req.user.role, '_id');
+
   const [items, total] = await Promise.all([
     Employee.find(filter)
       .sort({ createdAt: -1 })
@@ -61,11 +64,13 @@ async function list(req, res) {
 }
 
 async function summary(req, res) {
+  const exclude = {};
+  await excludeSuperadminEmployees(exclude, req.user.role, '_id');
   const [active, inactive, leave, total] = await Promise.all([
-    Employee.countDocuments({ status: 'active' }),
-    Employee.countDocuments({ status: 'inactive' }),
-    Employee.countDocuments({ status: 'leave' }),
-    Employee.countDocuments({}),
+    Employee.countDocuments({ ...exclude, status: 'active' }),
+    Employee.countDocuments({ ...exclude, status: 'inactive' }),
+    Employee.countDocuments({ ...exclude, status: 'leave' }),
+    Employee.countDocuments({ ...exclude }),
   ]);
   res.json({ active, inactive, leave, total });
 }
@@ -73,6 +78,10 @@ async function summary(req, res) {
 async function getOne(req, res) {
   const emp = await Employee.findById(req.params.id).populate('managerRef', 'name').populate('userRef', 'email role avatarUrl');
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
+
+  if (req.user.role !== 'superadmin' && emp.userRef?.role === 'superadmin') {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
 
   // Documents/assets are personal records — only visible to admin-panel roles
   // or the employee viewing their own record, never to a coworker browsing the directory.
@@ -107,10 +116,12 @@ async function nextId(req, res) {
 async function orgChart(req, res) {
   const employees = await Employee.find({ status: 'active' })
     .select('name desig dept avatarIndex managerRef userRef')
-    .populate('userRef', 'avatarUrl')
+    .populate('userRef', 'avatarUrl role')
     .lean();
 
-  const items = employees.map((e) => ({
+  const visible = req.user.role === 'superadmin' ? employees : employees.filter((e) => e.userRef?.role !== 'superadmin');
+
+  const items = visible.map((e) => ({
     _id: e._id,
     name: e.name,
     desig: e.desig,
@@ -158,12 +169,16 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
+  const current = await Employee.findById(req.params.id, 'empId userRef').populate('userRef', 'role');
+  if (!current) return res.status(404).json({ message: 'Employee not found.' });
+  if (req.user.role !== 'superadmin' && current.userRef?.role === 'superadmin') {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
+
   const updates = { ...req.body };
 
   if (updates.empId !== undefined) {
     const empId = String(updates.empId).trim();
-    const current = await Employee.findById(req.params.id, 'empId');
-    if (!current) return res.status(404).json({ message: 'Employee not found.' });
 
     if (empId === current.empId) {
       delete updates.empId; // unchanged — don't force format validation on unrelated edits
@@ -215,10 +230,17 @@ async function update(req, res) {
 async function setStatus(req, res) {
   const { status } = req.body;
   if (!['active', 'inactive', 'leave'].includes(status)) return res.status(400).json({ message: 'Invalid status.' });
-  const emp = await Employee.findByIdAndUpdate(req.params.id, { status }, { new: true });
-  if (!emp) return res.status(404).json({ message: 'Employee not found.' });
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'employees', recordId: emp.empId, detail: `Set status of ${emp.name} to ${status}` });
-  res.json({ employee: emp });
+
+  const target = await Employee.findById(req.params.id).populate('userRef', 'role');
+  if (!target) return res.status(404).json({ message: 'Employee not found.' });
+  if (req.user.role !== 'superadmin' && target.userRef?.role === 'superadmin') {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
+
+  target.status = status;
+  await target.save();
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'employees', recordId: target.empId, detail: `Set status of ${target.name} to ${status}` });
+  res.json({ employee: target });
 }
 
 async function remove(req, res) {

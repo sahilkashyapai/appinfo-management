@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 import KpiCard from '../components/KpiCard';
 import Avatar from '../components/Avatar';
-import { formatDate, formatDateTime } from '../utils/avatar';
+import MonthPicker from '../components/MonthPicker';
+import Select from '../components/Select';
+import { formatDate } from '../utils/avatar';
 
 function currentMonthValue() {
   const d = new Date();
@@ -23,55 +25,76 @@ function downloadCsv(filename, rows, headers) {
 
 export default function ReportsPage() {
   const [month, setMonth] = useState(currentMonthValue());
+  const [employeeId, setEmployeeId] = useState('');
 
+  const { data: employees = [] } = useQuery({ queryKey: ['employees-all-light'], queryFn: () => api.get('/employees', { params: { limit: 200 } }).then((r) => r.data.items) });
   const { data: summary } = useQuery({ queryKey: ['reports-summary', month], queryFn: () => api.get('/reports/summary', { params: { month } }).then((r) => r.data) });
   const { data: byDept = [] } = useQuery({ queryKey: ['reports-dept', month], queryFn: () => api.get('/reports/birthdays-by-department', { params: { month } }).then((r) => r.data.items) });
   const { data: eventDist = [] } = useQuery({ queryKey: ['reports-events'], queryFn: () => api.get('/reports/event-type-distribution').then((r) => r.data.items) });
-  const { data: birthdayReport = [] } = useQuery({ queryKey: ['reports-birthdays', month], queryFn: () => api.get('/reports/birthday-report', { params: { month } }).then((r) => r.data.items) });
-  const { data: anniversaryReport = [] } = useQuery({ queryKey: ['reports-anniversaries', month], queryFn: () => api.get('/reports/anniversary-report', { params: { month } }).then((r) => r.data.items) });
-  const { data: wallPostsReport = [] } = useQuery({ queryKey: ['reports-wall-posts', month], queryFn: () => api.get('/reports/wall-posts-report', { params: { month } }).then((r) => r.data.items) });
-  const { data: notificationsReport = [] } = useQuery({ queryKey: ['reports-notifications', month], queryFn: () => api.get('/reports/notifications-report', { params: { month } }).then((r) => r.data.items) });
+  const { data: leaveReport = [] } = useQuery({ queryKey: ['reports-leave', month], queryFn: () => api.get('/reports/leave-report', { params: { month } }).then((r) => r.data.items) });
+  const { data: absentReport = [] } = useQuery({ queryKey: ['reports-absent', month], queryFn: () => api.get('/reports/absent-report', { params: { month } }).then((r) => r.data.items) });
+  const { data: workModeReport = [] } = useQuery({ queryKey: ['reports-work-mode', month], queryFn: () => api.get('/reports/work-mode-report', { params: { month } }).then((r) => r.data.items) });
   const { data: attendanceReport = [] } = useQuery({ queryKey: ['reports-attendance', month], queryFn: () => api.get('/reports/attendance-report', { params: { month } }).then((r) => r.data.items) });
+
+  const selectedEmployee = employeeId ? employees.find((e) => e._id === employeeId) : null;
+  const filteredLeave = employeeId ? leaveReport.filter((r) => String(r.employeeId) === String(employeeId)) : leaveReport;
+  const filteredAbsent = employeeId ? absentReport.filter((r) => String(r.employeeId) === String(employeeId)) : absentReport;
+  const filteredWorkMode = employeeId ? workModeReport.filter((r) => String(r.employeeId) === String(employeeId)) : workModeReport;
+  const filteredAttendance = employeeId ? attendanceReport.filter((r) => String(r.id) === String(employeeId)) : attendanceReport;
+
+  // Per-employee office/WFH totals for the aggregated (all-employees) work-mode view.
+  const workModeSummary = Object.values(
+    workModeReport.reduce((acc, r) => {
+      const key = String(r.employeeId);
+      acc[key] = acc[key] || { employeeId: key, name: r.name, dept: r.dept, office: 0, wfh: 0 };
+      acc[key][r.status] += 1;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  const selectedOfficeCount = filteredWorkMode.filter((r) => r.status === 'office').length;
+  const selectedWfhCount = filteredWorkMode.filter((r) => r.status === 'wfh').length;
+  const maxModeCount = Math.max(selectedOfficeCount, selectedWfhCount, 1);
 
   const maxDept = Math.max(...byDept.map((d) => d.count), 1);
   const EVENT_COLORS = { festival: '#E67E22', workshop: '#8E44AD', town_hall: '#2E86AB', team_outing: '#27AE60', sports: '#E74C3C', birthday: '#F39C12', other: '#6B7A93' };
 
-  function exportExcel() {
+  function exportLeave() {
     downloadCsv(
-      `birthday-report-${month}.csv`,
-      birthdayReport.map((r) => [r.name, r.dept, formatDate(r.dob), r.years, r.wishesReceived]),
-      ['Employee', 'Department', 'Birthday', 'Years at AII', 'Wishes Received']
+      `leave-report-${month}.csv`,
+      filteredLeave.map((r) => [r.name, r.dept, formatDate(r.date), r.note]),
+      ['Employee', 'Department', 'Date', 'Note']
     );
   }
 
-  function exportAnniversaries() {
+  function exportAbsent() {
     downloadCsv(
-      `anniversary-report-${month}.csv`,
-      anniversaryReport.map((r) => [r.name, r.dept, formatDate(r.joined), r.years, r.wishesReceived]),
-      ['Employee', 'Department', 'Anniversary Date', 'Years at AII', 'Wishes Received']
+      `absent-report-${month}.csv`,
+      filteredAbsent.map((r) => [r.name, r.dept, formatDate(r.date), r.note]),
+      ['Employee', 'Department', 'Date', 'Note']
     );
   }
 
-  function exportWallPosts() {
-    downloadCsv(
-      `wall-posts-report-${month}.csv`,
-      wallPostsReport.map((r) => [r.author, r.text, r.tag, formatDateTime(r.createdAt)]),
-      ['Author', 'Message', 'Tag', 'Posted On']
-    );
-  }
-
-  function exportNotifications() {
-    downloadCsv(
-      `notifications-report-${month}.csv`,
-      notificationsReport.map((r) => [r.title, r.type, r.recipient, formatDateTime(r.createdAt)]),
-      ['Title', 'Type', 'Recipient', 'Sent On']
-    );
+  function exportWorkMode() {
+    if (employeeId) {
+      downloadCsv(
+        `work-mode-report-${month}.csv`,
+        filteredWorkMode.map((r) => [r.name, r.dept, formatDate(r.date), r.status === 'wfh' ? 'Work From Home' : 'Office']),
+        ['Employee', 'Department', 'Date', 'Mode']
+      );
+    } else {
+      downloadCsv(
+        `work-mode-report-${month}.csv`,
+        workModeSummary.map((r) => [r.name, r.dept, r.office, r.wfh]),
+        ['Employee', 'Department', 'Office', 'WFH']
+      );
+    }
   }
 
   function exportAttendance() {
     downloadCsv(
       `attendance-report-${month}.csv`,
-      attendanceReport.map((r) => [r.name, r.dept, r.office, r.wfh, r.leave, r.absent, r.notMarked]),
+      filteredAttendance.map((r) => [r.name, r.dept, r.office, r.wfh, r.leave, r.absent, r.notMarked]),
       ['Employee', 'Department', 'Office', 'WFH', 'Leave', 'Absent', 'Not Marked']
     );
   }
@@ -84,9 +107,15 @@ export default function ReportsPage() {
           <div className="pgs">Applied Information India Pvt. Ltd.</div>
         </div>
         <div className="ph-r">
-          <input type="month" className="fc" style={{ width: 150 }} value={month} onChange={(e) => setMonth(e.target.value)} />
+          <Select style={{ width: 180 }} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <option value="">All Employees</option>
+            {employees.map((e) => (
+              <option key={e._id} value={e._id}>{e.name}</option>
+            ))}
+          </Select>
+          <MonthPicker style={{ width: 150 }} value={month} onChange={setMonth} />
           <button className="btn bs bsm" onClick={() => window.print()}><i className="fa-solid fa-download" /> PDF</button>
-          <button className="btn bgn bsm" onClick={exportExcel}><i className="fa-solid fa-file-excel" /> Excel</button>
+          <button className="btn bgn bsm" onClick={exportAttendance}><i className="fa-solid fa-file-excel" /> Excel</button>
         </div>
       </div>
 
@@ -124,104 +153,119 @@ export default function ReportsPage() {
 
       <div className="card">
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-table" /> Birthday Report</div>
-          <button className="btn bs bxs" onClick={exportExcel}><i className="fa-solid fa-download" /> Export</button>
+          <div className="cht"><i className="fa-solid fa-plane-departure" /> Leave Report</div>
+          <button className="btn bs bxs" onClick={exportLeave}><i className="fa-solid fa-download" /> Export</button>
         </div>
         <div className="tbl">
           <table>
             <thead>
-              <tr><th>Employee</th><th>Department</th><th>Birthday</th><th>Years at AII</th><th>Wishes Received</th></tr>
+              <tr><th>Employee</th><th>Department</th><th>Date</th><th>Note</th></tr>
             </thead>
             <tbody>
-              {birthdayReport.map((r) => (
+              {filteredLeave.map((r) => (
                 <tr key={r.id}>
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
-                  <td>{formatDate(r.dob)}</td>
-                  <td style={{ fontWeight: 700 }}>{r.years} yrs</td>
-                  <td><span className="badge b-pu">{r.wishesReceived} wishes</span></td>
+                  <td>{formatDate(r.date)}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {birthdayReport.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No birthdays this month.</div>}
+        {filteredLeave.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>{employeeId ? 'No leave days for this employee this month.' : 'No leave days this month.'}</div>}
       </div>
 
       <div className="card" style={{ marginTop: 13 }}>
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-medal" /> Anniversary Report</div>
-          <button className="btn bs bxs" onClick={exportAnniversaries}><i className="fa-solid fa-download" /> Export</button>
+          <div className="cht"><i className="fa-solid fa-user-slash" /> Absent Report</div>
+          <button className="btn bs bxs" onClick={exportAbsent}><i className="fa-solid fa-download" /> Export</button>
         </div>
         <div className="tbl">
           <table>
             <thead>
-              <tr><th>Employee</th><th>Department</th><th>Anniversary Date</th><th>Years at AII</th><th>Wishes Received</th></tr>
+              <tr><th>Employee</th><th>Department</th><th>Date</th><th>Note</th></tr>
             </thead>
             <tbody>
-              {anniversaryReport.map((r) => (
+              {filteredAbsent.map((r) => (
                 <tr key={r.id}>
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
-                  <td>{formatDate(r.joined)}</td>
-                  <td style={{ fontWeight: 700 }}>{r.years} yrs</td>
-                  <td><span className="badge b-pu">{r.wishesReceived} wishes</span></td>
+                  <td>{formatDate(r.date)}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {anniversaryReport.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No anniversaries this month.</div>}
+        {filteredAbsent.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>{employeeId ? 'No absences for this employee this month.' : 'No absences this month.'}</div>}
       </div>
 
       <div className="card" style={{ marginTop: 13 }}>
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-envelope-open" /> Wall Posts Report</div>
-          <button className="btn bs bxs" onClick={exportWallPosts}><i className="fa-solid fa-download" /> Export</button>
+          <div className="cht"><i className="fa-solid fa-house-laptop" /> Work From Home / Office Report</div>
+          <button className="btn bs bxs" onClick={exportWorkMode}><i className="fa-solid fa-download" /> Export</button>
         </div>
-        <div className="tbl">
-          <table>
-            <thead>
-              <tr><th>Author</th><th>Message</th><th>Tag</th><th>Posted On</th></tr>
-            </thead>
-            <tbody>
-              {wallPostsReport.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ fontWeight: 600 }}>{r.author}</td>
-                  <td style={{ maxWidth: 360 }}>{r.text}</td>
-                  <td><span className="badge b-bl">{r.tag}</span></td>
-                  <td style={{ fontSize: 10.5, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {wallPostsReport.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No wall posts this month.</div>}
-      </div>
 
-      <div className="card" style={{ marginTop: 13 }}>
-        <div className="chd">
-          <div className="cht"><i className="fa-solid fa-bell" /> Notifications Report</div>
-          <button className="btn bs bxs" onClick={exportNotifications}><i className="fa-solid fa-download" /> Export</button>
-        </div>
-        <div className="tbl">
-          <table>
-            <thead>
-              <tr><th>Title</th><th>Type</th><th>Recipient</th><th>Sent On</th></tr>
-            </thead>
-            <tbody>
-              {notificationsReport.map((r) => (
-                <tr key={r.id}>
-                  <td style={{ fontWeight: 600 }}>{r.title}</td>
-                  <td><span className="badge b-or">{r.type}</span></td>
-                  <td>{r.recipient}</td>
-                  <td style={{ fontSize: 10.5, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{formatDateTime(r.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {notificationsReport.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No notifications this month.</div>}
+        {employeeId ? (
+          <div style={{ padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <Avatar name={selectedEmployee?.name} size={30} fontSize={10} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 12.5 }}>{selectedEmployee?.name}</div>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>{selectedEmployee?.dept}</div>
+              </div>
+            </div>
+            <div className="cbr">
+              <div className="cbl">Office</div>
+              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((selectedOfficeCount / maxModeCount) * 100)}%`, background: '#27AE60' }}>{selectedOfficeCount}</div></div>
+              <div className="cbv">{selectedOfficeCount}</div>
+            </div>
+            <div className="cbr">
+              <div className="cbl">WFH</div>
+              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((selectedWfhCount / maxModeCount) * 100)}%`, background: '#8E44AD' }}>{selectedWfhCount}</div></div>
+              <div className="cbv">{selectedWfhCount}</div>
+            </div>
+
+            {filteredWorkMode.length > 0 && (
+              <div className="tbl" style={{ marginTop: 14 }}>
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Mode</th></tr>
+                  </thead>
+                  <tbody>
+                    {filteredWorkMode.map((r) => (
+                      <tr key={r.id}>
+                        <td>{formatDate(r.date)}</td>
+                        <td><span className={r.status === 'wfh' ? 'badge b-pu' : 'badge b-gr'}>{r.status === 'wfh' ? 'Work From Home' : 'Office'}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {filteredWorkMode.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 10 }}>No office/WFH records for this employee this month.</div>}
+          </div>
+        ) : (
+          <div className="tbl">
+            <table>
+              <thead>
+                <tr><th>Employee</th><th>Department</th><th>Office</th><th>WFH</th></tr>
+              </thead>
+              <tbody>
+                {workModeSummary.map((r) => (
+                  <tr key={r.employeeId}>
+                    <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
+                    <td><span className="badge b-bl">{r.dept}</span></td>
+                    <td><span className="badge b-gr">{r.office}</span></td>
+                    <td><span className="badge b-pu">{r.wfh}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!employeeId && workModeSummary.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No records this month.</div>}
       </div>
 
       <div className="card" style={{ marginTop: 13 }}>
@@ -235,7 +279,7 @@ export default function ReportsPage() {
               <tr><th>Employee</th><th>Department</th><th>Office</th><th>WFH</th><th>Leave</th><th>Absent</th><th>Not Marked</th></tr>
             </thead>
             <tbody>
-              {attendanceReport.map((r) => (
+              {filteredAttendance.map((r) => (
                 <tr key={r.id}>
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
@@ -249,7 +293,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
         </div>
-        {attendanceReport.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No employees found.</div>}
+        {filteredAttendance.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)', padding: 10 }}>No employees found.</div>}
       </div>
     </div>
   );

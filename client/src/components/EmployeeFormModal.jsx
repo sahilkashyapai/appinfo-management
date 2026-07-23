@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import DatePicker from './DatePicker';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { OFFICE_LOCATIONS } from '../utils/offices';
 
 const EMP_ID_REGEX = /^APIIND\d{6}$/;
 const ROLE_LABELS = ['CEO', 'CTO', 'CFO', 'HR', 'Team Lead', 'Manager', 'Senior Employee', 'Employee', 'Intern'];
@@ -98,30 +101,37 @@ export default function EmployeeFormModal({ employee, onClose }) {
           <div className="fg"><label className="fl">Full Name</label><input className="fc" value={form.name} onChange={(e) => set('name', e.target.value)} /></div>
           <div className="fg">
             <label className="fl">Department</label>
-            <select className="fc" value={form.dept} onChange={(e) => set('dept', e.target.value)}>
+            <Select value={form.dept} onChange={(e) => set('dept', e.target.value)}>
               <option value="">Select…</option>
               {depts.map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
-            </select>
+            </Select>
           </div>
           <div className="fg"><label className="fl">Designation</label><input className="fc" value={form.desig} onChange={(e) => set('desig', e.target.value)} /></div>
           <div className="fg">
             <label className="fl">Role Label</label>
-            <select className="fc" value={form.roleLabel} onChange={(e) => set('roleLabel', e.target.value)}>
+            <Select value={form.roleLabel} onChange={(e) => set('roleLabel', e.target.value)}>
               {ROLE_LABELS.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            </Select>
           </div>
-          <div className="fg"><label className="fl">Date Joined</label><input type="date" className="fc" value={form.joined} onChange={(e) => set('joined', e.target.value)} /></div>
-          <div className="fg"><label className="fl">Date of Birth</label><input type="date" className="fc" value={form.dob} onChange={(e) => set('dob', e.target.value)} /></div>
+          <div className="fg"><label className="fl">Date Joined</label><DatePicker value={form.joined} onChange={(v) => set('joined', v)} /></div>
+          <div className="fg"><label className="fl">Date of Birth</label><DatePicker value={form.dob} onChange={(v) => set('dob', v)} /></div>
           <div className="fg"><label className="fl">Email</label><input className="fc" value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
           <div className="fg"><label className="fl">Phone</label><input className="fc" value={form.phone} onChange={(e) => set('phone', e.target.value)} /></div>
-          <div className="fg"><label className="fl">Location</label><input className="fc" value={form.location} onChange={(e) => set('location', e.target.value)} /></div>
+          <div className="fg">
+            <label className="fl">Location</label>
+            <Select value={form.location} onChange={(e) => set('location', e.target.value)}>
+              <option value="">Select…</option>
+              {OFFICE_LOCATIONS.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+              {form.location && !OFFICE_LOCATIONS.includes(form.location) && <option value={form.location}>{form.location}</option>}
+            </Select>
+          </div>
           <div className="fg">
             <label className="fl">Status</label>
-            <select className="fc" value={form.status} onChange={(e) => set('status', e.target.value)}>
+            <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="leave">On Leave</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>

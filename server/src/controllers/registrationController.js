@@ -4,10 +4,12 @@ const Department = require('../models/Department');
 const writeAudit = require('../utils/audit');
 const { sendMail, templates } = require('../services/emailService');
 const { EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
+const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 
 async function list(req, res) {
   const { status = 'pending' } = req.query;
   const filter = status === 'all' ? {} : { approvalStatus: status };
+  await excludeSuperadminUsers(filter, req.user.role, '_id');
   const items = await User.find(filter).sort({ createdAt: -1 }).select('-passwordHash -totpSecret -passwordResetToken');
   res.json({ items });
 }

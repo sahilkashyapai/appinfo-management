@@ -2,6 +2,7 @@ const TimeLog = require('../models/TimeLog');
 const getSettings = require('../utils/getSettings');
 const writeAudit = require('../utils/audit');
 const { startOfDay, autoStopIfExpired } = require('../utils/timeTracking');
+const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 
 async function findToday(userRef) {
   const timer = await TimeLog.findOne({ userRef, date: startOfDay() });
@@ -15,6 +16,9 @@ async function myToday(req, res) {
 }
 
 async function start(req, res) {
+  if (req.user.role === 'superadmin') {
+    return res.status(403).json({ message: 'Time tracking is not applicable for superadmin accounts.' });
+  }
   const settings = await getSettings();
   if (!settings.timeTracking.enabled) {
     return res.status(403).json({ message: 'Time tracking is currently disabled by your administrator.' });
@@ -66,7 +70,9 @@ async function stop(req, res) {
 }
 
 async function today(req, res) {
-  const items = await TimeLog.find({ date: startOfDay() })
+  const filter = { date: startOfDay() };
+  await excludeSuperadminUsers(filter, req.user.role, 'userRef');
+  const items = await TimeLog.find(filter)
     .populate('userRef', 'name email department avatarIndex avatarUrl')
     .sort({ startedAt: -1 });
   res.json({ items });
@@ -86,6 +92,7 @@ function buildFilter(query) {
 
 async function list(req, res) {
   const filter = buildFilter(req.query);
+  await excludeSuperadminUsers(filter, req.user.role, 'userRef');
   const { page = 1, limit = 25 } = req.query;
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);

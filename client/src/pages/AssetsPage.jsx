@@ -4,6 +4,7 @@ import api from '../api/client';
 import Avatar from '../components/Avatar';
 import AssetFormModal from '../components/AssetFormModal';
 import AssetAssignModal from '../components/AssetAssignModal';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
@@ -53,22 +54,22 @@ export default function AssetsPage() {
           <div className="pgs">{data?.total || 0} assets tracked</div>
         </div>
         <div className="ph-r" style={{ display: 'flex', gap: 7 }}>
-          <select className="fc" style={{ width: 130 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <Select style={{ width: 130 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">All Statuses</option>
             <option value="unassigned">Unassigned</option>
             <option value="assigned">Assigned</option>
             <option value="returned">Returned</option>
             <option value="damaged">Damaged</option>
             <option value="lost">Lost</option>
-          </select>
-          <select className="fc" style={{ width: 140 }} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          </Select>
+          <Select style={{ width: 140 }} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
             <option value="all">All Categories</option>
             <option value="laptop">Laptop</option>
             <option value="mobile">Mobile</option>
             <option value="id_card">ID Card</option>
             <option value="access_card">Access Card</option>
             <option value="other">Other</option>
-          </select>
+          </Select>
           <button className="btn bp bsm" onClick={() => setShowForm(true)}><i className="fa-solid fa-plus" /> Add Asset</button>
         </div>
       </div>

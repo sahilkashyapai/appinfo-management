@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 export default function AnnouncementFormModal({ announcement, onClose }) {
@@ -44,11 +45,11 @@ export default function AnnouncementFormModal({ announcement, onClose }) {
         <div className="fg2">
           <div className="fg">
             <label className="fl">Priority</label>
-            <select className="fc" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
+            <Select value={form.priority} onChange={(e) => set('priority', e.target.value)}>
               <option value="high">High</option>
               <option value="medium">Medium</option>
               <option value="low">Low</option>
-            </select>
+            </Select>
           </div>
           <div className="fg"><label className="fl">Icon (emoji)</label><input className="fc" value={form.icon} onChange={(e) => set('icon', e.target.value)} /></div>
         </div>

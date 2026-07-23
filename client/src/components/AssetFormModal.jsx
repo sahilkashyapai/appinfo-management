@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 export default function AssetFormModal({ onClose }) {
@@ -36,13 +37,13 @@ export default function AssetFormModal({ onClose }) {
         <div className="fg2">
           <div className="fg">
             <label className="fl">Category</label>
-            <select className="fc" value={form.category} onChange={(e) => set('category', e.target.value)}>
+            <Select value={form.category} onChange={(e) => set('category', e.target.value)}>
               <option value="laptop">Laptop</option>
               <option value="mobile">Mobile</option>
               <option value="id_card">ID Card</option>
               <option value="access_card">Access Card</option>
               <option value="other">Other</option>
-            </select>
+            </Select>
           </div>
           <div className="fg"><label className="fl">Serial Number</label><input className="fc" value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)} /></div>
         </div>

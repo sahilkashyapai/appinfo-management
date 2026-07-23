@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
 export default function AssetAssignModal({ asset, onClose }) {
@@ -35,12 +36,12 @@ export default function AssetAssignModal({ asset, onClose }) {
         </div>
         <div className="fg">
           <label className="fl">Employee</label>
-          <select className="fc" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
             <option value="">Select an employee…</option>
             {employees.map((e) => (
               <option key={e._id} value={e._id}>{e.name}{e.dept ? ` — ${e.dept}` : ''}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end' }}>
           <button className="btn bs bsm" onClick={onClose}>Cancel</button>

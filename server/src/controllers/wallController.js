@@ -2,9 +2,20 @@ const WallPost = require('../models/WallPost');
 const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
 const { sendPushToUser } = require('../services/pushService');
+const { excludeSuperadminUsers, superadminUserIds } = require('../utils/hideSuperadmin');
 
 const REACTION_TYPES = ['like', 'love', 'celebrate'];
 const REACTION_ICON = { like: '👍', love: '❤️', celebrate: '🎉' };
+
+// Post authorship by a superadmin is already excluded from the feed entirely
+// (see excludeSuperadminUsers in list()), but a superadmin can still comment on
+// someone else's post — this masks their identity in that comment thread for
+// anyone who isn't superadmin, mirroring the Attendance markedBy -> "Admin" redaction.
+async function saIdSetFor(viewerRole) {
+  if (viewerRole === 'superadmin') return null;
+  const ids = await superadminUserIds();
+  return new Set(ids.map(String));
+}
 
 async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' }) {
   try {
@@ -15,7 +26,7 @@ async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' })
   sendPushToUser(authorId, { title, body, url: link }).catch((e) => console.error('[push] wall notify failed:', e.message));
 }
 
-function shapePost(post, userId) {
+function shapePost(post, userId, saIds) {
   const obj = post.toObject();
   const uid = String(userId);
   obj.counts = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].length]));
@@ -28,6 +39,12 @@ function shapePost(post, userId) {
     obj.poll.totalVotes = obj.poll.options.reduce((n, o) => n + o.votes.length, 0);
     obj.poll.options = obj.poll.options.map((o) => ({ text: o.text, count: o.votes.length }));
   }
+
+  if (saIds && obj.comments) {
+    obj.comments = obj.comments.map((c) =>
+      c.authorRef && saIds.has(String(c.authorRef._id)) ? { ...c, authorRef: { ...c.authorRef, name: 'Admin' } } : c
+    );
+  }
   return obj;
 }
 
@@ -35,6 +52,7 @@ async function list(req, res) {
   const { tag, page = 1, limit = 20 } = req.query;
   const filter = {};
   if (tag && tag !== 'all') filter.tag = tag;
+  await excludeSuperadminUsers(filter, req.user.role, 'authorRef');
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
 
@@ -48,7 +66,8 @@ async function list(req, res) {
     WallPost.countDocuments(filter),
   ]);
 
-  res.json({ items: posts.map((p) => shapePost(p, req.user._id)), total, page: pg, pages: Math.ceil(total / lim) || 1 });
+  const saIds = await saIdSetFor(req.user.role);
+  res.json({ items: posts.map((p) => shapePost(p, req.user._id, saIds)), total, page: pg, pages: Math.ceil(total / lim) || 1 });
 }
 
 async function create(req, res) {
@@ -74,7 +93,7 @@ async function create(req, res) {
   const post = await WallPost.create(postData);
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post._id, detail: 'Posted on Celebration Wall' });
-  res.status(201).json({ post: shapePost(post, req.user._id) });
+  res.status(201).json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function update(req, res) {
@@ -91,7 +110,7 @@ async function update(req, res) {
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'wall_posts', recordId: post._id, detail: 'Edited wall post' });
-  res.json({ post: shapePost(post, req.user._id) });
+  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function react(req, res) {
@@ -124,7 +143,7 @@ async function react(req, res) {
     });
   }
 
-  res.json({ post: shapePost(post, req.user._id) });
+  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function votePoll(req, res) {
@@ -149,7 +168,7 @@ async function votePoll(req, res) {
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id) });
+  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function addComment(req, res) {
@@ -172,7 +191,7 @@ async function addComment(req, res) {
     });
   }
 
-  res.status(201).json({ post: shapePost(post, req.user._id) });
+  res.status(201).json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function editComment(req, res) {
@@ -190,7 +209,7 @@ async function editComment(req, res) {
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id) });
+  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function deleteComment(req, res) {
@@ -206,7 +225,7 @@ async function deleteComment(req, res) {
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id) });
+  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
 }
 
 async function remove(req, res) {

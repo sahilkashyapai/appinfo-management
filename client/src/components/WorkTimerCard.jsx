@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -28,6 +29,8 @@ function formatClock(dateStr) {
 }
 
 export default function WorkTimerCard() {
+  const { user } = useAuth();
+  const isSuperadmin = user?.role === 'superadmin';
   const toast = useToast();
   const qc = useQueryClient();
   const [, setTick] = useState(0);
@@ -36,6 +39,7 @@ export default function WorkTimerCard() {
     queryKey: ['time-tracking', 'me', 'today'],
     queryFn: () => api.get('/time-tracking/me/today').then((r) => r.data),
     refetchInterval: 30000,
+    enabled: !isSuperadmin,
   });
 
   const status = data?.timer?.status;
@@ -53,7 +57,7 @@ export default function WorkTimerCard() {
   const resume = useMutation({ mutationFn: () => api.post('/time-tracking/resume'), onSuccess: invalidate, onError });
   const stop = useMutation({ mutationFn: () => api.post('/time-tracking/stop'), onSuccess: invalidate, onError });
 
-  if (!data || !data.enabled) return null;
+  if (isSuperadmin || !data || !data.enabled) return null;
   const timer = data.timer;
 
   let elapsedMs = 0;

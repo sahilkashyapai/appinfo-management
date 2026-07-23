@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { emitToUsers, isUserOnline } = require('../realtime/io');
 const { sendPushToUser } = require('../services/pushService');
+const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 
 const MEMBER_SELECT = 'name avatarIndex avatarUrl role';
 const MAX_ATTACHMENTS = 5;
@@ -25,7 +26,9 @@ function validateAttachments(attachments) {
 }
 
 async function listUsers(req, res) {
-  const users = await User.find({ isActive: true, approvalStatus: 'approved', _id: { $ne: req.user._id } }, MEMBER_SELECT).sort({ name: 1 });
+  const filter = { isActive: true, approvalStatus: 'approved', _id: { $ne: req.user._id } };
+  await excludeSuperadminUsers(filter, req.user.role, '_id');
+  const users = await User.find(filter, MEMBER_SELECT).sort({ name: 1 });
   res.json({ items: users });
 }
 

@@ -5,6 +5,7 @@ import api from '../api/client';
 import Avatar from '../components/Avatar';
 import LeaveRequestModal from '../components/LeaveRequestModal';
 import PromptModal from '../components/PromptModal';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/avatar';
@@ -270,11 +271,11 @@ export default function LeavePage() {
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-chart-column" /> {canApprove ? 'Leave Report — All Employees' : 'My Leave Report'}</div>
             <div style={{ display: 'flex', gap: 7 }}>
-              <select className="fc" style={{ width: 100 }} value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))}>
+              <Select style={{ width: 100 }} value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))}>
                 {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
-              </select>
+              </Select>
               <button className="btn bs bxs" onClick={exportReport}><i className="fa-solid fa-download" /> Export</button>
             </div>
           </div>

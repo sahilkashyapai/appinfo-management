@@ -4,7 +4,11 @@ const documentSchema = new Schema(
   {
     employeeRef: { type: Schema.Types.ObjectId, ref: 'Employee', required: true },
     name: { type: String, required: true, trim: true },
-    category: { type: String, enum: ['offer_letter', 'id_proof', 'certificate', 'other'], default: 'other' },
+    category: {
+      type: String,
+      enum: ['aadhar', 'pan', 'passport', 'joining_letter', 'offer_letter', 'salary_slip', 'experience_letter', 'salary_certificate', 'form16', 'id_proof', 'certificate', 'other'],
+      default: 'other',
+    },
     fileName: { type: String, default: '' },
     fileType: { type: String, default: '' },
     fileUrl: { type: String, required: true }, // base64 data URL

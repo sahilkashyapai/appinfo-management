@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDateTime } from '../utils/avatar';
@@ -105,14 +106,14 @@ export default function WallPage() {
           <div className="pgs">{data?.total || 0} posts</div>
         </div>
         <div className="ph-r">
-          <select className="fc" style={{ width: 130 }} value={tag} onChange={(e) => setTag(e.target.value)}>
+          <Select style={{ width: 130 }} value={tag} onChange={(e) => setTag(e.target.value)}>
             <option value="all">All Posts</option>
             <option value="birthday">Birthdays</option>
             <option value="anniversary">Anniversaries</option>
             <option value="event">Events</option>
             <option value="general">General</option>
             <option value="poll">Polls</option>
-          </select>
+          </Select>
         </div>
       </div>
 
