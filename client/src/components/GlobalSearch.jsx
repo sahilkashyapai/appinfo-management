@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { formatDate } from '../utils/avatar';
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ mobileOpen, onMobileClose }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState(null);
   const [open, setOpen] = useState(false);
@@ -22,6 +22,10 @@ export default function GlobalSearch() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  useEffect(() => {
+    if (mobileOpen) inputRef.current?.focus();
+  }, [mobileOpen]);
 
   function onChange(value) {
     setQ(value);
@@ -45,7 +49,7 @@ export default function GlobalSearch() {
   const hasResults = results && (results.employees.length || results.events.length || results.departments.length);
 
   return (
-    <div className="hs-wrap">
+    <div className={`hs-wrap${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="hs-inner">
         <i className="fa-solid fa-magnifying-glass" />
         <input
@@ -57,6 +61,9 @@ export default function GlobalSearch() {
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 200)}
         />
+        {mobileOpen && (
+          <i className="fa-solid fa-xmark" style={{ cursor: 'pointer' }} onClick={onMobileClose} />
+        )}
       </div>
       {open && q.length >= 2 && (
         <div className="sr-drop show">

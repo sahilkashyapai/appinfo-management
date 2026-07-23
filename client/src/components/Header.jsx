@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +31,7 @@ export default function Header({ onToggleSidebar, onOpenNotifications }) {
   const { data: notifs = [] } = useNotifications();
   const unread = notifs.filter((n) => n.unread).length;
   const navigate = useNavigate();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
     <header id="hdr">
@@ -41,7 +43,10 @@ export default function Header({ onToggleSidebar, onOpenNotifications }) {
         <i className="fa-solid fa-chevron-right" />
         <span className="hcur">{TITLES[pathname] || 'AII Celebrations'}</span>
       </div>
-      <GlobalSearch />
+      <GlobalSearch mobileOpen={mobileSearchOpen} onMobileClose={() => setMobileSearchOpen(false)} />
+      <div className="hbtn hbtn-search-toggle" onClick={() => setMobileSearchOpen((o) => !o)}>
+        <i className="fa-solid fa-magnifying-glass" />
+      </div>
       <div className="hbtn" onClick={onOpenNotifications}>
         <i className="fa-solid fa-bell" />
         {unread > 0 && <div className="ndot" />}

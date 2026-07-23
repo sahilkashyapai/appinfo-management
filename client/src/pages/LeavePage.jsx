@@ -270,7 +270,7 @@ export default function LeavePage() {
         <div className="card">
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-chart-column" /> {canApprove ? 'Leave Report — All Employees' : 'My Leave Report'}</div>
-            <div style={{ display: 'flex', gap: 7 }}>
+            <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               <Select style={{ width: 100 }} value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))}>
                 {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].map((y) => (
                   <option key={y} value={y}>{y}</option>

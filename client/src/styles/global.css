@@ -722,6 +722,10 @@ body.dark {
   background: var(--bg3)
 }
 
+.hbtn-search-toggle {
+  display: none
+}
+
 .hb-menu {
   display: none
 }
@@ -813,6 +817,7 @@ body.dark {
 
 .ph-r {
   display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   align-items: center;
   flex-shrink: 0
@@ -865,6 +870,8 @@ body.dark {
 
 .chd {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 11px
@@ -2322,14 +2329,71 @@ tbody tr:hover td {
   .hs-wrap {
     display: none
   }
+
+  .hbtn-search-toggle {
+    display: flex
+  }
+
+  .hs-wrap.mobile-open {
+    display: flex;
+    position: fixed;
+    top: var(--hh);
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--bd);
+    z-index: 590
+  }
+
+  .hs-wrap.mobile-open .hs-inner,
+  .hs-wrap.mobile-open .hs-inner:focus-within {
+    width: 100%
+  }
 }
 
 /* ORG CHART */
 .org-root {
   display: flex;
+  justify-content: center;
+  width: 100%;
+  max-height: calc(100dvh - 190px);
+  overflow: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.org-root.panning {
+  cursor: grabbing;
+  user-select: none
+}
+
+/* Wraps the SVG connector lines + the tree so both scale together under the
+   same `zoom` value — offsets measured in OrgChartCanvas are zoom-independent
+   layout pixels, so this is the only place zoom needs to be applied. */
+.org-canvas {
+  position: relative
+}
+
+.org-tree {
+  display: flex;
   gap: 40px;
   padding: 20px;
-  min-width: max-content
+  padding-bottom: 40px
+}
+
+.org-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none
+}
+
+.org-lines line {
+  stroke: var(--bd2);
+  stroke-width: 1
 }
 
 .org-node {
@@ -2392,37 +2456,56 @@ tbody tr:hover td {
   display: flex;
   gap: 24px;
   padding-top: 28px;
-  position: relative
+  margin-bottom: 10px;
 }
 
-.org-children::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 20px;
-  background: var(--bd2)
+.org-card.dragging {
+  opacity: .4
 }
 
-.org-children::after {
-  content: '';
-  position: absolute;
-  top: 20px;
-  left: calc(140px / 2);
-  right: calc(140px / 2);
-  height: 1px;
-  background: var(--bd2)
+.org-card.drop-target {
+  border-color: var(--accent);
+  background: rgba(46, 134, 171, .1);
+  box-shadow: 0 0 0 2px var(--accent)
 }
 
-.org-node .org-children > .org-node::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  width: 1px;
-  height: 8px;
-  background: var(--bd2)
+.org-card.drop-invalid {
+  cursor: not-allowed
+}
+
+.org-droproot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 13px;
+  padding: 10px;
+  border: 1.5px dashed var(--bd2);
+  border-radius: var(--rl);
+  color: var(--t3);
+  font-size: 11.5px;
+  font-weight: 700
+}
+
+.org-droproot.drop-target {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(46, 134, 171, .06)
+}
+
+.org-chart-card:fullscreen,
+.org-chart-card:-webkit-full-screen {
+  background: var(--bg);
+  padding: 24px;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center
+}
+
+.org-chart-card:fullscreen .org-root,
+.org-chart-card:-webkit-full-screen .org-root {
+  max-height: calc(100dvh - 48px)
 }
 
 /* ICONS

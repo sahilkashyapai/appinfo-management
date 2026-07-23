@@ -7,6 +7,12 @@ import { useAuth } from '../context/AuthContext';
 import EventFormModal from '../components/EventFormModal';
 import { formatDate } from '../utils/avatar';
 
+const RSVP_BUTTON = {
+  yes: { cls: 'bgn', icon: 'fa-solid fa-circle-check', label: 'Attending' },
+  maybe: { cls: 'bor', icon: 'fa-solid fa-circle-question', label: 'Maybe' },
+  no: { cls: 'brd', icon: 'fa-solid fa-circle-xmark', label: 'Declined' },
+};
+
 const TYPES = [
   { key: 'all', label: 'All' },
   { key: 'festival', label: 'Festival' },
@@ -90,6 +96,10 @@ export default function EventsPage() {
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {e.status === 'draft' ? (
                   canManage && <button className="btn bgn bxs" onClick={() => publish.mutate(e._id)}><i className="fa-solid fa-check" /> Publish</button>
+                ) : e.myRsvp ? (
+                  <button className={`btn ${RSVP_BUTTON[e.myRsvp].cls} bxs`} onClick={() => openRsvp(e._id)}>
+                    <i className={RSVP_BUTTON[e.myRsvp].icon} /> {RSVP_BUTTON[e.myRsvp].label}
+                  </button>
                 ) : (
                   <button className="btn bp bxs" onClick={() => openRsvp(e._id)}><i className="fa-solid fa-user-check" /> RSVP</button>
                 )}

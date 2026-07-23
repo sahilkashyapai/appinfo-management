@@ -96,7 +96,7 @@ export default function AssetsPage() {
                   </td>
                   <td><span className={`badge ${STATUS_BADGE[a.status]}`}>{a.status}</span></td>
                   <td>
-                    <div style={{ display: 'flex', gap: 3 }}>
+                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                       <button className="btn bs bxs" onClick={() => setAssigning(a)}>Assign</button>
                       {a.status === 'assigned' && (
                         <button className="btn bs bxs" onClick={() => updateStatus.mutate({ id: a._id, status: 'returned' })}>Return</button>

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useToast } from '../context/ToastContext';
 import AnnouncementFormModal from '../components/AnnouncementFormModal';
+import CandidateReviewModal from '../components/CandidateReviewModal';
 import Select from '../components/Select';
 import { formatDate } from '../utils/avatar';
 
@@ -16,6 +17,7 @@ const GENDER_LABEL = { male: 'Male', female: 'Female', other: 'Other' };
 
 export default function HiringPage() {
   const [formState, setFormState] = useState(undefined); // undefined=closed, {}=create, {announcement}=edit
+  const [reviewCandidate, setReviewCandidate] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -188,8 +190,8 @@ export default function HiringPage() {
 
       {candidates.map((c) => (
         <div className="card mb13" key={c._id}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--t1)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
                 {c.name}
                 <span className={`badge ${STATUS_BADGE[c.status]}`}>{STATUS_LABEL[c.status]}</span>
@@ -224,13 +226,20 @@ export default function HiringPage() {
                 </span>
                 <span>Applied {formatDate(c.createdAt)}</span>
               </div>
+              {(c.referrerComment || c.notes) && (
+                <div style={{ fontSize: 11.5, color: 'var(--t2)', background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '7px 9px', marginTop: 7 }}>
+                  {c.referrerComment && <div><i className="fa-solid fa-comment" style={{ color: 'var(--t3)', marginRight: 5 }} />{c.referrerComment}</div>}
+                  {c.notes && <div style={{ marginTop: c.referrerComment ? 4 : 0 }}><i className="fa-solid fa-lock" style={{ color: 'var(--t3)', marginRight: 5 }} /><em>Internal:</em> {c.notes}</div>}
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
               <div style={{ width: 130 }}>
                 <Select value={c.status} onChange={(e) => updateStatus.mutate({ id: c._id, status: e.target.value })}>
                   {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                 </Select>
               </div>
+              <button className="btn bs bxs bico" title="Add comment / notes" onClick={() => setReviewCandidate(c)}><i className="fa-solid fa-comment" /></button>
               <button className="btn bs bxs bico" title="Preview resume" onClick={() => previewResume(c)}><i className="fa-solid fa-eye" /></button>
               <button className="btn bs bxs bico" title="Download resume" onClick={() => downloadResume(c)}><i className="fa-solid fa-download" /></button>
               <button className="btn brd bxs bico" onClick={() => removeCandidate.mutate(c._id)}><i className="fa-solid fa-trash" /></button>
@@ -243,6 +252,7 @@ export default function HiringPage() {
       {formState !== undefined && (
         <AnnouncementFormModal announcement={formState.announcement} defaultType="hiring" lockType onClose={() => setFormState(undefined)} />
       )}
+      {reviewCandidate && <CandidateReviewModal candidate={reviewCandidate} onClose={() => setReviewCandidate(null)} />}
     </div>
   );
 }

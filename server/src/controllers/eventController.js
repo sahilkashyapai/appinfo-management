@@ -3,14 +3,21 @@ const Rsvp = require('../models/Rsvp');
 const writeAudit = require('../utils/audit');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
-async function withRsvpCounts(events) {
+async function withRsvpCounts(events, employeeRef) {
   const ids = events.map((e) => e._id);
   const counts = await Rsvp.aggregate([
     { $match: { eventRef: { $in: ids }, status: 'yes' } },
     { $group: { _id: '$eventRef', count: { $sum: 1 } } },
   ]);
   const map = Object.fromEntries(counts.map((c) => [String(c._id), c.count]));
-  return events.map((e) => ({ ...e.toObject(), rsvp: map[String(e._id)] || 0 }));
+
+  let myRsvpMap = {};
+  if (employeeRef) {
+    const mine = await Rsvp.find({ eventRef: { $in: ids }, employeeRef }, 'eventRef status');
+    myRsvpMap = Object.fromEntries(mine.map((r) => [String(r.eventRef), r.status]));
+  }
+
+  return events.map((e) => ({ ...e.toObject(), rsvp: map[String(e._id)] || 0, myRsvp: myRsvpMap[String(e._id)] || null }));
 }
 
 async function list(req, res) {
@@ -19,13 +26,13 @@ async function list(req, res) {
   if (type && type !== 'all') filter.type = type;
   if (status && status !== 'all') filter.status = status;
   const events = await Event.find(filter).sort({ date: 1 });
-  res.json({ items: await withRsvpCounts(events) });
+  res.json({ items: await withRsvpCounts(events, req.user.employeeRef) });
 }
 
 async function getOne(req, res) {
   const event = await Event.findById(req.params.id);
   if (!event) return res.status(404).json({ message: 'Event not found.' });
-  const [items] = await withRsvpCounts([event]);
+  const [items] = await withRsvpCounts([event], req.user.employeeRef);
   res.json({ event: items });
 }
 

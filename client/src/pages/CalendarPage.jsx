@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
-import { useToast } from '../context/ToastContext';
+import Avatar from '../components/Avatar';
+import { useDrawers } from '../context/DrawerContext';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const FULL_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const COLOR = { bd: 'var(--accent)', an: 'var(--gold)', ev: 'var(--green)', ho: 'var(--red)' };
+const ICON = { bd: 'fa-solid fa-cake-candles', an: 'fa-solid fa-medal', ev: 'fa-solid fa-calendar-days', ho: 'fa-solid fa-umbrella-beach' };
 
 export default function CalendarPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth()); // 0-indexed
-  const toast = useToast();
+  const [selectedDay, setSelectedDay] = useState(null);
+  const { openEmployee, openRsvp } = useDrawers();
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-all-active'],
@@ -19,31 +24,49 @@ export default function CalendarPage() {
   const { data: events = [] } = useQuery({ queryKey: ['events', 'all'], queryFn: () => api.get('/events', { params: { type: 'all' } }).then((r) => r.data.items) });
   const { data: holidays = [] } = useQuery({ queryKey: ['holidays'], queryFn: () => api.get('/holidays').then((r) => r.data.items) });
 
-  const dayMap = useMemo(() => {
+  // Full detail per day (for the day-detail popover), keyed by day-of-month.
+  const dayItemsMap = useMemo(() => {
     const map = {};
-    const add = (day, marker, label) => {
-      if (!map[day]) map[day] = { markers: [], label: null };
-      map[day].markers.push(marker);
-      if (!map[day].label) map[day].label = label;
+    const add = (day, item) => {
+      if (!map[day]) map[day] = [];
+      map[day].push(item);
     };
     employees.forEach((e) => {
       const dob = new Date(e.dob);
-      if (dob.getMonth() === month) add(dob.getDate(), 'bd', `${e.name.split(' ')[0]} Bday`);
+      if (dob.getMonth() === month) {
+        add(dob.getDate(), { type: 'bd', title: `${e.name}'s Birthday`, subtitle: e.dept, employeeId: e._id, avatarName: e.name, avatarIndex: e.avatarIndex });
+      }
     });
     employees.forEach((e) => {
       const joined = new Date(e.joined);
-      if (joined.getMonth() === month && year - joined.getFullYear() >= 1) add(joined.getDate(), 'an', `${e.name.split(' ')[0]} Anniv.`);
+      const years = year - joined.getFullYear();
+      if (joined.getMonth() === month && years >= 1) {
+        add(joined.getDate(), { type: 'an', title: `${e.name}'s Work Anniversary`, subtitle: `${years} year(s) at ${e.dept}`, employeeId: e._id, avatarName: e.name, avatarIndex: e.avatarIndex });
+      }
     });
     events.forEach((e) => {
       const d = new Date(e.date);
-      if (d.getMonth() === month && d.getFullYear() === year) add(d.getDate(), 'ev', e.title);
+      if (d.getMonth() === month && d.getFullYear() === year) {
+        add(d.getDate(), { type: 'ev', title: e.title, subtitle: e.venue, eventId: e._id, emoji: e.emoji });
+      }
     });
     holidays.forEach((h) => {
       const d = new Date(h.date);
-      if (d.getMonth() === month) add(d.getDate(), 'ho', h.name);
+      if (d.getMonth() === month) {
+        add(d.getDate(), { type: 'ho', title: h.name, subtitle: h.type + (h.description ? ` · ${h.description}` : '') });
+      }
     });
     return map;
   }, [employees, events, holidays, month, year]);
+
+  // Compact summary per day (dots + first label) for the month grid cells.
+  const dayMap = useMemo(() => {
+    const map = {};
+    Object.entries(dayItemsMap).forEach(([day, items]) => {
+      map[day] = { markers: items.map((it) => it.type), label: items[0].title.length > 20 ? items[0].title.slice(0, 18) + '…' : items[0].title };
+    });
+    return map;
+  }, [dayItemsMap]);
 
   const first = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -70,7 +93,13 @@ export default function CalendarPage() {
     cells.push({ n: d, other: false, isToday, ...dayMap[d] });
   }
 
-  const COLOR = { bd: 'var(--accent)', an: 'var(--gold)', ev: 'var(--green)', ho: 'var(--red)' };
+  const selectedItems = selectedDay ? dayItemsMap[selectedDay] || [] : [];
+  const selectedWeekday = selectedDay ? FULL_WEEKDAYS[new Date(year, month, selectedDay).getDay()] : '';
+
+  function onItemClick(item) {
+    if (item.employeeId) openEmployee(item.employeeId);
+    else if (item.eventId) openRsvp(item.eventId);
+  }
 
   return (
     <div className="page on">
@@ -100,7 +129,7 @@ export default function CalendarPage() {
           <div
             key={i}
             className={`cday${c.isToday ? ' today' : ''}${c.other ? ' other' : ''}`}
-            onClick={() => !c.other && toast(`${c.n} ${MONTHS[month]} ${year}${c.label ? ' — ' + c.label : ''}`, 'info')}
+            onClick={() => !c.other && setSelectedDay(c.n)}
           >
             <div className="cday-n">{c.n}</div>
             {c.markers && (
@@ -114,6 +143,49 @@ export default function CalendarPage() {
           </div>
         ))}
       </div>
+
+      {selectedDay && (
+        <div
+          style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(13,27,42,.55)', zIndex: 950, alignItems: 'center', justifyContent: 'center' }}
+          onClick={(e) => e.target === e.currentTarget && setSelectedDay(null)}
+        >
+          <div className="card" style={{ width: 'min(440px, 92vw)', maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div className="chd">
+              <div className="cht"><i className="fa-solid fa-calendar-day" /> {selectedWeekday}, {MONTHS[month]} {selectedDay}, {year}</div>
+              <button className="btn bs bxs bico" onClick={() => setSelectedDay(null)}><i className="fa-solid fa-xmark" /></button>
+            </div>
+            {selectedItems.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--t3)' }}>Nothing scheduled on this day.</div>
+            )}
+            {selectedItems.map((item, i) => (
+              <div
+                className="pr"
+                key={i}
+                style={{ cursor: item.employeeId || item.eventId ? 'pointer' : 'default' }}
+                onClick={() => onItemClick(item)}
+              >
+                {item.employeeId ? (
+                  <Avatar name={item.avatarName} index={item.avatarIndex} size={32} />
+                ) : (
+                  <div
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `${COLOR[item.type]}18`, color: COLOR[item.type], fontSize: item.emoji ? 16 : 13,
+                    }}
+                  >
+                    {item.emoji || <i className={ICON[item.type]} />}
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>{item.title}</div>
+                  {item.subtitle && <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{item.subtitle}</div>}
+                </div>
+                {item.eventId && <i className="fa-solid fa-chevron-right" style={{ color: 'var(--t3)', fontSize: 11 }} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

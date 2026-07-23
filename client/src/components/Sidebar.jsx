@@ -18,6 +18,7 @@ const ADMIN_NAV = [
       { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
       { to: '/my-report', label: 'My Report', icon: 'fa-solid fa-chart-simple' },
       { to: '/documents', label: 'My Documents', icon: 'fa-solid fa-file-lines' },
+      { to: '/my-referrals', label: 'My Referrals', icon: 'fa-solid fa-user-plus' },
       { to: '/birthdays', label: 'Birthdays', icon: 'fa-solid fa-cake-candles' },
       { to: '/anniversaries', label: 'Anniversaries', icon: 'fa-solid fa-medal' },
     ],
@@ -68,6 +69,7 @@ const EMPLOYEE_NAV = [
       { to: '/leave', label: 'Leave', icon: 'fa-solid fa-plane-departure' },
       { to: '/my-report', label: 'My Report', icon: 'fa-solid fa-chart-simple' },
       { to: '/documents', label: 'My Documents', icon: 'fa-solid fa-file-lines' },
+      { to: '/my-referrals', label: 'My Referrals', icon: 'fa-solid fa-user-plus' },
     ],
   },
   {

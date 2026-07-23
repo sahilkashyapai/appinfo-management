@@ -17,7 +17,9 @@ const jobApplicationSchema = new Schema(
     source: { type: String, enum: ['careers_page', 'referral'], default: 'careers_page' },
     referrerRef: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     status: { type: String, enum: ['new', 'reviewed', 'shortlisted', 'rejected', 'hired'], default: 'new' },
-    notes: { type: String, default: '' },
+    notes: { type: String, default: '' }, // internal HR notes — never shown to the referrer
+    referrerComment: { type: String, default: '' }, // HR feedback shown to the referring employee
+
     // Marks records created by the demo/dummy-data seed script — lets a superadmin
     // wipe sample data cleanly before go-live without touching real applicants.
     isDemo: { type: Boolean, default: false },

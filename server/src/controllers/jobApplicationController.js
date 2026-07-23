@@ -80,6 +80,81 @@ async function submitReferral(req, res) {
   res.status(201).json({ message: 'Referral submitted.' });
 }
 
+// Authenticated (any employee): the candidates *they* referred, with status
+// and any HR feedback meant for the referrer — never internal notes or the resume.
+async function myReferrals(req, res) {
+  const items = await JobApplication.find({ referrerRef: req.user._id, source: 'referral' })
+    .select('name phone department status referrerComment resumeName createdAt')
+    .sort({ createdAt: -1 });
+  res.json({ items });
+}
+
+// Only the referrer who submitted it may edit/withdraw, and only before HR has
+// started reviewing — once it's moved past 'new' the record is no longer theirs to change.
+async function assertOwnEditableReferral(req, res) {
+  const application = await JobApplication.findById(req.params.id);
+  if (!application) {
+    res.status(404).json({ message: 'Referral not found.' });
+    return null;
+  }
+  if (application.source !== 'referral' || String(application.referrerRef) !== String(req.user._id)) {
+    res.status(403).json({ message: 'You can only manage referrals you submitted.' });
+    return null;
+  }
+  if (application.status !== 'new') {
+    res.status(400).json({ message: 'This referral is already being reviewed and can no longer be changed.' });
+    return null;
+  }
+  return application;
+}
+
+async function updateReferral(req, res) {
+  const application = await assertOwnEditableReferral(req, res);
+  if (!application) return;
+
+  const { candidateName, candidatePhone, department, resumeUrl, resumeName } = req.body;
+  if (!candidateName || !candidatePhone || !department) {
+    return res.status(400).json({ message: 'Candidate name, mobile number, and department are required.' });
+  }
+  if (resumeUrl) {
+    const resumeError = validateResume(resumeUrl);
+    if (resumeError) return res.status(400).json({ message: resumeError });
+    application.resumeUrl = resumeUrl;
+    application.resumeName = resumeName || '';
+  }
+  application.name = candidateName;
+  application.phone = candidatePhone;
+  application.department = department;
+  await application.save();
+
+  await writeAudit({
+    ip: req.ip,
+    user: req.user,
+    action: 'UPDATE',
+    entity: 'job_applications',
+    recordId: application._id,
+    detail: `${req.user.name} edited referral for ${candidateName}`,
+  });
+
+  res.json({ message: 'Referral updated.' });
+}
+
+async function deleteReferral(req, res) {
+  const application = await assertOwnEditableReferral(req, res);
+  if (!application) return;
+
+  await application.deleteOne();
+  await writeAudit({
+    ip: req.ip,
+    user: req.user,
+    action: 'DELETE',
+    entity: 'job_applications',
+    recordId: application._id,
+    detail: `${req.user.name} withdrew referral for ${application.name}`,
+  });
+  res.json({ message: 'Referral withdrawn.' });
+}
+
 async function list(req, res) {
   const { status, department, from, to } = req.query;
   const filter = {};
@@ -101,7 +176,7 @@ async function getOne(req, res) {
 }
 
 async function updateStatus(req, res) {
-  const { status, notes } = req.body;
+  const { status, notes, referrerComment } = req.body;
   const application = await JobApplication.findById(req.params.id);
   if (!application) return res.status(404).json({ message: 'Application not found.' });
 
@@ -112,6 +187,7 @@ async function updateStatus(req, res) {
     application.status = status;
   }
   if (notes !== undefined) application.notes = notes;
+  if (referrerComment !== undefined) application.referrerComment = referrerComment;
   await application.save();
 
   await writeAudit({
@@ -141,4 +217,4 @@ async function remove(req, res) {
   res.json({ message: 'Application deleted.' });
 }
 
-module.exports = { apply, submitReferral, list, getOne, updateStatus, remove };
+module.exports = { apply, submitReferral, myReferrals, updateReferral, deleteReferral, list, getOne, updateStatus, remove };

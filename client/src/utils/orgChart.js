@@ -12,3 +12,23 @@ export function buildOrgTree(items) {
   }
   return roots;
 }
+
+// Finds a node anywhere in a built tree by id.
+export function findOrgNode(tree, id) {
+  for (const node of tree) {
+    if (node._id === id) return node;
+    const found = findOrgNode(node.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+// A node's own id plus every descendant's id — dropping a node onto any of
+// these would create a cycle (you can't report to your own report).
+export function collectSubtreeIds(node) {
+  const ids = new Set([node._id]);
+  for (const child of node.children) {
+    for (const id of collectSubtreeIds(child)) ids.add(id);
+  }
+  return ids;
+}

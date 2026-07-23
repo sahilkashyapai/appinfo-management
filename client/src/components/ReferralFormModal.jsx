@@ -7,11 +7,12 @@ import { useToast } from '../context/ToastContext';
 
 const MAX_RESUME_BYTES = 4 * 1024 * 1024;
 
-export default function ReferralFormModal({ onClose }) {
+export default function ReferralFormModal({ referral, onClose }) {
+  const isEdit = !!referral;
   const { user } = useAuth();
-  const [candidateName, setCandidateName] = useState('');
-  const [candidatePhone, setCandidatePhone] = useState('');
-  const [department, setDepartment] = useState('');
+  const [candidateName, setCandidateName] = useState(referral?.name || '');
+  const [candidatePhone, setCandidatePhone] = useState(referral?.phone || '');
+  const [department, setDepartment] = useState(referral?.department || '');
   const [resume, setResume] = useState(null);
   const [err, setErr] = useState('');
   const fileInputRef = useRef(null);
@@ -24,13 +25,14 @@ export default function ReferralFormModal({ onClose }) {
   });
 
   const submit = useMutation({
-    mutationFn: (body) => api.post('/job-applications/refer', body),
+    mutationFn: (body) => (isEdit ? api.patch(`/job-applications/${referral._id}/referral`, body) : api.post('/job-applications/refer', body)),
     onSuccess: () => {
-      toast(`Thanks! ${candidateName} has been referred for ${department}.`, 'success');
+      toast(isEdit ? 'Referral updated ✓' : `Thanks! ${candidateName} has been referred for ${department}.`, 'success');
       qc.invalidateQueries({ queryKey: ['job-applications'] });
+      qc.invalidateQueries({ queryKey: ['my-referrals'] });
       onClose();
     },
-    onError: (ex) => setErr(ex.response?.data?.message || 'Could not submit referral.'),
+    onError: (ex) => setErr(ex.response?.data?.message || `Could not ${isEdit ? 'update' : 'submit'} referral.`),
   });
 
   function onFileSelected(e) {
@@ -51,19 +53,18 @@ export default function ReferralFormModal({ onClose }) {
       setErr('Please fill in the candidate name, mobile number, and department.');
       return;
     }
-    if (!resume) {
+    if (!resume && !isEdit) {
       setErr('Please attach the candidate’s resume.');
       return;
     }
+
+    const payload = { candidateName: candidateName.trim(), candidatePhone: candidatePhone.trim(), department };
+    if (!resume) {
+      submit.mutate(payload);
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () =>
-      submit.mutate({
-        candidateName: candidateName.trim(),
-        candidatePhone: candidatePhone.trim(),
-        department,
-        resumeUrl: reader.result,
-        resumeName: resume.name,
-      });
+    reader.onload = () => submit.mutate({ ...payload, resumeUrl: reader.result, resumeName: resume.name });
     reader.readAsDataURL(resume);
   }
 
@@ -74,7 +75,7 @@ export default function ReferralFormModal({ onClose }) {
     >
       <div className="card" style={{ width: 'min(440px, 92vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-user-plus" /> Refer a Candidate</div>
+          <div className="cht"><i className="fa-solid fa-user-plus" /> {isEdit ? 'Edit Referral' : 'Refer a Candidate'}</div>
           <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
         </div>
 
@@ -103,10 +104,13 @@ export default function ReferralFormModal({ onClose }) {
         <div className="fg">
           <label className="fl">Resume (max 4MB)</label>
           <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" hidden onChange={onFileSelected} />
-          {resume ? (
+          {resume || (isEdit && referral.resumeName) ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '7px 10px' }}>
               <i className="fa-solid fa-file" style={{ color: 'var(--t3)' }} />
-              <div style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resume.name}</div>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 11.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {resume ? resume.name : referral.resumeName}
+                {!resume && <span style={{ color: 'var(--t3)', fontWeight: 400 }}> (current)</span>}
+              </div>
               <button className="btn bs bxs" type="button" onClick={() => fileInputRef.current?.click()}><i className="fa-solid fa-rotate" /> Replace</button>
             </div>
           ) : (
@@ -119,7 +123,7 @@ export default function ReferralFormModal({ onClose }) {
         <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', marginTop: 4 }}>
           <button className="btn bs bsm" onClick={onClose}>Cancel</button>
           <button className="btn bp bsm" disabled={submit.isPending} onClick={onSubmit}>
-            <i className="fa-solid fa-check" /> Submit Referral
+            <i className="fa-solid fa-check" /> {isEdit ? 'Save Changes' : 'Submit Referral'}
           </button>
         </div>
       </div>

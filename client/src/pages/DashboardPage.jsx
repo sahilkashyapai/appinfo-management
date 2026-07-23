@@ -141,7 +141,7 @@ export default function DashboardPage() {
       <div className="card mb14">
         <div className="chd">
           <div className="cht" style={{ color: 'var(--green)' }}><i className="fa-solid fa-briefcase" /> Hiring Alerts</div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {canManageHiring && <button className="btn bp bxs" onClick={() => setShowHiringForm(true)}><i className="fa-solid fa-plus" /> Post Alert</button>}
             <button className="btn bs bxs" onClick={() => setShowReferralForm(true)}><i className="fa-solid fa-user-plus" /> Refer a Candidate</button>
             <button className="btn bs bxs" onClick={() => navigate(canManageHiring ? '/hiring' : '/announcements')}>View all</button>

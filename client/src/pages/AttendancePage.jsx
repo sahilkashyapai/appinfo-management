@@ -141,7 +141,7 @@ export default function AttendancePage() {
         <div className="card mb13">
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-calendar-check" /> Mark Attendance</div>
-            <DatePicker style={{ width: 160 }} value={markDate} onChange={setMarkDate} max={todayInputDate()} />
+            <DatePicker style={{ width: '100%', maxWidth: 160 }} value={markDate} onChange={setMarkDate} max={todayInputDate()} />
           </div>
           {dayLoading ? (
             <div style={{ fontSize: 12, color: 'var(--t3)' }}>Loading…</div>
@@ -186,7 +186,7 @@ export default function AttendancePage() {
       <div className="card">
         <div className="chd">
           <div className="cht"><i className="fa-solid fa-clock-rotate-left" /> History</div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {canViewTeam && (
               <Select style={{ width: 180 }} value={historyEmployeeId} onChange={(e) => setHistoryEmployeeId(e.target.value)}>
                 <option value="">Select employee…</option>

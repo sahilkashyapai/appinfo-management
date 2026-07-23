@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import api from '../api/client';
 import { useDrawers } from '../context/DrawerContext';
@@ -18,6 +18,11 @@ export default function RsvpModal() {
     queryFn: () => api.get(`/events/${rsvpEventId}`).then((r) => r.data.event),
     enabled: !!rsvpEventId,
   });
+
+  // Preselect whatever the user already RSVP'd, so reopening the modal shows their current answer.
+  useEffect(() => {
+    if (data) setSelected(data.myRsvp || null);
+  }, [data]);
 
   const submit = useMutation({
     mutationFn: (status) => api.post(`/events/${rsvpEventId}/rsvp`, { status }),
@@ -68,7 +73,7 @@ export default function RsvpModal() {
           <div style={{ display: 'flex', gap: 7, marginTop: 16, justifyContent: 'flex-end' }}>
             <button className="btn bs bsm" onClick={close}>Cancel</button>
             <button className="btn bp bsm" disabled={!selected || submit.isPending} onClick={() => submit.mutate(selected)}>
-              <i className="fa-solid fa-check" /> Confirm RSVP
+              <i className="fa-solid fa-check" /> {data?.myRsvp ? 'Update RSVP' : 'Confirm RSVP'}
             </button>
           </div>
         </div>

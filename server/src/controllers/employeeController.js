@@ -115,7 +115,7 @@ async function nextId(req, res) {
 
 async function orgChart(req, res) {
   const employees = await Employee.find({ status: 'active' })
-    .select('name desig dept avatarIndex managerRef userRef')
+    .select('name desig dept roleLabel avatarIndex managerRef userRef')
     .populate('userRef', 'avatarUrl role')
     .lean();
 
@@ -126,6 +126,7 @@ async function orgChart(req, res) {
     name: e.name,
     desig: e.desig,
     dept: e.dept,
+    roleLabel: e.roleLabel,
     avatarIndex: e.avatarIndex,
     avatarUrl: e.userRef?.avatarUrl || '',
     managerRef: e.managerRef ? String(e.managerRef) : null,
@@ -202,6 +203,23 @@ async function update(req, res) {
   }
   if (updates.joined) updates.joined = new Date(updates.joined);
   if (updates.dob) updates.dob = new Date(updates.dob);
+
+  if (updates.managerRef !== undefined && updates.managerRef) {
+    if (String(updates.managerRef) === String(req.params.id)) {
+      return res.status(400).json({ message: 'An employee cannot be their own manager.' });
+    }
+    // Walk up the proposed new manager's chain — if it leads back to this employee, it's a cycle.
+    let cursor = await Employee.findById(updates.managerRef, 'managerRef');
+    const seen = new Set();
+    while (cursor) {
+      if (String(cursor._id) === String(req.params.id)) {
+        return res.status(400).json({ message: 'That would create a circular reporting line.' });
+      }
+      if (seen.has(String(cursor._id))) break; // guard against any pre-existing bad data
+      seen.add(String(cursor._id));
+      cursor = cursor.managerRef ? await Employee.findById(cursor.managerRef, 'managerRef') : null;
+    }
+  }
 
   const emp = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });

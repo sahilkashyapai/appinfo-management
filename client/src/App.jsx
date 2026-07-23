@@ -31,6 +31,7 @@ import AssetsPage from './pages/AssetsPage';
 import DocumentsPage from './pages/DocumentsPage';
 import AdminsPage from './pages/AdminsPage';
 import HiringPage from './pages/HiringPage';
+import MyReferralsPage from './pages/MyReferralsPage';
 import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
 
 export default function App() {
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
         <Route path="admins" element={<ProtectedRoute roles={ADMIN_ROLES}><AdminsPage /></ProtectedRoute>} />
         <Route path="hiring" element={<ProtectedRoute roles={APPROVER_ROLES}><HiringPage /></ProtectedRoute>} />
+        <Route path="my-referrals" element={<MyReferralsPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>
