@@ -76,6 +76,34 @@ export default function OrgChartPage() {
     };
   }, [isPanning]);
 
+  // Wheel-to-zoom, centered on the cursor: attached as a native (non-passive)
+  // listener because React 17+ marks its own onWheel as passive, which would
+  // silently ignore preventDefault and let the page/container scroll instead.
+  useEffect(() => {
+    const el = panRef.current;
+    if (!el) return;
+    function onWheel(e) {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left + el.scrollLeft;
+      const offsetY = e.clientY - rect.top + el.scrollTop;
+      const ratioX = offsetX / el.scrollWidth;
+      const ratioY = offsetY / el.scrollHeight;
+
+      setZoom((z) => {
+        const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, +(z - Math.sign(e.deltaY) * 0.1).toFixed(2)));
+        if (nextZoom === z) return z;
+        requestAnimationFrame(() => {
+          el.scrollLeft = ratioX * el.scrollWidth - (e.clientX - rect.left);
+          el.scrollTop = ratioY * el.scrollHeight - (e.clientY - rect.top);
+        });
+        return nextZoom;
+      });
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
   function onCanvasMouseDown(e) {
     if (e.button !== 0 || e.target.closest('.org-card')) return;
     startPan(e.clientX, e.clientY);
