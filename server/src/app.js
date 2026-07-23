@@ -28,6 +28,8 @@ const pushRoutes = require('./routes/pushRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const assetRoutes = require('./routes/assetRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
+const demoDataRoutes = require('./routes/demoDataRoutes');
 
 const app = express();
 
@@ -64,6 +66,8 @@ app.use('/api/push', pushRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/admins', adminRoutes);
+app.use('/api/job-applications', jobApplicationRoutes);
+app.use('/api/demo-data', demoDataRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -42,6 +42,7 @@ const ADMIN_NAV = [
     section: 'Admin',
     items: [
       { to: '/registrations', label: 'Registrations', icon: 'fa-solid fa-user-check', roles: APPROVER_ROLES },
+      { to: '/hiring', label: 'Hiring', icon: 'fa-solid fa-briefcase', roles: APPROVER_ROLES },
       { to: '/admins', label: 'Admins', icon: 'fa-solid fa-user-shield' },
       { to: '/departments', label: 'Departments', icon: 'fa-solid fa-building' },
       { to: '/holidays', label: 'Holidays', icon: 'fa-solid fa-umbrella-beach' },
@@ -77,6 +78,7 @@ const EMPLOYEE_NAV = [
       { to: '/events', label: 'Events', icon: 'fa-solid fa-calendar-days' },
       { to: '/wall', label: 'Celebration Wall', icon: 'fa-solid fa-heart' },
       { to: '/calendar', label: 'Calendar', icon: 'fa-solid fa-calendar' },
+      { to: '/holidays', label: 'Holidays', icon: 'fa-solid fa-umbrella-beach' },
     ],
   },
   {

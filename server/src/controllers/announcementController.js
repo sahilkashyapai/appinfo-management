@@ -1,9 +1,12 @@
 const Announcement = require('../models/Announcement');
+const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
 const { superadminUserIds } = require('../utils/hideSuperadmin');
 
 async function list(req, res) {
-  const items = await Announcement.find({}).populate('postedByRef', 'name').sort({ pinned: -1, createdAt: -1 });
+  const filter = {};
+  if (req.query.type) filter.type = req.query.type;
+  const items = await Announcement.find(filter).populate('postedByRef', 'name').sort({ pinned: -1, createdAt: -1 });
 
   let shaped = items;
   if (req.user.role !== 'superadmin') {
@@ -22,19 +25,34 @@ async function list(req, res) {
 }
 
 async function create(req, res) {
-  const { title, body, priority, icon, pinned, scheduledAt, expiresAt } = req.body;
+  const { title, body, type, priority, icon, pinned, scheduledAt, expiresAt } = req.body;
   if (!title || !body) return res.status(400).json({ message: 'title and body are required.' });
+  const isHiring = type === 'hiring';
   const ann = await Announcement.create({
     title,
     body,
+    type: isHiring ? 'hiring' : 'general',
     priority: priority || 'medium',
-    icon: icon || '📢',
+    icon: icon || (isHiring ? '💼' : '📢'),
     pinned: !!pinned,
     postedByRef: req.user._id,
     scheduledAt: scheduledAt || null,
     expiresAt: expiresAt || null,
   });
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'announcements', recordId: ann._id, detail: `Created announcement: ${ann.title}` });
+
+  if (isHiring) {
+    await Notification.create({
+      recipientRef: null,
+      icon: ann.icon,
+      bg: '#D5F5E3',
+      title: `Hiring Alert: ${ann.title}`,
+      body: ann.body,
+      type: 'hiring',
+      link: '/announcements',
+    });
+  }
+
   res.status(201).json({ announcement: ann });
 }
 

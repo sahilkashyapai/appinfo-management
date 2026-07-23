@@ -15,6 +15,7 @@ const eventSchema = new Schema(
     color: { type: String, default: '#2E86AB' },
     capacity: { type: Number, default: 100 },
     createdByRef: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

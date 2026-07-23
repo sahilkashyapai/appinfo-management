@@ -2,9 +2,12 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDateTime } from '../utils/avatar';
+
+const BRANCHES = ['USA', 'India', 'South Africa'];
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
@@ -24,6 +27,7 @@ export default function ProfilePage() {
   const photoInputRef = useRef(null);
 
   const { data } = useQuery({ queryKey: ['profile'], queryFn: () => api.get('/profile').then((r) => r.data) });
+  const { data: depts = [] } = useQuery({ queryKey: ['departments'], queryFn: () => api.get('/departments').then((r) => r.data.items) });
 
   const [form, setForm] = useState(null);
   const [pwd, setPwd] = useState({ currentPassword: '', newPassword: '', confirm: '' });
@@ -166,9 +170,23 @@ export default function ProfilePage() {
               <div className="fg"><label className="fl">Full Name</label><input className="fc" value={profile.name} onChange={(e) => setForm({ ...profile, name: e.target.value })} /></div>
               <div className="fg"><label className="fl">Email</label><input className="fc" value={profile.email} onChange={(e) => setForm({ ...profile, email: e.target.value })} /></div>
               <div className="fg"><label className="fl">Phone</label><input className="fc" value={profile.phone || ''} onChange={(e) => setForm({ ...profile, phone: e.target.value })} /></div>
-              <div className="fg"><label className="fl">Department</label><input className="fc" value={profile.department || ''} onChange={(e) => setForm({ ...profile, department: e.target.value })} /></div>
+              <div className="fg">
+                <label className="fl">Department</label>
+                <Select value={profile.department || ''} onChange={(e) => setForm({ ...profile, department: e.target.value })}>
+                  <option value="">Select department</option>
+                  {depts.map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
+                  {profile.department && !depts.some((d) => d.name === profile.department) && <option value={profile.department}>{profile.department}</option>}
+                </Select>
+              </div>
               <div className="fg"><label className="fl">Location</label><input className="fc" value={profile.location || ''} onChange={(e) => setForm({ ...profile, location: e.target.value })} /></div>
-              <div className="fg"><label className="fl">Branch</label><input className="fc" value={profile.branch || ''} onChange={(e) => setForm({ ...profile, branch: e.target.value })} /></div>
+              <div className="fg">
+                <label className="fl">Branch</label>
+                <Select value={profile.branch || ''} onChange={(e) => setForm({ ...profile, branch: e.target.value })}>
+                  <option value="">Select branch</option>
+                  {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+                  {profile.branch && !BRANCHES.includes(profile.branch) && <option value={profile.branch}>{profile.branch}</option>}
+                </Select>
+              </div>
             </div>
             <button className="btn bp bsm" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}><i className="fa-solid fa-check" /> Save Changes</button>
           </div>

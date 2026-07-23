@@ -1,0 +1,20 @@
+const express = require('express');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const ctrl = require('../controllers/jobApplicationController');
+
+const router = express.Router();
+
+// Public — the candidate-facing application form uses this, no login involved.
+router.post('/', ctrl.apply);
+
+// Any signed-in employee can refer a candidate — not just admins.
+router.post('/refer', requireAuth, ctrl.submitReferral);
+
+router.use(requireAuth, requireRole('superadmin', 'hr'));
+
+router.get('/', ctrl.list);
+router.get('/:id', ctrl.getOne);
+router.patch('/:id', ctrl.updateStatus);
+router.delete('/:id', ctrl.remove);
+
+module.exports = router;

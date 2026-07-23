@@ -6,10 +6,14 @@ import KpiCard from '../components/KpiCard';
 import Avatar from '../components/Avatar';
 import WorkTimerCard from '../components/WorkTimerCard';
 import AttendanceListModal from '../components/AttendanceListModal';
+import AnnouncementFormModal from '../components/AnnouncementFormModal';
+import ReferralFormModal from '../components/ReferralFormModal';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { STATUS_LABEL } from '../utils/attendance';
+import { formatDate } from '../utils/avatar';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const LEAVE_TYPE_COLOR = { casual: 'var(--accent)', sick: 'var(--orange)', earned: 'var(--green)' };
 
@@ -26,6 +30,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [attendanceListStatus, setAttendanceListStatus] = useState(null);
+  const [showHiringForm, setShowHiringForm] = useState(false);
+  const [showReferralForm, setShowReferralForm] = useState(false);
 
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get('/dashboard/summary').then((r) => r.data) });
   const { data: myAttendance } = useQuery({
@@ -52,6 +58,8 @@ export default function DashboardPage() {
   const maxDept = Math.max(...data.deptHeadcount.map((d) => d.count), 1);
   const maxSpark = Math.max(...data.sparkline.map((s) => s.value), 1);
   const isAdmin = ['superadmin', 'hr', 'manager'].includes(user?.role);
+  const canManageHiring = APPROVER_ROLES.includes(user?.role);
+  const hiringAlerts = data.hiringAlerts || [];
 
   return (
     <div className="page on">
@@ -129,6 +137,30 @@ export default function DashboardPage() {
         <KpiCard value={data.kpis.todaysAnniversariesCount} label="Today's Anniversaries" delta="Milestones today" bg="#D5F5E3" icon="fa-solid fa-medal" iconColor="#27AE60" />
         <KpiCard value={data.kpis.upcomingEventsCount} label="Upcoming Events" delta="View the Events page" deltaClass="up" bg="#E8DAEF" icon="fa-solid fa-calendar-days" iconColor="#8E44AD" />
       </div>
+
+      <div className="card mb14">
+        <div className="chd">
+          <div className="cht" style={{ color: 'var(--green)' }}><i className="fa-solid fa-briefcase" /> Hiring Alerts</div>
+          <div style={{ display: 'flex', gap: 7 }}>
+            {canManageHiring && <button className="btn bp bxs" onClick={() => setShowHiringForm(true)}><i className="fa-solid fa-plus" /> Post Alert</button>}
+            <button className="btn bs bxs" onClick={() => setShowReferralForm(true)}><i className="fa-solid fa-user-plus" /> Refer a Candidate</button>
+            <button className="btn bs bxs" onClick={() => navigate(canManageHiring ? '/hiring' : '/announcements')}>View all</button>
+          </div>
+        </div>
+        {hiringAlerts.map((h) => (
+          <div className="pr" key={h._id}>
+            <div style={{ fontSize: 21, width: 32, textAlign: 'center', flexShrink: 0 }}>{h.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>{h.title}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{h.body}</div>
+              <div style={{ fontSize: 9.5, color: 'var(--t3)', marginTop: 2 }}>Posted by <strong>{h.postedByRef?.name || 'Unknown'}</strong> · {formatDate(h.createdAt)}</div>
+            </div>
+          </div>
+        ))}
+        {hiringAlerts.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No open hiring alerts right now — know someone great? Refer them anyway.</div>}
+      </div>
+      {showHiringForm && <AnnouncementFormModal defaultType="hiring" lockType onClose={() => setShowHiringForm(false)} />}
+      {showReferralForm && <ReferralFormModal onClose={() => setShowReferralForm(false)} />}
 
       <div className="g6 mb14">
         {[
@@ -276,7 +308,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="g2 mb13">
+      <div className="g3 mb13">
         <div className="card">
           <div className="chd">
             <div className="cht" style={{ color: 'var(--purple)' }}><i className="fa-solid fa-calendar-days" /> Upcoming Events</div>
@@ -294,6 +326,25 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+          {data.upcomingEvents.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No upcoming events.</div>}
+        </div>
+        <div className="card">
+          <div className="chd">
+            <div className="cht" style={{ color: 'var(--red, #E74C3C)' }}><i className="fa-solid fa-umbrella-beach" /> Upcoming Holidays</div>
+            <button className="btn bs bxs" onClick={() => navigate('/holidays')}>View all</button>
+          </div>
+          {data.upcomingHolidays.map((h) => (
+            <div className="pr" key={h._id}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>{h.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{new Date(h.date).toLocaleDateString('en-US', { weekday: 'long' })} · {h.type}</div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--red, #E74C3C)' }}>{new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+              </div>
+            </div>
+          ))}
+          {data.upcomingHolidays.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No upcoming holidays.</div>}
         </div>
         <div className="card">
           <div className="chd">

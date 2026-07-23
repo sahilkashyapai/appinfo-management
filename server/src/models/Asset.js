@@ -10,6 +10,7 @@ const assetSchema = new Schema(
     assignedAt: { type: Date, default: null },
     returnedAt: { type: Date, default: null },
     notes: { type: String, default: '' },
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

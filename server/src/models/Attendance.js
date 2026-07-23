@@ -7,6 +7,7 @@ const attendanceSchema = new Schema(
     status: { type: String, enum: ['office', 'wfh', 'leave', 'absent'], required: true },
     note: { type: String, default: '' },
     markedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

@@ -1,12 +1,14 @@
 const Employee = require('../models/Employee');
 const Department = require('../models/Department');
 const Event = require('../models/Event');
+const Announcement = require('../models/Announcement');
 const Notification = require('../models/Notification');
 const WallPost = require('../models/WallPost');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const LeaveRequest = require('../models/LeaveRequest');
 const Asset = require('../models/Asset');
+const Holiday = require('../models/Holiday');
 const { yearsSince } = require('./employeeController');
 const { ADMIN_ROLES } = require('../utils/roles');
 const { superadminEmployeeIds, excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
@@ -44,6 +46,10 @@ async function summary(req, res) {
   ]);
 
   const upcomingEvents = await Event.find({ status: 'published', date: { $gte: new Date() } }).sort({ date: 1 }).limit(3);
+
+  const hiringAlerts = await Announcement.find({ type: 'hiring' }).populate('postedByRef', 'name').sort({ createdAt: -1 }).limit(5);
+
+  const upcomingHolidays = await Holiday.find({ date: { $gte: startOfDayUTC(new Date()) } }).sort({ date: 1 }).limit(3);
 
   const deptCountFilter = {};
   await excludeSuperadminEmployees(deptCountFilter, req.user.role, '_id');
@@ -131,6 +137,8 @@ async function summary(req, res) {
     todaysBirthdays,
     todaysAnniversaries: todaysAnniversaries.map((e) => ({ ...e.toObject(), years: yearsSince(e.joined) })),
     upcomingEvents,
+    upcomingHolidays,
+    hiringAlerts,
     leaderboard,
     deptHeadcount,
     sparkline,

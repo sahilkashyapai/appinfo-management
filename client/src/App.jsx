@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import ApplyPage from './pages/ApplyPage';
 import DashboardPage from './pages/DashboardPage';
 import EmployeesPage from './pages/EmployeesPage';
 import BirthdaysPage from './pages/BirthdaysPage';
@@ -29,6 +30,7 @@ import OrgChartPage from './pages/OrgChartPage';
 import AssetsPage from './pages/AssetsPage';
 import DocumentsPage from './pages/DocumentsPage';
 import AdminsPage from './pages/AdminsPage';
+import HiringPage from './pages/HiringPage';
 import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
 
 export default function App() {
@@ -36,6 +38,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/apply" element={<ApplyPage />} />
       <Route
         path="/"
         element={
@@ -56,7 +59,7 @@ export default function App() {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="announcements" element={<AnnouncementsPage />} />
         <Route path="departments" element={<ProtectedRoute roles={ADMIN_ROLES}><DepartmentsPage /></ProtectedRoute>} />
-        <Route path="holidays" element={<ProtectedRoute roles={ADMIN_ROLES}><HolidaysPage /></ProtectedRoute>} />
+        <Route path="holidays" element={<HolidaysPage />} />
         <Route path="reports" element={<ProtectedRoute roles={ADMIN_ROLES}><ReportsPage /></ProtectedRoute>} />
         <Route path="my-report" element={<MyReportPage />} />
         <Route path="audit" element={<ProtectedRoute roles={ADMIN_ROLES}><AuditPage /></ProtectedRoute>} />
@@ -68,6 +71,7 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
         <Route path="admins" element={<ProtectedRoute roles={ADMIN_ROLES}><AdminsPage /></ProtectedRoute>} />
+        <Route path="hiring" element={<ProtectedRoute roles={APPROVER_ROLES}><HiringPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>

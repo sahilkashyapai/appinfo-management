@@ -21,6 +21,7 @@ const employeeSchema = new Schema(
     managerRef: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
     userRef: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     avatarIndex: { type: Number, default: 0 },
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

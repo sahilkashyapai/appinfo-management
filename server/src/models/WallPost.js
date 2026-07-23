@@ -35,6 +35,7 @@ const wallPostSchema = new Schema(
       },
       default: null,
     },
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

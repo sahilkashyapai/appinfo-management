@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ADMIN_ROLES } from '../utils/roles';
@@ -25,10 +26,22 @@ function ToggleRow({ label, hint, checked, onChange }) {
 export default function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes(user?.role);
+  const isSuperadmin = user?.role === 'superadmin';
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((r) => r.data.settings) });
   const [smtpForm, setSmtpForm] = useState(null);
+  const [confirmClearDummy, setConfirmClearDummy] = useState(false);
+
+  const clearDummyData = useMutation({
+    mutationFn: () => api.delete('/demo-data'),
+    onSuccess: (res) => {
+      toast(res.data.message, 'success');
+      qc.invalidateQueries(); // sweeps every collection — simplest reliable refresh after a cross-collection wipe
+      setConfirmClearDummy(false);
+    },
+    onError: (err) => toast(err.response?.data?.message || 'Could not clear dummy data.', 'error'),
+  });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['settings'] });
 
@@ -134,10 +147,35 @@ export default function SettingsPage() {
               <ToggleRow label="CSRF Protection" hint="Informational — auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
               <ToggleRow label="Employee Time Tracking" hint="Log start time + IP address on every login" checked={data.timeTracking.enabled} onChange={(v) => putTimeTracking.mutate({ enabled: v })} />
             </div>
+            {isSuperadmin && (
+              <div className="card" style={{ marginTop: 13, borderColor: 'var(--red, #E74C3C)' }}>
+                <div className="chd"><div className="cht" style={{ color: 'var(--red, #E74C3C)' }}><i className="fa-solid fa-triangle-exclamation" /> Danger Zone</div></div>
+                <div className="trow">
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Clear All Dummy Data</div>
+                    <div style={{ fontSize: 11, color: 'var(--t3)' }}>
+                      Permanently deletes every seeded sample record — employees, attendance, leave, assets, events, wall posts, notifications, announcements, and job applications/referrals. Real data is never touched.
+                    </div>
+                  </div>
+                  <button className="btn brd bsm" onClick={() => setConfirmClearDummy(true)}><i className="fa-solid fa-broom" /> Clear</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
         notificationsCard
+      )}
+      {confirmClearDummy && (
+        <ConfirmModal
+          title="Clear All Dummy Data"
+          message="This permanently deletes every seeded sample record across employees, attendance, leave requests, assets, events, wall posts, notifications, announcements, and job applications/referrals. Real data is never touched. This cannot be undone."
+          confirmLabel="Clear Dummy Data"
+          danger
+          pending={clearDummyData.isPending}
+          onConfirm={() => clearDummyData.mutate()}
+          onClose={() => setConfirmClearDummy(false)}
+        />
       )}
     </div>
   );

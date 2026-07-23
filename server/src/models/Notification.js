@@ -11,6 +11,7 @@ const notificationSchema = new Schema(
     link: { type: String, default: '' }, // client-side relative path to open on click, e.g. '/leave'
     isRead: { type: Boolean, default: false },
     readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }], // for broadcast notifications
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

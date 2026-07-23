@@ -4,13 +4,14 @@ import api from '../api/client';
 import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
-export default function AnnouncementFormModal({ announcement, onClose }) {
+export default function AnnouncementFormModal({ announcement, defaultType, lockType, onClose }) {
   const isEdit = !!announcement;
   const [form, setForm] = useState({
     title: announcement?.title || '',
     body: announcement?.body || '',
+    type: announcement?.type || defaultType || 'general',
     priority: announcement?.priority || 'medium',
-    icon: announcement?.icon || '📢',
+    icon: announcement?.icon || (defaultType === 'hiring' ? '💼' : '📢'),
     pinned: announcement?.pinned || false,
   });
   const toast = useToast();
@@ -19,8 +20,10 @@ export default function AnnouncementFormModal({ announcement, onClose }) {
   const save = useMutation({
     mutationFn: () => (isEdit ? api.put(`/announcements/${announcement._id}`, form) : api.post('/announcements', form)),
     onSuccess: () => {
-      toast(isEdit ? 'Announcement updated ✓' : 'Announcement posted ✓', 'success');
+      toast(isEdit ? 'Announcement updated ✓' : form.type === 'hiring' ? 'Hiring alert shared with all employees ✓' : 'Announcement posted ✓', 'success');
       qc.invalidateQueries({ queryKey: ['announcements'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
       onClose();
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not save announcement.', 'error'),
@@ -37,9 +40,23 @@ export default function AnnouncementFormModal({ announcement, onClose }) {
     >
       <div className="card" style={{ width: 'min(460px, 92vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-bullhorn" /> {isEdit ? 'Edit Announcement' : 'New Announcement'}</div>
+          <div className="cht"><i className="fa-solid fa-bullhorn" /> {isEdit ? 'Edit Announcement' : form.type === 'hiring' ? 'New Hiring Alert' : 'New Announcement'}</div>
           <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
         </div>
+        {!lockType && (
+          <div className="fg">
+            <label className="fl">Type</label>
+            <Select value={form.type} onChange={(e) => set('type', e.target.value)}>
+              <option value="general">General Announcement</option>
+              <option value="hiring">Hiring Alert</option>
+            </Select>
+          </div>
+        )}
+        {form.type === 'hiring' && (
+          <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 12 }}>
+            <i className="fa-solid fa-circle-info" /> Every employee gets a notification when this is posted.
+          </div>
+        )}
         <div className="fg"><label className="fl">Title</label><input className="fc" value={form.title} onChange={(e) => set('title', e.target.value)} /></div>
         <div className="fg"><label className="fl">Body</label><textarea className="fc" style={{ height: 80, resize: 'none' }} value={form.body} onChange={(e) => set('body', e.target.value)} /></div>
         <div className="fg2">

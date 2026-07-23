@@ -21,6 +21,7 @@ const leaveRequestSchema = new Schema(
     approverNote: { type: String, default: '' },
     decidedAt: { type: Date, default: null },
     comments: [leaveCommentSchema],
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

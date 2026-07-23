@@ -33,6 +33,8 @@ const userSchema = new Schema(
 
     passwordResetToken: { type: String, default: null },
     passwordResetExpires: { type: Date, default: null },
+
+    isDemo: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
