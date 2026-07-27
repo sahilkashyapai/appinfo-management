@@ -22,7 +22,7 @@ export default function DocumentFulfillModal({ request, onClose }) {
   const fulfill = useMutation({
     mutationFn: (body) => api.patch(`/documents/requests/${request._id}/fulfill`, body),
     onSuccess: () => {
-      toast('Document delivered ✓', 'success');
+      toast('Document delivered', 'success');
       qc.invalidateQueries({ queryKey: ['document-requests'] });
       onClose();
     },

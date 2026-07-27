@@ -74,7 +74,7 @@ export default function HiringPage() {
   async function copyApplyLink() {
     try {
       await navigator.clipboard.writeText(APPLY_LINK);
-      toast('Application form link copied ✓', 'success');
+      toast('Application form link copied', 'success');
     } catch {
       toast(`Copy this link: ${APPLY_LINK}`, 'info');
     }
@@ -83,7 +83,7 @@ export default function HiringPage() {
   async function copyToClipboard(text, label) {
     try {
       await navigator.clipboard.writeText(text);
-      toast(`${label} copied ✓`, 'success');
+      toast(`${label} copied`, 'success');
     } catch {
       toast(`Copy this ${label.toLowerCase()}: ${text}`, 'info');
     }
@@ -139,10 +139,10 @@ export default function HiringPage() {
         <div className="chd"><div className="cht"><i className="fa-solid fa-briefcase" /> Hiring Alerts</div></div>
         {alerts.map((a) => (
           <div className={`ann ${a.priority}`} key={a._id}>
-            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 1 }}>{a.icon}</div>
+            <div style={{ fontSize: 21, flexShrink: 0, marginTop: 1, color: 'var(--green)' }}><i className={a.icon || 'fa-solid fa-briefcase'} /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--t1)', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                {a.pinned ? '📌 ' : ''}{a.title}
+                {a.pinned && <i className="fa-solid fa-thumbtack" style={{ fontSize: 12 }} />}{a.title}
                 <span className={`badge ${PRIORITY_BADGE[a.priority]}`} style={{ textTransform: 'capitalize' }}>{a.priority}</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 6 }}>{a.body}</div>

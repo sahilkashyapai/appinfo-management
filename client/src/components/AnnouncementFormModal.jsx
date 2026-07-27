@@ -4,6 +4,18 @@ import api from '../api/client';
 import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
+const ICON_OPTIONS = [
+  'fa-solid fa-bullhorn',
+  'fa-solid fa-briefcase',
+  'fa-solid fa-triangle-exclamation',
+  'fa-solid fa-clipboard-list',
+  'fa-solid fa-shield-halved',
+  'fa-solid fa-circle-info',
+  'fa-solid fa-calendar-days',
+  'fa-solid fa-champagne-glasses',
+  'fa-solid fa-gift',
+];
+
 export default function AnnouncementFormModal({ announcement, defaultType, lockType, onClose }) {
   const isEdit = !!announcement;
   const [form, setForm] = useState({
@@ -11,7 +23,7 @@ export default function AnnouncementFormModal({ announcement, defaultType, lockT
     body: announcement?.body || '',
     type: announcement?.type || defaultType || 'general',
     priority: announcement?.priority || 'medium',
-    icon: announcement?.icon || (defaultType === 'hiring' ? '💼' : '📢'),
+    icon: announcement?.icon || (defaultType === 'hiring' ? 'fa-solid fa-briefcase' : 'fa-solid fa-bullhorn'),
     pinned: announcement?.pinned || false,
   });
   const toast = useToast();
@@ -20,7 +32,7 @@ export default function AnnouncementFormModal({ announcement, defaultType, lockT
   const save = useMutation({
     mutationFn: () => (isEdit ? api.put(`/announcements/${announcement._id}`, form) : api.post('/announcements', form)),
     onSuccess: () => {
-      toast(isEdit ? 'Announcement updated ✓' : form.type === 'hiring' ? 'Hiring alert shared with all employees ✓' : 'Announcement posted ✓', 'success');
+      toast(isEdit ? 'Announcement updated' : form.type === 'hiring' ? 'Hiring alert shared with all employees' : 'Announcement posted', 'success');
       qc.invalidateQueries({ queryKey: ['announcements'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['notifications'] });
@@ -68,7 +80,15 @@ export default function AnnouncementFormModal({ announcement, defaultType, lockT
               <option value="low">Low</option>
             </Select>
           </div>
-          <div className="fg"><label className="fl">Icon (emoji)</label><input className="fc" value={form.icon} onChange={(e) => set('icon', e.target.value)} /></div>
+          <div className="fg">
+            <label className="fl">Icon</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Select value={form.icon} onChange={(e) => set('icon', e.target.value)} style={{ flex: 1 }}>
+                {ICON_OPTIONS.map((ic) => <option key={ic} value={ic}>{ic.replace('fa-solid fa-', '').replace(/-/g, ' ')}</option>)}
+              </Select>
+              <i className={form.icon} style={{ fontSize: 16, color: 'var(--accent)', width: 20, textAlign: 'center' }} />
+            </div>
+          </div>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 12, cursor: 'pointer' }}>
           <input type="checkbox" checked={form.pinned} onChange={(e) => set('pinned', e.target.checked)} /> Pin to top

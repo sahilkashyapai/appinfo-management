@@ -4,7 +4,7 @@ const ctrl = require('../controllers/registrationController');
 
 const router = express.Router();
 
-router.use(requireAuth, requireRole('superadmin', 'hr'));
+router.use(requireAuth, requireRole('superadmin', 'admin'));
 
 router.get('/', ctrl.list);
 router.post('/:id/approve', ctrl.approve);

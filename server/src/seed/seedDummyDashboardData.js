@@ -58,7 +58,7 @@ async function main() {
   const superadmin = await User.findOne({ role: 'superadmin' });
   if (!superadmin) throw new Error('No superadmin user found — cannot attribute seeded actions.');
 
-  const depts = await Department.find({ name: { $not: /Head of Company/i } });
+  const depts = await Department.find({ name: { $not: /Leadership/i } });
   if (!depts.length) throw new Error('No departments found — seed departments first.');
   const deptNames = depts.map((d) => d.name);
   function deptFor(i) {
@@ -222,9 +222,9 @@ async function main() {
 
   // --- Events + RSVPs -----------------------------------------------------
   const events = await Event.insertMany([
-    { title: 'Quarterly Town Hall', type: 'town_hall', date: daysFromNow(6), venue: 'Main Auditorium, Mohali', status: 'published', emoji: '🏛️', color: '#8E44AD', capacity: 150, createdByRef: superadmin._id, isDemo: true },
-    { title: 'Monsoon Team Outing', type: 'team_outing', date: daysFromNow(14), venue: 'Sukhna Lake, Chandigarh', status: 'published', emoji: '🌧️', color: '#2E86AB', capacity: 80, createdByRef: superadmin._id, isDemo: true },
-    { title: 'Cricket Tournament', type: 'sports', date: daysFromNow(21), venue: 'AII Sports Ground', status: 'published', emoji: '🏏', color: '#27AE60', capacity: 60, createdByRef: superadmin._id, isDemo: true },
+    { title: 'Quarterly Town Hall', type: 'town_hall', date: daysFromNow(6), venue: 'Main Auditorium, Mohali', status: 'published', emoji: 'fa-solid fa-building-columns', color: '#8E44AD', capacity: 150, createdByRef: superadmin._id, isDemo: true },
+    { title: 'Monsoon Team Outing', type: 'team_outing', date: daysFromNow(14), venue: 'Sukhna Lake, Chandigarh', status: 'published', emoji: 'fa-solid fa-cloud-rain', color: '#2E86AB', capacity: 80, createdByRef: superadmin._id, isDemo: true },
+    { title: 'Cricket Tournament', type: 'sports', date: daysFromNow(21), venue: 'AII Sports Ground', status: 'published', emoji: 'fa-solid fa-trophy', color: '#27AE60', capacity: 60, createdByRef: superadmin._id, isDemo: true },
   ]);
   const rsvpDocs = [];
   events.forEach((ev) => {
@@ -244,15 +244,15 @@ async function main() {
     {
       authorRef: u1._id,
       tag: 'birthday',
-      text: '🎂 Happy Birthday Meera! Wishing you a fantastic year ahead full of great designs and good vibes! 🎉',
+      text: 'Happy Birthday Meera! Wishing you a fantastic year ahead full of great designs and good vibes!',
       reactions: { like: [u2._id, u3._id], love: [superadmin._id], celebrate: [] },
-      comments: [{ authorRef: u2._id, text: 'Happy birthday! 🥳' }],
+      comments: [{ authorRef: u2._id, text: 'Happy birthday!' }],
       isDemo: true,
     },
     {
       authorRef: u2._id,
       tag: 'anniversary',
-      text: '🏆 3 years at Applied Information India today — grateful for this journey and this team! 💪',
+      text: '3 years at Applied Information India today — grateful for this journey and this team!',
       reactions: { like: [u1._id], love: [u3._id, superadmin._id], celebrate: [] },
       comments: [],
       isDemo: true,
@@ -260,9 +260,9 @@ async function main() {
     {
       authorRef: u3._id,
       tag: 'general',
-      text: 'Excited for the upcoming Monsoon Team Outing! Who else is going? 🌧️🚌',
+      text: 'Excited for the upcoming Monsoon Team Outing! Who else is going?',
       reactions: { like: [u1._id, u2._id], love: [], celebrate: [superadmin._id] },
-      comments: [{ authorRef: u1._id, text: "Count me in! Can't wait 🙌" }],
+      comments: [{ authorRef: u1._id, text: "Count me in! Can't wait" }],
       isDemo: true,
     },
   ]);
@@ -274,7 +274,7 @@ async function main() {
     const count = i === 0 ? 4 : 1 + Math.floor(Math.random() * 4);
     for (let j = 0; j < count; j++) {
       notifDocs.push({
-        icon: '🔔',
+        icon: 'fa-solid fa-bell',
         bg: '#EBF5FB',
         type: ['info', 'event', 'birthday', 'anniversary'][j % 4],
         title: 'Demo activity notification',
@@ -294,7 +294,7 @@ async function main() {
       body: 'Join our Engineering team! Looking for 3+ years of React experience. Apply via the careers form.',
       type: 'hiring',
       priority: 'high',
-      icon: '💼',
+      icon: 'fa-solid fa-briefcase',
       pinned: true,
       postedByRef: superadmin._id,
       isDemo: true,
@@ -304,7 +304,7 @@ async function main() {
       body: 'IT will be upgrading office WiFi infrastructure this Saturday 10 PM–2 AM. Expect brief connectivity drops if working remotely during this window.',
       type: 'general',
       priority: 'medium',
-      icon: '📢',
+      icon: 'fa-solid fa-bullhorn',
       postedByRef: superadmin._id,
       isDemo: true,
     },

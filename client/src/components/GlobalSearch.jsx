@@ -71,7 +71,7 @@ export default function GlobalSearch({ mobileOpen, onMobileClose }) {
           {results && !hasResults && <div style={{ padding: 12, fontSize: 12, color: 'var(--t3)', textAlign: 'center' }}>No results found</div>}
           {results?.employees.map((e) => (
             <div className="sr-item" key={e._id} onClick={() => goTo(`/employees?open=${e._id}`)}>
-              <div style={{ fontSize: 20, width: 26, textAlign: 'center' }}>👤</div>
+              <div style={{ fontSize: 17, width: 26, textAlign: 'center' }}><i className="fa-solid fa-user" /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{e.name}</div>
                 <div style={{ fontSize: 10, color: 'var(--t3)' }}>{e.dept}</div>
@@ -81,7 +81,7 @@ export default function GlobalSearch({ mobileOpen, onMobileClose }) {
           ))}
           {results?.events.map((e) => (
             <div className="sr-item" key={e._id} onClick={() => goTo('/events')}>
-              <div style={{ fontSize: 20, width: 26, textAlign: 'center' }}>{e.emoji}</div>
+              <div style={{ fontSize: 17, width: 26, textAlign: 'center' }}><i className={e.emoji || 'fa-solid fa-calendar-days'} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{e.title}</div>
                 <div style={{ fontSize: 10, color: 'var(--t3)' }}>{formatDate(e.date)}</div>
@@ -91,7 +91,7 @@ export default function GlobalSearch({ mobileOpen, onMobileClose }) {
           ))}
           {results?.departments.map((d) => (
             <div className="sr-item" key={d._id} onClick={() => goTo('/departments')}>
-              <div style={{ fontSize: 20, width: 26, textAlign: 'center' }}>{d.emoji}</div>
+              <div style={{ fontSize: 17, width: 26, textAlign: 'center' }}><i className={d.icon || 'fa-solid fa-building'} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{d.name}</div>
               </div>

@@ -1,27 +1,12 @@
 const Announcement = require('../models/Announcement');
 const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
-const { superadminUserIds } = require('../utils/hideSuperadmin');
 
 async function list(req, res) {
   const filter = {};
   if (req.query.type) filter.type = req.query.type;
   const items = await Announcement.find(filter).populate('postedByRef', 'name').sort({ pinned: -1, createdAt: -1 });
-
-  let shaped = items;
-  if (req.user.role !== 'superadmin') {
-    const saIds = new Set((await superadminUserIds()).map(String));
-    shaped = items.map((a) => {
-      if (a.postedByRef && saIds.has(String(a.postedByRef._id))) {
-        const obj = a.toObject();
-        obj.postedByRef = { ...obj.postedByRef, name: 'Admin' };
-        return obj;
-      }
-      return a;
-    });
-  }
-
-  res.json({ items: shaped });
+  res.json({ items });
 }
 
 async function create(req, res) {
@@ -33,7 +18,7 @@ async function create(req, res) {
     body,
     type: isHiring ? 'hiring' : 'general',
     priority: priority || 'medium',
-    icon: icon || (isHiring ? '💼' : '📢'),
+    icon: icon || (isHiring ? 'fa-solid fa-briefcase' : 'fa-solid fa-bullhorn'),
     pinned: !!pinned,
     postedByRef: req.user._id,
     scheduledAt: scheduledAt || null,

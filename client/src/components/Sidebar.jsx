@@ -56,6 +56,12 @@ const ADMIN_NAV = [
   },
 ];
 
+// A proadmin has no operational access anywhere else in the app — their entire
+// job is granting/revoking Superadmin and assigning an office, from one page.
+const PROADMIN_NAV = [
+  { section: 'Admin', items: [{ to: '/admins', label: 'Admins', icon: 'fa-solid fa-user-shield' }] },
+];
+
 // Simplified nav for the 'employee' self-service user panel — no employee/department
 // management, no reports/audit/settings.
 const EMPLOYEE_NAV = [
@@ -105,8 +111,10 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
   const unreadMessages = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
   const BADGE_VALUE = { unreadMessages };
 
+  const isProadmin = user?.role === 'proadmin';
   const isAdminPanel = ADMIN_ROLES.includes(user?.role);
-  const nav = (isAdminPanel ? ADMIN_NAV : EMPLOYEE_NAV)
+  const navSource = isProadmin ? PROADMIN_NAV : isAdminPanel ? ADMIN_NAV : EMPLOYEE_NAV;
+  const nav = navSource
     .map((group) => ({ ...group, items: group.items.filter((item) => !item.roles || item.roles.includes(user?.role)) }))
     .filter((group) => group.items.length > 0);
 
@@ -115,7 +123,7 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
       <div className="sb-brand">
         <div className="sb-blogo"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
         <div className="sb-bt">
-          <div className="l2">{isAdminPanel ? 'Applied Information India' : 'Employee Portal'}</div>
+          <div className="l2">{isProadmin ? 'Pro Admin' : isAdminPanel ? 'Applied Information India' : 'Employee Portal'}</div>
         </div>
       </div>
       <nav className="sb-nav">

@@ -5,7 +5,15 @@ import DatePicker from './DatePicker';
 import Select from './Select';
 import { useToast } from '../context/ToastContext';
 
-const TYPE_EMOJI = { festival: '🪔', workshop: '🎓', town_hall: '🏛️', team_outing: '🏔️', sports: '🏆', birthday: '🎂', other: '🎉' };
+const TYPE_ICON = {
+  festival: 'fa-solid fa-fire',
+  workshop: 'fa-solid fa-graduation-cap',
+  town_hall: 'fa-solid fa-building-columns',
+  team_outing: 'fa-solid fa-mountain',
+  sports: 'fa-solid fa-trophy',
+  birthday: 'fa-solid fa-cake-candles',
+  other: 'fa-solid fa-calendar-days',
+};
 
 export default function EventFormModal({ onClose }) {
   const [form, setForm] = useState({
@@ -15,9 +23,9 @@ export default function EventFormModal({ onClose }) {
   const qc = useQueryClient();
 
   const create = useMutation({
-    mutationFn: () => api.post('/events', { ...form, emoji: TYPE_EMOJI[form.type] || '🎉' }),
+    mutationFn: () => api.post('/events', { ...form, emoji: TYPE_ICON[form.type] || 'fa-solid fa-calendar-days' }),
     onSuccess: () => {
-      toast(`${form.title} created ✓`, 'success');
+      toast(`${form.title} created`, 'success');
       qc.invalidateQueries({ queryKey: ['events'] });
       onClose();
     },
@@ -43,7 +51,7 @@ export default function EventFormModal({ onClose }) {
           <div className="fg">
             <label className="fl">Type</label>
             <Select value={form.type} onChange={(e) => set('type', e.target.value)}>
-              {Object.keys(TYPE_EMOJI).map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+              {Object.keys(TYPE_ICON).map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
             </Select>
           </div>
           <div className="fg"><label className="fl">Date</label><DatePicker value={form.date} onChange={(v) => set('date', v)} /></div>

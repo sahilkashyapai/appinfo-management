@@ -1,10 +1,6 @@
 const AuditLog = require('../models/AuditLog');
-const User = require('../models/User');
 
-// hr can see the audit log, but never a superadmin's own entries in it — only
-// superadmin viewers see everything. Excludes by *current* role, since role can
-// change after an action was logged.
-async function buildFilter(query, viewerRole) {
+async function buildFilter(query) {
   const { action, entity, q, from, to } = query;
   const filter = {};
   if (action && action !== 'all') filter.action = action;
@@ -18,15 +14,11 @@ async function buildFilter(query, viewerRole) {
     const re = new RegExp(q, 'i');
     filter.$or = [{ actorName: re }, { entity: re }, { detail: re }, { recordId: re }];
   }
-  if (viewerRole !== 'superadmin') {
-    const superadmins = await User.find({ role: 'superadmin' }, '_id');
-    if (superadmins.length) filter.actorRef = { $nin: superadmins.map((u) => u._id) };
-  }
   return filter;
 }
 
 async function list(req, res) {
-  const filter = await buildFilter(req.query, req.user.role);
+  const filter = await buildFilter(req.query);
   const { page = 1, limit = 25 } = req.query;
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
@@ -42,7 +34,7 @@ async function list(req, res) {
 }
 
 async function exportCsv(req, res) {
-  const filter = await buildFilter(req.query, req.user.role);
+  const filter = await buildFilter(req.query);
   const items = await AuditLog.find(filter).sort({ createdAt: -1 }).limit(5000);
   const header = 'Timestamp,Actor,Action,Entity,RecordId,IP,Detail\n';
   const rows = items

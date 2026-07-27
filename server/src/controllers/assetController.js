@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const writeAudit = require('../utils/audit');
 const { ADMIN_ROLES } = require('../utils/roles');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { resolveScopeLocation, isOutsideScope, scopedEmployeeIds } = require('../utils/officeScope');
 
 async function list(req, res) {
   const { status, category, employeeRef, page = 1, limit = 25 } = req.query;
@@ -16,6 +17,15 @@ async function list(req, res) {
   } else {
     if (employeeRef) filter.employeeRef = employeeRef;
     await excludeSuperadminEmployees(filter, req.user.role);
+
+    // Assets aren't tied to an office themselves — a scoped superadmin sees
+    // unassigned inventory plus anything assigned to their own office's employees.
+    const scopedIds = await scopedEmployeeIds(req.user);
+    if (scopedIds && !employeeRef) {
+      filter.$or = [{ employeeRef: null }, { employeeRef: { $in: scopedIds } }];
+    } else if (scopedIds && employeeRef && !scopedIds.some((id) => String(id) === String(employeeRef))) {
+      filter._id = { $in: [] }; // that employee isn't in this office — zero results
+    }
   }
 
   const pg = Math.max(parseInt(page, 10) || 1, 1);
@@ -40,6 +50,9 @@ async function create(req, res) {
   if (employeeRef) {
     employee = await Employee.findById(employeeRef);
     if (!employee) return res.status(404).json({ message: 'Employee not found.' });
+    if (await isOutsideScope(req.user, employee.location)) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
   }
 
   const asset = await Asset.create({
@@ -60,6 +73,9 @@ async function assign(req, res) {
   if (!employeeRef) return res.status(400).json({ message: 'employeeRef is required.' });
   const employee = await Employee.findById(employeeRef);
   if (!employee) return res.status(404).json({ message: 'Employee not found.' });
+  if (await isOutsideScope(req.user, employee.location)) {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
 
   const asset = await Asset.findById(req.params.id);
   if (!asset) return res.status(404).json({ message: 'Asset not found.' });
@@ -86,8 +102,11 @@ async function updateStatus(req, res) {
   if (!['returned', 'damaged', 'lost'].includes(status)) {
     return res.status(400).json({ message: 'status must be one of returned, damaged, lost.' });
   }
-  const asset = await Asset.findById(req.params.id);
+  const asset = await Asset.findById(req.params.id).populate('employeeRef', 'location');
   if (!asset) return res.status(404).json({ message: 'Asset not found.' });
+  if (asset.employeeRef && (await isOutsideScope(req.user, asset.employeeRef.location))) {
+    return res.status(404).json({ message: 'Asset not found.' });
+  }
 
   asset.status = status;
   if (status === 'returned') asset.returnedAt = new Date();
@@ -106,6 +125,13 @@ async function updateStatus(req, res) {
 }
 
 async function remove(req, res) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  if (scopeLoc) {
+    const existing = await Asset.findById(req.params.id).populate('employeeRef', 'location');
+    if (existing?.employeeRef && existing.employeeRef.location !== scopeLoc) {
+      return res.status(404).json({ message: 'Asset not found.' });
+    }
+  }
   const asset = await Asset.findByIdAndDelete(req.params.id);
   if (!asset) return res.status(404).json({ message: 'Asset not found.' });
   await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'assets', recordId: asset._id, detail: `Deleted asset: ${asset.name}` });

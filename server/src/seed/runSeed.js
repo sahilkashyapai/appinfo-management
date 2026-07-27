@@ -195,8 +195,8 @@ async function seedUsers(byName) {
   });
 
   const roleLinks = [
-    { name: 'Priya Nair', role: 'hr', hash: hrHash },
-    { name: 'Vijay Kumar', role: 'manager', hash: mgrHash },
+    { name: 'Priya Nair', role: 'admin', hash: hrHash },
+    { name: 'Vijay Kumar', role: 'admin', hash: mgrHash },
     { name: 'Rahul Sharma', role: 'employee', hash: empHash },
   ];
 
@@ -263,31 +263,31 @@ async function seedWall(users) {
     {
       authorRef: author(hr)._id,
       tag: 'birthday',
-      text: "🎂 Happy Birthday! Wishing you a year full of amazing code, zero bugs, and lots of chai! You're a rockstar developer and an even better colleague. Have a blast! 🚀",
+      text: "Happy Birthday! Wishing you a year full of amazing code, zero bugs, and lots of chai! You're a rockstar developer and an even better colleague. Have a blast!",
       reactions: { like: [author(manager)._id], love: [author(employee)._id], celebrate: [superadmin._id] },
       comments: [
-        { authorRef: author(manager)._id, text: 'Happy birthday! 🎉' },
-        { authorRef: superadmin._id, text: 'Many happy returns! 🥳' },
+        { authorRef: author(manager)._id, text: 'Happy birthday!' },
+        { authorRef: superadmin._id, text: 'Many happy returns!' },
       ],
     },
     {
       authorRef: author(hr)._id,
       tag: 'anniversary',
-      text: '🎉 Congratulations on completing another incredible year with Applied Information India! Your dedication has been truly outstanding. Thank you for being such a vital part of our journey! 🌟',
+      text: 'Congratulations on completing another incredible year with Applied Information India! Your dedication has been truly outstanding. Thank you for being such a vital part of our journey!',
       reactions: { like: [superadmin._id, author(manager)._id], love: [author(employee)._id], celebrate: [] },
-      comments: [{ authorRef: author(employee)._id, text: 'Absolutely legendary! 🏆' }],
+      comments: [{ authorRef: author(employee)._id, text: 'Absolutely legendary!' }],
     },
     {
       authorRef: author(manager)._id,
       tag: 'anniversary',
-      text: '🏆 Proud to be part of this journey at Applied Information India! Grateful for every team member who made this possible. Here\'s to many more! 💪',
+      text: 'Proud to be part of this journey at Applied Information India! Grateful for every team member who made this possible. Here\'s to many more!',
       reactions: { like: [superadmin._id], love: [author(hr)._id], celebrate: [author(employee)._id] },
       comments: [],
     },
     {
       authorRef: author(employee)._id,
       tag: 'event',
-      text: 'What an amazing celebration! 🌙 A huge thank you to the HR team for organizing such a beautiful event. Looking forward to more celebrations together 🎊',
+      text: 'What an amazing celebration! A huge thank you to the HR team for organizing such a beautiful event. Looking forward to more celebrations together.',
       reactions: { like: [author(hr)._id], love: [], celebrate: [superadmin._id] },
       comments: [],
     },
@@ -298,9 +298,9 @@ async function seedWall(users) {
 
 async function seedNotifications() {
   await Notification.insertMany([
-    { icon: '🎂', bg: '#FDEBD0', type: 'birthday', title: 'Birthday reminders are live', body: 'Employees with a birthday today will surface here automatically every morning.' },
-    { icon: '📅', bg: '#EBF5FB', type: 'event', title: 'Event reminders are live', body: 'Published events send D-7 and D-1 reminders automatically.' },
-    { icon: '🛡️', bg: '#F0FDF4', type: 'info', title: 'Welcome to AII Celebrations', body: 'Your account was seeded successfully. Explore the sidebar to get started.' },
+    { icon: 'fa-solid fa-cake-candles', bg: '#FDEBD0', type: 'birthday', title: 'Birthday reminders are live', body: 'Employees with a birthday today will surface here automatically every morning.' },
+    { icon: 'fa-solid fa-calendar-days', bg: '#EBF5FB', type: 'event', title: 'Event reminders are live', body: 'Published events send D-7 and D-1 reminders automatically.' },
+    { icon: 'fa-solid fa-shield-halved', bg: '#F0FDF4', type: 'info', title: 'Welcome to AII Celebrations', body: 'Your account was seeded successfully. Explore the sidebar to get started.' },
   ]);
 }
 

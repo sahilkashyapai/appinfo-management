@@ -4,9 +4,10 @@ const Event = require('../models/Event');
 const Notification = require('../models/Notification');
 const WallPost = require('../models/WallPost');
 const Attendance = require('../models/Attendance');
-const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { excludeSuperadminEmployees, excludeSuperadminAttendance } = require('../utils/hideSuperadmin');
 const { ADMIN_ROLES } = require('../utils/roles');
 const { countWorkingDays } = require('../utils/workingDays');
+const { resolveScopeLocation, scopeEmployeeLocationFilter, scopeByEmployeeRef } = require('../utils/officeScope');
 
 const ATTENDANCE_STATUSES = ['office', 'wfh', 'leave', 'absent'];
 
@@ -25,6 +26,13 @@ function monthRange(monthStr) {
 // used to look at a coworker's attendance/leave/WFH data.
 async function resolveEmployeeScope(req) {
   if (ADMIN_ROLES.includes(req.user.role)) {
+    if (req.query.employeeId) {
+      const scopeLoc = await resolveScopeLocation(req.user);
+      if (scopeLoc) {
+        const target = await Employee.findById(req.query.employeeId, 'location');
+        if (!target || target.location !== scopeLoc) return { employeeId: null, noAccess: true };
+      }
+    }
     return { employeeId: req.query.employeeId || null, noAccess: false };
   }
   const emp = await Employee.findOne({ userRef: req.user._id }, '_id');
@@ -37,6 +45,7 @@ async function summary(req, res) {
 
   const employeeFilter = {};
   await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
   const [employees, notifsSent, wallPostsCount] = await Promise.all([
     Employee.find(employeeFilter, 'dob joined'),
     Notification.countDocuments({ createdAt: { $gte: start, $lt: end } }),
@@ -54,6 +63,7 @@ async function birthdaysByDepartment(req, res) {
   const targetMonth = start.getMonth();
   const employeeFilter = {};
   await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
   const employees = await Employee.find(employeeFilter, 'dob dept');
   const counts = {};
   employees.forEach((e) => {
@@ -68,11 +78,12 @@ async function eventTypeDistribution(req, res) {
   res.json({ items: agg.map((a) => ({ type: a._id, count: a.count, pct: Math.round((a.count / total) * 100) })) });
 }
 
-async function attendanceRecordsByStatus(month, statuses, viewerRole, employeeId) {
+async function attendanceRecordsByStatus(month, statuses, user, employeeId) {
   const { start, end } = monthRange(month);
   const filter = { date: { $gte: start, $lt: end }, status: { $in: statuses } };
   if (employeeId) filter.employeeRef = employeeId;
-  await excludeSuperadminEmployees(filter, viewerRole);
+  await excludeSuperadminAttendance(filter);
+  await scopeByEmployeeRef(filter, user);
   const records = await Attendance.find(filter)
     .populate('employeeRef', 'name dept')
     .sort({ date: -1 });
@@ -92,19 +103,19 @@ async function attendanceRecordsByStatus(month, statuses, viewerRole, employeeId
 async function leaveReport(req, res) {
   const scope = await resolveEmployeeScope(req);
   if (scope.noAccess) return res.json({ items: [] });
-  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['leave'], req.user.role, scope.employeeId) });
+  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['leave'], req.user, scope.employeeId) });
 }
 
 async function absentReport(req, res) {
   const scope = await resolveEmployeeScope(req);
   if (scope.noAccess) return res.json({ items: [] });
-  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['absent'], req.user.role, scope.employeeId) });
+  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['absent'], req.user, scope.employeeId) });
 }
 
 async function workModeReport(req, res) {
   const scope = await resolveEmployeeScope(req);
   if (scope.noAccess) return res.json({ items: [] });
-  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['office', 'wfh'], req.user.role, scope.employeeId) });
+  res.json({ items: await attendanceRecordsByStatus(req.query.month, ['office', 'wfh'], req.user, scope.employeeId) });
 }
 
 async function attendanceReport(req, res) {
@@ -116,10 +127,12 @@ async function attendanceReport(req, res) {
 
   const employeeFilter = {};
   if (scope.employeeId) employeeFilter._id = scope.employeeId;
-  await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await excludeSuperadminAttendance(employeeFilter, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
   const attendanceFilter = { date: { $gte: start, $lt: end } };
   if (scope.employeeId) attendanceFilter.employeeRef = scope.employeeId;
-  await excludeSuperadminEmployees(attendanceFilter, req.user.role);
+  await excludeSuperadminAttendance(attendanceFilter);
+  await scopeByEmployeeRef(attendanceFilter, req.user);
   const [employees, records] = await Promise.all([
     Employee.find(employeeFilter, 'name dept'),
     Attendance.find(attendanceFilter, 'employeeRef status'),

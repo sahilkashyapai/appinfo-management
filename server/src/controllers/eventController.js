@@ -45,7 +45,7 @@ async function create(req, res) {
     date: new Date(date),
     venue,
     status: status || 'draft',
-    emoji: emoji || '🎉',
+    emoji: emoji || 'fa-solid fa-calendar-days',
     color: color || '#2E86AB',
     capacity: capacity || 100,
     createdByRef: req.user._id,
@@ -99,7 +99,7 @@ async function rsvp(req, res) {
 async function listRsvps(req, res) {
   const filter = { eventRef: req.params.id };
   await excludeSuperadminEmployees(filter, req.user.role);
-  const rsvps = await Rsvp.find(filter).populate('employeeRef', 'name dept desig');
+  const rsvps = await Rsvp.find(filter).populate('employeeRef', 'name dept desig avatarIndex');
   res.json({ items: rsvps });
 }
 

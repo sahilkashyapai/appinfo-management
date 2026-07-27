@@ -5,7 +5,7 @@ import { formatDateTime } from '../utils/avatar';
 export default function NotificationPanel({ open, onClose }) {
   const navigate = useNavigate();
   const { data: notifs = [] } = useNotifications();
-  const { markRead, markAllRead } = useNotificationActions();
+  const { markRead, markAllRead, clearAll } = useNotificationActions();
 
   function handleClick(n) {
     if (n.unread) markRead.mutate(n._id);
@@ -18,8 +18,11 @@ export default function NotificationPanel({ open, onClose }) {
       <div className="np-hd">
         <div className="np-title">Notifications</div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button className="btn bs bxs" onClick={() => markAllRead.mutate()}>
+          <button className="btn bs bxs" onClick={() => markAllRead.mutate()} disabled={notifs.length === 0}>
             <i className="fa-solid fa-check-double" /> Mark All Read
+          </button>
+          <button className="btn bs bxs" onClick={() => clearAll.mutate()} disabled={notifs.length === 0}>
+            <i className="fa-solid fa-trash-can" /> Clear All
           </button>
           <button className="btn bs bxs bico" onClick={onClose}>
             <i className="fa-solid fa-xmark" />
@@ -29,7 +32,7 @@ export default function NotificationPanel({ open, onClose }) {
       <div className="np-body">
         {notifs.map((n) => (
           <div key={n._id} className={`npi${n.unread ? ' unr' : ''}`} onClick={() => handleClick(n)}>
-            <div className="npi-ico" style={{ background: n.bg }}>{n.icon}</div>
+            <div className="npi-ico" style={{ background: n.bg }}><i className={n.icon || 'fa-solid fa-bell'} /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: n.unread ? 700 : 600, color: 'var(--t1)' }}>{n.title}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1, lineHeight: 1.5 }}>{n.body}</div>

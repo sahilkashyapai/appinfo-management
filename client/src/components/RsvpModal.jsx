@@ -5,7 +5,7 @@ import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/avatar';
 
-const MESSAGES = { yes: "RSVP confirmed — see you there! ✅", maybe: 'Tentative RSVP noted 🤔', no: 'RSVP declined ❌' };
+const MESSAGES = { yes: 'RSVP confirmed — see you there!', maybe: 'Tentative RSVP noted', no: 'RSVP declined' };
 
 export default function RsvpModal() {
   const { rsvpEventId, closeRsvp } = useDrawers();
@@ -45,7 +45,7 @@ export default function RsvpModal() {
   return (
     <div id="rsvp-m" className={rsvpEventId ? 'open' : ''} onClick={(e) => e.target.id === 'rsvp-m' && close()}>
       <div className="rsvp-card">
-        <div className="rsvp-banner" style={{ background: `${data?.color || '#2E86AB'}18` }}>{data?.emoji || '🎉'}</div>
+        <div className="rsvp-banner" style={{ background: `${data?.color || '#2E86AB'}18`, color: data?.color || '#2E86AB' }}><i className={data?.emoji || 'fa-solid fa-calendar-days'} /></div>
         <div className="rsvp-body">
           <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--t1)', marginBottom: 3, letterSpacing: -0.2 }}>{data?.title || '—'}</div>
           <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 2 }}>
@@ -55,18 +55,18 @@ export default function RsvpModal() {
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t2)', marginBottom: 9 }}>Will you attend this event?</div>
           <div className="rsvp-opts">
             <div className={`rsvp-opt yes${selected === 'yes' ? ' sel' : ''}`} onClick={() => setSelected('yes')}>
-              <div style={{ fontSize: 24, marginBottom: 5 }}>✅</div>
-              <div style={{ fontSize: 12, fontWeight: 700 }}>Yes</div>
+              <div style={{ fontSize: 20, marginBottom: 5, color: 'var(--green)' }}><i className="fa-solid fa-circle-check" /></div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Yes</div>
               <div style={{ fontSize: 10, color: 'var(--t3)' }}>I'll be there</div>
             </div>
             <div className={`rsvp-opt maybe${selected === 'maybe' ? ' sel' : ''}`} onClick={() => setSelected('maybe')}>
-              <div style={{ fontSize: 24, marginBottom: 5 }}>🤔</div>
-              <div style={{ fontSize: 12, fontWeight: 700 }}>Maybe</div>
+              <div style={{ fontSize: 20, marginBottom: 5, color: 'var(--orange)' }}><i className="fa-solid fa-circle-question" /></div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Maybe</div>
               <div style={{ fontSize: 10, color: 'var(--t3)' }}>Tentatively</div>
             </div>
             <div className={`rsvp-opt no${selected === 'no' ? ' sel' : ''}`} onClick={() => setSelected('no')}>
-              <div style={{ fontSize: 24, marginBottom: 5 }}>❌</div>
-              <div style={{ fontSize: 12, fontWeight: 700 }}>No</div>
+              <div style={{ fontSize: 20, marginBottom: 5, color: 'var(--red, #E74C3C)' }}><i className="fa-solid fa-circle-xmark" /></div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>No</div>
               <div style={{ fontSize: 10, color: 'var(--t3)' }}>Can't attend</div>
             </div>
           </div>

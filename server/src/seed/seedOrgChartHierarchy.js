@@ -20,7 +20,7 @@ function pastDate(year, month, day) {
 async function main() {
   await connectDB();
 
-  const deptNames = ['Head of Company', 'Dot Net', 'Design', 'Quality Assurance'];
+  const deptNames = ['Leadership', 'Dot Net', 'Design', 'Quality Assurance'];
   const depts = await Department.find({ name: { $in: deptNames } });
   const deptByName = Object.fromEntries(depts.map((d) => [d.name, d]));
   for (const n of deptNames) {
@@ -37,8 +37,8 @@ async function main() {
   const ceo = await Employee.create({
     empId: 'DEMOORG001',
     name: 'Arjun Mehta',
-    dept: 'Head of Company',
-    deptRef: deptByName['Head of Company']._id,
+    dept: 'Leadership',
+    deptRef: deptByName['Leadership']._id,
     desig: 'Chief Executive Officer',
     roleLabel: 'President & CTO',
     joined: pastDate(2016, 3, 1),

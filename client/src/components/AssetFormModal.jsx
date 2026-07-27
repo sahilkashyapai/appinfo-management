@@ -12,7 +12,7 @@ export default function AssetFormModal({ onClose }) {
   const save = useMutation({
     mutationFn: () => api.post('/assets', form),
     onSuccess: () => {
-      toast('Asset added ✓', 'success');
+      toast('Asset added', 'success');
       qc.invalidateQueries({ queryKey: ['assets'] });
       onClose();
     },

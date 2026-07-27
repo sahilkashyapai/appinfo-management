@@ -5,7 +5,9 @@ import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import EventFormModal from '../components/EventFormModal';
+import EventResponsesModal from '../components/EventResponsesModal';
 import { formatDate } from '../utils/avatar';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const RSVP_BUTTON = {
   yes: { cls: 'bgn', icon: 'fa-solid fa-circle-check', label: 'Attending' },
@@ -25,11 +27,12 @@ const TYPES = [
 export default function EventsPage() {
   const [type, setType] = useState('all');
   const [showForm, setShowForm] = useState(false);
+  const [viewResponsesFor, setViewResponsesFor] = useState(null);
   const { openRsvp } = useDrawers();
   const toast = useToast();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const canManage = ['superadmin', 'hr'].includes(user?.role);
+  const canManage = APPROVER_ROLES.includes(user?.role);
 
   const { data } = useQuery({
     queryKey: ['events', type],
@@ -40,7 +43,7 @@ export default function EventsPage() {
     mutationFn: (id) => api.patch(`/events/${id}/publish`),
     onSuccess: (_res, id) => {
       const evt = data?.find((e) => e._id === id);
-      toast(`${evt?.title || 'Event'} published! 🎉`, 'success');
+      toast(`${evt?.title || 'Event'} published!`, 'success');
       qc.invalidateQueries({ queryKey: ['events'] });
     },
   });
@@ -71,9 +74,9 @@ export default function EventsPage() {
       </div>
       <div className="g3">
         {visibleEvents?.map((e) => (
-          <div key={e._id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div key={e._id} className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }} onClick={() => setViewResponsesFor(e)}>
             <div style={{ height: 72, background: `${e.color}14`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px' }}>
-              <div style={{ fontSize: 30 }}>{e.emoji}</div>
+              <div style={{ fontSize: 26, color: e.color }}><i className={e.emoji || 'fa-solid fa-calendar-days'} /></div>
               <span className={`badge ${e.status === 'published' ? 'b-gr' : 'b-gy'}`} style={{ textTransform: 'capitalize' }}>{e.status}</span>
             </div>
             <div style={{ padding: 13 }}>
@@ -93,7 +96,7 @@ export default function EventsPage() {
                   <div className="sbar"><div className="sfill" style={{ width: `${Math.round((e.rsvp / e.capacity) * 100)}%`, background: e.color }} /></div>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }} onClick={(ev) => ev.stopPropagation()}>
                 {e.status === 'draft' ? (
                   canManage && <button className="btn bgn bxs" onClick={() => publish.mutate(e._id)}><i className="fa-solid fa-check" /> Publish</button>
                 ) : e.myRsvp ? (
@@ -110,6 +113,7 @@ export default function EventsPage() {
         {visibleEvents?.length === 0 && <div style={{ color: 'var(--t3)', fontSize: 12 }}>No events in this category.</div>}
       </div>
       {showForm && <EventFormModal onClose={() => setShowForm(false)} />}
+      {viewResponsesFor && <EventResponsesModal event={viewResponsesFor} onClose={() => setViewResponsesFor(null)} />}
     </div>
   );
 }

@@ -27,7 +27,6 @@ export default function EmployeeFormModal({ employee, onClose }) {
     empId: employee?.empId || '',
     name: employee?.name || '',
     dept: employee?.dept || '',
-    desig: employee?.desig || '',
     roleLabel: employee?.roleLabel || 'Engineer / Developer',
     joined: toInputDate(employee?.joined) || '',
     dob: toInputDate(employee?.dob) || '',
@@ -55,10 +54,15 @@ export default function EmployeeFormModal({ employee, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suggestedEmpId]);
 
+  // Role Label doubles as the designation shown everywhere else (Org Chart,
+  // directory, reports) — one field, no separate freeform title to keep in sync.
   const save = useMutation({
-    mutationFn: () => (isEdit ? api.put(`/employees/${employee._id}`, form) : api.post('/employees', form)),
+    mutationFn: () => {
+      const payload = { ...form, desig: form.roleLabel };
+      return isEdit ? api.put(`/employees/${employee._id}`, payload) : api.post('/employees', payload);
+    },
     onSuccess: () => {
-      toast(isEdit ? `${form.name} updated ✓` : `${form.name} added ✓`, 'success');
+      toast(isEdit ? `${form.name} updated` : `${form.name} added`, 'success');
       qc.invalidateQueries({ queryKey: ['employees'] });
       qc.invalidateQueries({ queryKey: ['employee', employee?._id] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -110,9 +114,8 @@ export default function EmployeeFormModal({ employee, onClose }) {
               {depts.map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
             </Select>
           </div>
-          <div className="fg"><label className="fl">Designation</label><input className="fc" value={form.desig} onChange={(e) => set('desig', e.target.value)} /></div>
           <div className="fg">
-            <label className="fl">Role Label</label>
+            <label className="fl">Role Label/Designation</label>
             <Select value={form.roleLabel} onChange={(e) => set('roleLabel', e.target.value)}>
               {ROLE_LABELS.map((r) => <option key={r} value={r}>{r}</option>)}
             </Select>

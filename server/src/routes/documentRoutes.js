@@ -7,10 +7,10 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/requests/mine', ctrl.myRequests);
-router.get('/requests', requireRole('superadmin', 'hr'), ctrl.listRequests);
+router.get('/requests', requireRole('superadmin', 'admin'), ctrl.listRequests);
 router.post('/requests', ctrl.createRequest);
-router.patch('/requests/:id/fulfill', requireRole('superadmin', 'hr'), ctrl.fulfillRequest);
-router.patch('/requests/:id/reject', requireRole('superadmin', 'hr'), ctrl.rejectRequest);
+router.patch('/requests/:id/fulfill', requireRole('superadmin', 'admin'), ctrl.fulfillRequest);
+router.patch('/requests/:id/reject', requireRole('superadmin', 'admin'), ctrl.rejectRequest);
 router.patch('/requests/:id/cancel', ctrl.cancelRequest);
 
 router.get('/', ctrl.list);

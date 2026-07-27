@@ -11,7 +11,8 @@ const Asset = require('../models/Asset');
 const Holiday = require('../models/Holiday');
 const { yearsSince } = require('./employeeController');
 const { ADMIN_ROLES } = require('../utils/roles');
-const { superadminEmployeeIds, excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { excludeSuperadminEmployees, excludeSuperadminAttendance, superadminEmployeeIds } = require('../utils/hideSuperadmin');
+const { scopeEmployeeLocationFilter, scopeByEmployeeRef, scopedEmployeeIds, scopedUserIds } = require('../utils/officeScope');
 const { startOfDayUTC } = require('../utils/attendanceDate');
 
 function todayMD() {
@@ -21,8 +22,10 @@ function todayMD() {
 
 async function summary(req, res) {
   const { month, date } = todayMD();
+  const scopedIds = await scopedEmployeeIds(req.user);
   const employeeFilter = { status: 'active' };
   await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
   const employees = await Employee.find(employeeFilter);
 
   const totalEmployees = employees.length;
@@ -30,16 +33,22 @@ async function summary(req, res) {
   const todaysAnniversaries = employees.filter((e) => e.joined.getMonth() === month && e.joined.getDate() === date && yearsSince(e.joined) >= 1);
 
   // Today's office/WFH/leave/absent split — shown on every user's dashboard,
-  // not just admins'.
+  // not just admins'. Superadmins never need attendance marked, so they're
+  // excluded from both the attendance records and the eligible headcount
+  // here (they still count toward the general totalEmployees stat below).
+  const superIds = new Set((await superadminEmployeeIds()).map(String));
+  const attendanceEligibleCount = employees.filter((e) => !superIds.has(String(e._id))).length;
   const attendanceTodayFilter = { date: startOfDayUTC(new Date()) };
-  await excludeSuperadminEmployees(attendanceTodayFilter, req.user.role);
+  await excludeSuperadminAttendance(attendanceTodayFilter);
+  await scopeByEmployeeRef(attendanceTodayFilter, req.user);
   const todaysAttendance = await Attendance.find(attendanceTodayFilter, 'status');
   const attendanceCounts = { office: 0, wfh: 0, leave: 0, absent: 0 };
   todaysAttendance.forEach((a) => { attendanceCounts[a.status] += 1; });
-  const attendanceToday = { ...attendanceCounts, notMarked: Math.max(totalEmployees - todaysAttendance.length, 0), totalEmployees };
+  const attendanceToday = { ...attendanceCounts, notMarked: Math.max(attendanceEligibleCount - todaysAttendance.length, 0), totalEmployees: attendanceEligibleCount };
 
   const newHiresFilter = { joined: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } };
   await excludeSuperadminEmployees(newHiresFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(newHiresFilter, req.user);
   const [upcomingEventsCount, newHiresThisMonth] = await Promise.all([
     Event.countDocuments({ status: 'published', date: { $gte: new Date() } }),
     Employee.countDocuments(newHiresFilter),
@@ -53,6 +62,7 @@ async function summary(req, res) {
 
   const deptCountFilter = {};
   await excludeSuperadminEmployees(deptCountFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(deptCountFilter, req.user);
   const deptCounts = await Employee.aggregate([{ $match: deptCountFilter }, { $group: { _id: '$dept', count: { $sum: 1 } } }]);
   const departments = await Department.find({}).select('name color');
   const colorByDept = Object.fromEntries(departments.map((d) => [d.name, d.color]));
@@ -61,15 +71,22 @@ async function summary(req, res) {
     .sort((a, b) => b.count - a.count);
 
   // Leaderboard: employees whose linked User account has posted/commented/reacted the most this month.
+  // A scoped superadmin only sees engagement from their own office's employees.
+  const scopedUsers = await scopedUserIds(req.user);
+  const scopedUserSet = scopedUsers ? new Set(scopedUsers.map(String)) : null;
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const posts = await WallPost.find({ createdAt: { $gte: monthStart } });
+  const postFilter = { createdAt: { $gte: monthStart } };
+  if (scopedUserSet) postFilter.authorRef = { $in: [...scopedUserSet] };
+  const posts = await WallPost.find(postFilter);
   const scoreByUser = {};
   posts.forEach((p) => {
     scoreByUser[p.authorRef] = (scoreByUser[p.authorRef] || 0) + 3;
     ['like', 'love', 'celebrate'].forEach((t) => p.reactions[t].forEach((uid) => {
+      if (scopedUserSet && !scopedUserSet.has(String(uid))) return;
       scoreByUser[uid] = (scoreByUser[uid] || 0) + 1;
     }));
     p.comments.forEach((c) => {
+      if (scopedUserSet && !scopedUserSet.has(String(c.authorRef))) return;
       scoreByUser[c.authorRef] = (scoreByUser[c.authorRef] || 0) + 2;
     });
   });
@@ -77,9 +94,7 @@ async function summary(req, res) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([id, score]) => ({ id, score }));
-  const userFilter = { _id: { $in: topUserIds.map((t) => t.id) } };
-  if (req.user.role !== 'superadmin') userFilter.role = { $ne: 'superadmin' };
-  const users = await User.find(userFilter).select('name avatarIndex employeeRef');
+  const users = await User.find({ _id: { $in: topUserIds.map((t) => t.id) } }).select('name avatarIndex employeeRef');
   const userMap = Object.fromEntries(users.map((u) => [String(u._id), u]));
   const leaderboard = topUserIds
     .map((t) => ({ user: userMap[t.id], score: t.score }))
@@ -105,10 +120,16 @@ async function summary(req, res) {
 
   let ops = null;
   if (ADMIN_ROLES.includes(req.user.role)) {
+    const leaveFilter = { status: { $in: ['pending', 'on_hold'] } };
+    if (scopedIds) leaveFilter.employeeRef = { $in: scopedIds };
+    // Self-registrations have no office yet at the pending stage (no Employee
+    // record/location exists until approved) — pendingRegistrations is
+    // intentionally left global, there's nothing to scope it by.
+    const assetMatch = scopedIds ? { $or: [{ employeeRef: null }, { employeeRef: { $in: scopedIds } }] } : {};
     const [pendingLeaveApprovals, pendingRegistrations, assetCounts] = await Promise.all([
-      LeaveRequest.countDocuments({ status: { $in: ['pending', 'on_hold'] } }),
+      LeaveRequest.countDocuments(leaveFilter),
       User.countDocuments({ approvalStatus: 'pending' }),
-      Asset.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Asset.aggregate([{ $match: assetMatch }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
 
     const assetsByStatus = Object.fromEntries(assetCounts.map((a) => [a._id, a.count]));

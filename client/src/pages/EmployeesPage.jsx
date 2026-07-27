@@ -8,11 +8,11 @@ import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { yearsSince, formatDate } from '../utils/avatar';
-import { ADMIN_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, LOGIN_ACCESS_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
-const LOGIN_ROLE_BADGE = { employee: 'b-gy', manager: 'b-bl', hr: 'b-bl', superadmin: 'b-go' };
-const LOGIN_ROLE_LABEL = { employee: 'Employee', manager: 'Admin', hr: 'Admin', superadmin: 'Superadmin' };
+const LOGIN_ROLE_BADGE = { employee: 'b-gy', admin: 'b-bl', superadmin: 'b-go' };
+const LOGIN_ROLE_LABEL = { employee: 'Employee', admin: 'Admin', superadmin: 'Superadmin' };
 
 export default function EmployeesPage() {
   const [params] = useSearchParams();
@@ -20,11 +20,12 @@ export default function EmployeesPage() {
   const { openEditEmployee } = useOutletContext();
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes(user?.role);
+  const canSeeLoginAccess = LOGIN_ACCESS_ROLES.includes(user?.role);
   const canDelete = user?.role === 'superadmin';
   const toast = useToast();
   const qc = useQueryClient();
 
-  const [dept, setDept] = useState('all');
+  const [dept, setDept] = useState(() => params.get('dept') || 'all');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [deletingEmp, setDeletingEmp] = useState(null);
@@ -35,16 +36,27 @@ export default function EmployeesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
+  useEffect(() => {
+    const deptParam = params.get('dept');
+    if (deptParam && deptParam !== dept) {
+      setDept(deptParam);
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   const { data: summary } = useQuery({ queryKey: ['employees-summary'], queryFn: () => api.get('/employees/summary').then((r) => r.data) });
   const { data: depts = [] } = useQuery({ queryKey: ['departments'], queryFn: () => api.get('/departments').then((r) => r.data.items) });
   const { data } = useQuery({
     queryKey: ['employees', dept, q, page],
     queryFn: () => api.get('/employees', { params: { dept, q, page, limit: 10 } }).then((r) => r.data),
   });
-  const { data: todayStatuses = {} } = useQuery({
+  const { data: todayAttendance } = useQuery({
     queryKey: ['attendance-today'],
-    queryFn: () => api.get('/attendance/today').then((r) => r.data.statuses),
+    queryFn: () => api.get('/attendance/today').then((r) => r.data),
   });
+  const todayStatuses = todayAttendance?.statuses || {};
+  const attendanceExemptIds = new Set(todayAttendance?.exemptIds || []);
 
   const deactivate = useMutation({
     mutationFn: (emp) => api.patch(`/employees/${emp._id}/status`, { status: emp.status === 'active' ? 'inactive' : 'active' }),
@@ -100,7 +112,7 @@ export default function EmployeesPage() {
           <table>
             <thead>
               <tr>
-                <th>Employee</th><th>Login Access</th><th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Today</th><th>Status</th>
+                <th>Employee</th>{canSeeLoginAccess && <th>Login Access</th>}<th>Department</th><th>Designation</th><th>Joined</th><th>Birthday</th><th>Yrs</th><th>Today</th><th>Status</th>
                 {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
@@ -116,20 +128,24 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                   </td>
-                  <td>
-                    {e.userRef?.role ? (
-                      <span className={`badge ${LOGIN_ROLE_BADGE[e.userRef.role] || 'b-gy'}`}><i className="fa-solid fa-key" style={{ fontSize: 9, marginRight: 4 }} />{LOGIN_ROLE_LABEL[e.userRef.role] || e.userRef.role}</span>
-                    ) : (
-                      <span style={{ color: 'var(--t3)', fontSize: 11 }}>No Login</span>
-                    )}
-                  </td>
+                  {canSeeLoginAccess && (
+                    <td>
+                      {e.userRef?.role ? (
+                        <span className={`badge ${LOGIN_ROLE_BADGE[e.userRef.role] || 'b-gy'}`}><i className="fa-solid fa-key" style={{ fontSize: 9, marginRight: 4 }} />{LOGIN_ROLE_LABEL[e.userRef.role] || e.userRef.role}</span>
+                      ) : (
+                        <span style={{ color: 'var(--t3)', fontSize: 11 }}>No Login</span>
+                      )}
+                    </td>
+                  )}
                   <td><span className="badge b-bl">{e.dept}</span></td>
                   <td>{e.desig}</td>
                   <td>{formatDate(e.joined)}</td>
                   <td>{formatDate(e.dob)}</td>
                   <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{yearsSince(e.joined)}yr</td>
                   <td>
-                    {todayStatuses[e._id] ? (
+                    {attendanceExemptIds.has(e._id) ? (
+                      <span style={{ color: 'var(--t3)', fontSize: 11 }}>N/A</span>
+                    ) : todayStatuses[e._id] ? (
                       <span className={`badge ${STATUS_BADGE[todayStatuses[e._id]]}`}>{STATUS_LABEL[todayStatuses[e._id]]}</span>
                     ) : (
                       <span className="badge b-gy">Not marked</span>

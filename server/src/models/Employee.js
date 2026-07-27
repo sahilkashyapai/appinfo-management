@@ -1,4 +1,5 @@
 const { Schema, model } = require('mongoose');
+const { ROLE_LABEL_ORDER } = require('../utils/roleLabels');
 
 const employeeSchema = new Schema(
   {
@@ -9,11 +10,7 @@ const employeeSchema = new Schema(
     desig: { type: String, required: true, trim: true },
     roleLabel: {
       type: String,
-      enum: [
-        'President & CTO', 'COO / SVP / VP', 'Director & VP', 'Director', 'Senior Manager', 'Manager',
-        'Team Lead', 'Senior Engineer', 'Engineer / Developer', 'Associate', 'Intern',
-        'HR Manager / HR Head', 'HR Executive', 'Front Office Executive',
-      ],
+      enum: ROLE_LABEL_ORDER,
       default: 'Engineer / Developer',
     },
     joined: { type: Date, required: true },

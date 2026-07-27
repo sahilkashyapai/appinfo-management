@@ -6,8 +6,9 @@ import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDateTime } from '../utils/avatar';
+import { BRANCH_LOCATIONS } from '../utils/offices';
 
-const BRANCHES = ['USA', 'India', 'South Africa'];
+const BRANCHES = Object.keys(BRANCH_LOCATIONS);
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
@@ -22,6 +23,7 @@ const ACTION_ICON = {
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
+  const canEditBranch = user?.role === 'superadmin';
   const toast = useToast();
   const qc = useQueryClient();
   const photoInputRef = useRef(null);
@@ -181,11 +183,24 @@ export default function ProfilePage() {
               <div className="fg"><label className="fl">Location</label><input className="fc" value={profile.location || ''} onChange={(e) => setForm({ ...profile, location: e.target.value })} /></div>
               <div className="fg">
                 <label className="fl">Branch</label>
-                <Select value={profile.branch || ''} onChange={(e) => setForm({ ...profile, branch: e.target.value })}>
-                  <option value="">Select branch</option>
-                  {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
-                  {profile.branch && !BRANCHES.includes(profile.branch) && <option value={profile.branch}>{profile.branch}</option>}
-                </Select>
+                {canEditBranch ? (
+                  <Select
+                    value={profile.branch || ''}
+                    onChange={(e) => {
+                      const branch = e.target.value;
+                      setForm({ ...profile, branch, location: BRANCH_LOCATIONS[branch] || profile.location });
+                    }}
+                  >
+                    <option value="">Select branch</option>
+                    {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+                    {profile.branch && !BRANCHES.includes(profile.branch) && <option value={profile.branch}>{profile.branch}</option>}
+                  </Select>
+                ) : (
+                  <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--t3)' }}>
+                    <span>{profile.branch || '—'}</span>
+                    <span style={{ fontSize: 10.5 }}>Only a Super Admin can change this</span>
+                  </div>
+                )}
               </div>
             </div>
             <button className="btn bp bsm" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}><i className="fa-solid fa-check" /> Save Changes</button>

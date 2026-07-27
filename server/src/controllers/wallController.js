@@ -2,20 +2,13 @@ const WallPost = require('../models/WallPost');
 const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
 const { sendPushToUser } = require('../services/pushService');
-const { excludeSuperadminUsers, superadminUserIds } = require('../utils/hideSuperadmin');
+const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
+const { APPROVER_ROLES } = require('../utils/roles');
+const { isOfficeScoped, scopedUserIds } = require('../utils/officeScope');
 
 const REACTION_TYPES = ['like', 'love', 'celebrate'];
-const REACTION_ICON = { like: '👍', love: '❤️', celebrate: '🎉' };
-
-// Post authorship by a superadmin is already excluded from the feed entirely
-// (see excludeSuperadminUsers in list()), but a superadmin can still comment on
-// someone else's post — this masks their identity in that comment thread for
-// anyone who isn't superadmin, mirroring the Attendance markedBy -> "Admin" redaction.
-async function saIdSetFor(viewerRole) {
-  if (viewerRole === 'superadmin') return null;
-  const ids = await superadminUserIds();
-  return new Set(ids.map(String));
-}
+const REACTION_ICON = { like: 'fa-solid fa-thumbs-up', love: 'fa-solid fa-heart', celebrate: 'fa-solid fa-champagne-glasses' };
+const REACTION_LABEL = { like: 'liked', love: 'loved', celebrate: 'celebrated' };
 
 async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' }) {
   try {
@@ -26,24 +19,18 @@ async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' })
   sendPushToUser(authorId, { title, body, url: link }).catch((e) => console.error('[push] wall notify failed:', e.message));
 }
 
-function shapePost(post, userId, saIds) {
+function shapePost(post, userId) {
   const obj = post.toObject();
   const uid = String(userId);
   obj.counts = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].length]));
   obj.myReactions = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].some((id) => String(id) === uid)]));
 
-  // Polls are fully anonymous — even for HR/superadmin, only aggregate counts
-  // are ever exposed, never who voted for what.
+  // Polls are fully anonymous — only aggregate counts are ever exposed, never
+  // who voted for what.
   if (obj.poll) {
     obj.poll.myVoteIndex = obj.poll.options.findIndex((o) => o.votes.some((id) => String(id) === uid));
     obj.poll.totalVotes = obj.poll.options.reduce((n, o) => n + o.votes.length, 0);
     obj.poll.options = obj.poll.options.map((o) => ({ text: o.text, count: o.votes.length }));
-  }
-
-  if (saIds && obj.comments) {
-    obj.comments = obj.comments.map((c) =>
-      c.authorRef && saIds.has(String(c.authorRef._id)) ? { ...c, authorRef: { ...c.authorRef, name: 'Admin' } } : c
-    );
   }
   return obj;
 }
@@ -53,6 +40,8 @@ async function list(req, res) {
   const filter = {};
   if (tag && tag !== 'all') filter.tag = tag;
   await excludeSuperadminUsers(filter, req.user.role, 'authorRef');
+  const scopedIds = await scopedUserIds(req.user);
+  if (scopedIds) filter.authorRef = { $in: scopedIds };
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
 
@@ -66,8 +55,7 @@ async function list(req, res) {
     WallPost.countDocuments(filter),
   ]);
 
-  const saIds = await saIdSetFor(req.user.role);
-  res.json({ items: posts.map((p) => shapePost(p, req.user._id, saIds)), total, page: pg, pages: Math.ceil(total / lim) || 1 });
+  res.json({ items: posts.map((p) => shapePost(p, req.user._id)), total, page: pg, pages: Math.ceil(total / lim) || 1 });
 }
 
 async function create(req, res) {
@@ -93,7 +81,7 @@ async function create(req, res) {
   const post = await WallPost.create(postData);
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post._id, detail: 'Posted on Celebration Wall' });
-  res.status(201).json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.status(201).json({ post: shapePost(post, req.user._id) });
 }
 
 async function update(req, res) {
@@ -110,7 +98,7 @@ async function update(req, res) {
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
   await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'wall_posts', recordId: post._id, detail: 'Edited wall post' });
-  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function react(req, res) {
@@ -139,11 +127,11 @@ async function react(req, res) {
     notifyPostAuthor(authorId, {
       icon: REACTION_ICON[type],
       title: 'New reaction on your post',
-      body: `${req.user.name} reacted ${REACTION_ICON[type]} to your Wall post.`,
+      body: `${req.user.name} ${REACTION_LABEL[type]} your Wall post.`,
     });
   }
 
-  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function votePoll(req, res) {
@@ -168,7 +156,7 @@ async function votePoll(req, res) {
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function addComment(req, res) {
@@ -185,13 +173,13 @@ async function addComment(req, res) {
 
   if (String(authorId) !== String(req.user._id)) {
     notifyPostAuthor(authorId, {
-      icon: '💬',
+      icon: 'fa-solid fa-comment-dots',
       title: 'New comment on your post',
       body: `${req.user.name} commented on your Wall post.`,
     });
   }
 
-  res.status(201).json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.status(201).json({ post: shapePost(post, req.user._id) });
 }
 
 async function editComment(req, res) {
@@ -209,7 +197,7 @@ async function editComment(req, res) {
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function deleteComment(req, res) {
@@ -217,22 +205,40 @@ async function deleteComment(req, res) {
   if (!post) return res.status(404).json({ message: 'Post not found.' });
   const comment = post.comments.id(req.params.commentId);
   if (!comment) return res.status(404).json({ message: 'Comment not found.' });
-  if (String(comment.authorRef) !== String(req.user._id) && !['superadmin', 'hr'].includes(req.user.role)) {
-    return res.status(403).json({ message: 'You can only delete your own comments.' });
+  const isOwnComment = String(comment.authorRef) === String(req.user._id);
+  if (!isOwnComment) {
+    if (!APPROVER_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You can only delete your own comments.' });
+    }
+    if (await isOfficeScoped(req.user)) {
+      const scopedIds = await scopedUserIds(req.user);
+      if (!scopedIds.some((id) => String(id) === String(comment.authorRef))) {
+        return res.status(403).json({ message: 'You can only moderate content from your own office.' });
+      }
+    }
   }
 
   comment.deleteOne();
   await post.save();
   await post.populate('authorRef', 'name avatarIndex avatarUrl');
   await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  res.json({ post: shapePost(post, req.user._id, await saIdSetFor(req.user.role)) });
+  res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function remove(req, res) {
   const post = await WallPost.findById(req.params.id);
   if (!post) return res.status(404).json({ message: 'Post not found.' });
-  if (String(post.authorRef) !== String(req.user._id) && !['superadmin', 'hr'].includes(req.user.role)) {
-    return res.status(403).json({ message: 'You can only delete your own posts.' });
+  const isOwnPost = String(post.authorRef) === String(req.user._id);
+  if (!isOwnPost) {
+    if (!APPROVER_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You can only delete your own posts.' });
+    }
+    if (await isOfficeScoped(req.user)) {
+      const scopedIds = await scopedUserIds(req.user);
+      if (!scopedIds.some((id) => String(id) === String(post.authorRef))) {
+        return res.status(403).json({ message: 'You can only moderate content from your own office.' });
+      }
+    }
   }
   await post.deleteOne();
   await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'wall_posts', recordId: post._id, detail: 'Deleted wall post' });

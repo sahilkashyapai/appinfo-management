@@ -10,7 +10,7 @@ import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/avatar';
-import { ADMIN_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, APPROVER_ROLES } from '../utils/roles';
 import { STATUSES, STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
 const CORRECTION_STATUS_BADGE = { pending: 'b-or', approved: 'b-gr', rejected: 'b-re' };
@@ -27,7 +27,7 @@ function currentMonthValue() {
 
 export default function AttendancePage() {
   const { user } = useAuth();
-  const canMark = ['superadmin', 'hr'].includes(user?.role);
+  const canMark = APPROVER_ROLES.includes(user?.role);
   const canViewTeam = ADMIN_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
@@ -105,7 +105,7 @@ export default function AttendancePage() {
   const approveCorrection = useMutation({
     mutationFn: (id) => api.patch(`/attendance/corrections/${id}/approve`),
     onSuccess: () => {
-      toast('Correction approved ✓', 'success');
+      toast('Correction approved', 'success');
       invalidateCorrections();
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not approve request.', 'error'),

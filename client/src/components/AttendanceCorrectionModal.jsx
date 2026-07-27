@@ -20,7 +20,7 @@ export default function AttendanceCorrectionModal({ defaultDate, onClose }) {
   const submit = useMutation({
     mutationFn: () => api.post('/attendance/corrections', { date, requestedStatus, reason }),
     onSuccess: () => {
-      toast('Correction request submitted ✓', 'success');
+      toast('Correction request submitted', 'success');
       qc.invalidateQueries({ queryKey: ['attendance-corrections'] });
       onClose();
     },

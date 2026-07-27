@@ -97,6 +97,7 @@ export default function DocumentsPage() {
       toast('Document deleted', 'info');
       setDeletingDoc(null);
       qc.invalidateQueries({ queryKey: ['my-documents'] });
+      qc.invalidateQueries({ queryKey: ['document-requests'] });
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not delete document.', 'error'),
   });
@@ -121,7 +122,7 @@ export default function DocumentsPage() {
   });
 
   function canDeleteDoc(d) {
-    return ADMIN_ROLES.includes(user?.role) || d.uploadedByRef?._id === user?.id;
+    return ADMIN_ROLES.includes(user?.role) || d.uploadedByRef?._id === user?.id || String(d.employeeRef) === String(user?.employeeRef);
   }
 
   return (
@@ -224,6 +225,9 @@ export default function DocumentsPage() {
                               </button>
                               <button className="btn bgn bxs" onClick={() => download.mutate(r.documentRef._id)} disabled={download.isPending}>
                                 <i className="fa-solid fa-download" /> Download
+                              </button>
+                              <button className="btn brd bxs bico" onClick={() => setDeletingDoc(r.documentRef)} title="Remove">
+                                <i className="fa-solid fa-trash" />
                               </button>
                             </>
                           )}

@@ -6,7 +6,7 @@ const announcementSchema = new Schema(
     body: { type: String, required: true, trim: true },
     type: { type: String, enum: ['general', 'hiring'], default: 'general' },
     priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' },
-    icon: { type: String, default: '📢' },
+    icon: { type: String, default: 'fa-solid fa-bullhorn' }, // Font Awesome icon class
     pinned: { type: Boolean, default: false },
     postedByRef: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     scheduledAt: { type: Date, default: null },

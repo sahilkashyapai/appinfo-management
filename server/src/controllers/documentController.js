@@ -6,7 +6,8 @@ const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
 const { sendPushToUsers } = require('../services/pushService');
 const { ADMIN_ROLES, APPROVER_ROLES } = require('../utils/roles');
-const { superadminEmployeeIds, excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { isOutsideScope, scopeByEmployeeRef } = require('../utils/officeScope');
 
 const MAX_DOCUMENT_CHARS = 6 * 1024 * 1024; // ~4.5MB decoded
 
@@ -45,9 +46,9 @@ async function list(req, res) {
     return res.status(400).json({ message: 'employeeRef is required.' });
   }
 
-  if (req.user.role !== 'superadmin') {
-    const ids = await superadminEmployeeIds();
-    if (ids.some((id) => String(id) === String(employeeRef))) return res.json({ items: [] });
+  const target = await Employee.findById(employeeRef, 'location');
+  if (await isOutsideScope(req.user, target?.location)) {
+    return res.json({ items: [] });
   }
 
   const items = await Document.find({ employeeRef })
@@ -58,11 +59,14 @@ async function list(req, res) {
 }
 
 async function getOne(req, res) {
-  const doc = await Document.findById(req.params.id);
+  const doc = await Document.findById(req.params.id).populate('employeeRef', 'location');
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
-  const isOwner = String(doc.employeeRef) === String(req.user.employeeRef);
+  const isOwner = String(doc.employeeRef._id) === String(req.user.employeeRef);
   if (!isOwner && !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({ message: 'You do not have permission to view this document.' });
+  }
+  if (!isOwner && (await isOutsideScope(req.user, doc.employeeRef.location))) {
+    return res.status(404).json({ message: 'Document not found.' });
   }
   res.json({ item: doc });
 }
@@ -80,6 +84,9 @@ async function upload(req, res) {
 
   const employee = await Employee.findById(employeeRef);
   if (!employee) return res.status(404).json({ message: 'Employee not found.' });
+  if (await isOutsideScope(req.user, employee.location)) {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
 
   const doc = await Document.create({
     employeeRef,
@@ -104,13 +111,15 @@ async function upload(req, res) {
 
 async function update(req, res) {
   const { name, category, fileName, fileType, fileUrl } = req.body;
-  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name');
+  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name location');
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
-  const isOwnUpload =
-    req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef) && String(doc.uploadedByRef) === String(req.user._id);
-  if (!isAdmin && !isOwnUpload) return res.status(403).json({ message: 'You do not have permission to edit this document.' });
+  const isOwner = req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef);
+  if (!isAdmin && !isOwner) return res.status(403).json({ message: 'You do not have permission to edit this document.' });
+  if (isAdmin && (await isOutsideScope(req.user, doc.employeeRef.location))) {
+    return res.status(404).json({ message: 'Document not found.' });
+  }
 
   if (fileUrl) {
     const fileError = validateFile(fileUrl);
@@ -137,13 +146,15 @@ async function update(req, res) {
 }
 
 async function remove(req, res) {
-  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name');
+  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name location');
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
-  const isOwnUpload =
-    req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef) && String(doc.uploadedByRef) === String(req.user._id);
-  if (!isAdmin && !isOwnUpload) return res.status(403).json({ message: 'You do not have permission to delete this document.' });
+  const isOwner = req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef);
+  if (!isAdmin && !isOwner) return res.status(403).json({ message: 'You do not have permission to delete this document.' });
+  if (isAdmin && (await isOutsideScope(req.user, doc.employeeRef.location))) {
+    return res.status(404).json({ message: 'Document not found.' });
+  }
 
   await doc.deleteOne();
   await writeAudit({
@@ -179,10 +190,10 @@ async function createRequest(req, res) {
     detail: `Requested ${REQUEST_TYPE_LABEL[type]}${period ? ` (${period})` : ''}`,
   });
 
-  const approvers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id');
+  const approvers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id managedLocation');
   notifyDocumentEvent({
-    recipientIds: approvers.map((u) => u._id),
-    icon: '📄',
+    recipientIds: approvers.filter((u) => !u.managedLocation || u.managedLocation === employee.location).map((u) => u._id),
+    icon: 'fa-solid fa-file',
     title: 'New document request',
     body: `${employee.name} requested a ${REQUEST_TYPE_LABEL[type]}${period ? ` for ${period}` : ''}.`,
     link: '/documents?tab=requests',
@@ -204,6 +215,7 @@ async function listRequests(req, res) {
   const filter = {};
   if (status && status !== 'all') filter.status = status;
   await excludeSuperadminEmployees(filter, req.user.role);
+  await scopeByEmployeeRef(filter, req.user);
   const items = await DocumentRequest.find(filter)
     .populate('employeeRef', 'name avatarIndex dept desig')
     .populate('documentRef', 'name fileName fileType')
@@ -216,8 +228,11 @@ async function fulfillRequest(req, res) {
   const fileError = validateFile(fileUrl);
   if (fileError) return res.status(400).json({ message: fileError });
 
-  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef');
+  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
   if (!request) return res.status(404).json({ message: 'Document request not found.' });
+  if (await isOutsideScope(req.user, request.employeeRef.location)) {
+    return res.status(404).json({ message: 'Document request not found.' });
+  }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
   const doc = await Document.create({
@@ -248,7 +263,7 @@ async function fulfillRequest(req, res) {
   if (request.employeeRef.userRef) {
     notifyDocumentEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '✅',
+      icon: 'fa-solid fa-circle-check',
       title: 'Document ready',
       body: `Your ${REQUEST_TYPE_LABEL[request.type]} request${request.period ? ` for ${request.period}` : ''} is ready to download.`,
       link: '/documents',
@@ -260,8 +275,11 @@ async function fulfillRequest(req, res) {
 
 async function rejectRequest(req, res) {
   const { note } = req.body;
-  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef');
+  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
   if (!request) return res.status(404).json({ message: 'Document request not found.' });
+  if (await isOutsideScope(req.user, request.employeeRef.location)) {
+    return res.status(404).json({ message: 'Document request not found.' });
+  }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
   request.status = 'rejected';
@@ -282,7 +300,7 @@ async function rejectRequest(req, res) {
   if (request.employeeRef.userRef) {
     notifyDocumentEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '❌',
+      icon: 'fa-solid fa-circle-xmark',
       title: 'Document request rejected',
       body: `Your ${REQUEST_TYPE_LABEL[request.type]} request was rejected.${note ? ` Note: ${note}` : ''}`,
       link: '/documents',

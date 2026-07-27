@@ -7,6 +7,9 @@ const getSettings = require('./getSettings');
 // getters like `req.ip` live on the prototype and don't survive an object spread.
 async function writeAudit({ ip, user, action, entity, recordId, detail }) {
   try {
+    // A proadmin's actions are never recorded anywhere, by design — there is
+    // deliberately no audit trail of what a proadmin does, for anyone to see.
+    if (user?.role === 'proadmin') return;
     const settings = await getSettings();
     if (!settings.security.auditLogging) return;
     await AuditLog.create({

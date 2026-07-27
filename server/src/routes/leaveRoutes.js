@@ -9,7 +9,7 @@ router.use(requireAuth);
 router.get('/balance', ctrl.balance);
 router.get('/report', ctrl.report);
 router.get('/requests/mine', ctrl.mine);
-router.get('/requests', requireRole('superadmin', 'hr', 'manager'), ctrl.list);
+router.get('/requests', requireRole('superadmin', 'admin'), ctrl.list);
 router.get('/requests/:id', ctrl.getOne);
 router.post('/requests', ctrl.create);
 router.patch('/requests/:id/approve', ctrl.approve);

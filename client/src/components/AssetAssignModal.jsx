@@ -17,7 +17,7 @@ export default function AssetAssignModal({ asset, onClose }) {
   const assign = useMutation({
     mutationFn: () => api.patch(`/assets/${asset._id}/assign`, { employeeRef: employeeId }),
     onSuccess: () => {
-      toast(`Asset assigned ✓`, 'success');
+      toast('Asset assigned', 'success');
       qc.invalidateQueries({ queryKey: ['assets'] });
       onClose();
     },

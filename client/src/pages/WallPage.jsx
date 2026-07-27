@@ -6,6 +6,7 @@ import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDateTime } from '../utils/avatar';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const TAG_BADGE = { birthday: 'b-or', anniversary: 'b-go', event: 'b-bl', general: 'b-gy', poll: 'b-pu' };
 
@@ -171,7 +172,7 @@ export default function WallPage() {
 
       {data?.items.map((p) => {
         const isOwnPost = p.authorRef?._id === user?.id;
-        const canDeletePost = isOwnPost || ['superadmin', 'hr'].includes(user?.role);
+        const canDeletePost = isOwnPost || APPROVER_ROLES.includes(user?.role);
         const isEditingPost = editingPostId === p._id;
         return (
         <div className="wp" key={p._id}>
@@ -263,7 +264,7 @@ export default function WallPage() {
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
               {p.comments.map((c) => {
                 const isOwn = c.authorRef?._id === user?.id;
-                const canDelete = isOwn || ['superadmin', 'hr'].includes(user?.role);
+                const canDelete = isOwn || APPROVER_ROLES.includes(user?.role);
                 const isEditing = editingCommentId === c._id;
                 return (
                   <div key={c._id} style={{ display: 'flex', gap: 7, marginBottom: 7 }}>

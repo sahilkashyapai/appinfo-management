@@ -13,13 +13,13 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { STATUS_LABEL } from '../utils/attendance';
 import { formatDate } from '../utils/avatar';
-import { APPROVER_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, APPROVER_ROLES } from '../utils/roles';
 
 const LEAVE_TYPE_COLOR = { casual: 'var(--accent)', sick: 'var(--orange)', earned: 'var(--green)' };
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? ['Good morning', '☀️'] : h < 17 ? ['Good afternoon', '🌤️'] : ['Good evening', '🌙'];
+  return h < 12 ? ['Good morning', 'fa-solid fa-sun'] : h < 17 ? ['Good afternoon', 'fa-solid fa-cloud-sun'] : ['Good evening', 'fa-solid fa-moon'];
 }
 
 export default function DashboardPage() {
@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const [greetLabel, emoji] = greeting();
   const maxDept = Math.max(...data.deptHeadcount.map((d) => d.count), 1);
   const maxSpark = Math.max(...data.sparkline.map((s) => s.value), 1);
-  const isAdmin = ['superadmin', 'hr', 'manager'].includes(user?.role);
+  const isAdmin = ADMIN_ROLES.includes(user?.role);
   const canManageHiring = APPROVER_ROLES.includes(user?.role);
   const hiringAlerts = data.hiringAlerts || [];
 
@@ -65,7 +65,7 @@ export default function DashboardPage() {
     <div className="page on">
       <div className="ph">
         <div className="ph-l">
-          <div className="pgt">{greetLabel}, {(user?.name || 'Admin').split(' ')[0]}! {emoji}</div>
+          <div className="pgt">{greetLabel}, {(user?.name || 'Admin').split(' ')[0]}! <i className={emoji} style={{ fontSize: '0.85em', color: 'var(--orange)' }} /></div>
           <div className="pgs">
             {data.kpis.todaysBirthdaysCount} birthday(s) · {data.kpis.todaysAnniversariesCount} anniversary(ies) · {data.kpis.upcomingEventsCount} events upcoming
           </div>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         </div>
         {hiringAlerts.map((h) => (
           <div className="pr" key={h._id}>
-            <div style={{ fontSize: 21, width: 32, textAlign: 'center', flexShrink: 0 }}>{h.icon}</div>
+            <div style={{ fontSize: 19, width: 32, textAlign: 'center', flexShrink: 0, color: 'var(--green)' }}><i className={h.icon} /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700 }}>{h.title}</div>
               <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{h.body}</div>
@@ -274,7 +274,7 @@ export default function DashboardPage() {
               <button
                 className="btn bp bxs"
                 onClick={() =>
-                  sendWish.mutate({ tag: 'birthday', toastMsg: `Wish sent to ${e.name}! 🎂`, text: `🎂 Happy Birthday, ${e.name}! Wishing you a fantastic year ahead! 🎉` })
+                  sendWish.mutate({ tag: 'birthday', toastMsg: `Wish sent to ${e.name}!`, text: `Happy Birthday, ${e.name}! Wishing you a fantastic year ahead!` })
                 }
               >
                 <i className="fa-solid fa-paper-plane" /> Wish
@@ -293,12 +293,12 @@ export default function DashboardPage() {
               <Avatar name={e.name} index={e.avatarIndex} size={32} onClick={() => openEmployee(e._id)} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{e.name}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{e.dept} · <strong style={{ color: 'var(--gold)' }}>{e.years}yr 🏆</strong></div>
+                <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{e.dept} · <strong style={{ color: 'var(--gold)' }}>{e.years}yr <i className="fa-solid fa-trophy" /></strong></div>
               </div>
               <button
                 className="btn bgn bxs"
                 onClick={() =>
-                  sendWish.mutate({ tag: 'anniversary', toastMsg: `Congrats sent to ${e.name}! 🏆`, text: `🎉 Congratulations ${e.name} on ${e.years} year(s) at Applied Information India! 🌟` })
+                  sendWish.mutate({ tag: 'anniversary', toastMsg: `Congrats sent to ${e.name}!`, text: `Congratulations ${e.name} on ${e.years} year(s) at Applied Information India!` })
                 }
               >
                 <i className="fa-solid fa-medal" />
@@ -316,7 +316,7 @@ export default function DashboardPage() {
           </div>
           {data.upcomingEvents.map((e) => (
             <div className="pr" key={e._id} style={{ cursor: 'pointer' }} onClick={() => openRsvp(e._id)}>
-              <div style={{ fontSize: 22, width: 32, textAlign: 'center', flexShrink: 0 }}>{e.emoji}</div>
+              <div style={{ fontSize: 19, width: 32, textAlign: 'center', flexShrink: 0, color: 'var(--purple)' }}><i className={e.emoji || 'fa-solid fa-calendar-days'} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{e.title}</div>
                 <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{e.venue}</div>
@@ -354,7 +354,9 @@ export default function DashboardPage() {
           {data.leaderboard.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No wall activity yet this month.</div>}
           {data.leaderboard.map((l, i) => (
             <div key={l.user._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: i === data.leaderboard.length - 1 ? 'none' : '1px solid var(--bd)' }}>
-              <div style={{ width: 18, fontSize: 11.5, fontWeight: 900, textAlign: 'center' }}>{['🥇', '🥈', '🥉', '4', '5'][i]}</div>
+              <div style={{ width: 18, fontSize: 11.5, fontWeight: 900, textAlign: 'center' }}>
+                {i < 3 ? <i className="fa-solid fa-medal" style={{ color: ['#D4AF37', '#A8A9AD', '#CD7F32'][i], fontSize: 14 }} /> : i + 1}
+              </div>
               <Avatar name={l.user.name} index={l.user.avatarIndex} size={27} fontSize={8} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>{l.user.name}</div>

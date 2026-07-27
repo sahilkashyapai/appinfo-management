@@ -7,8 +7,8 @@ const router = express.Router();
 router.use(requireAuth);
 
 router.get('/', ctrl.list);
-router.post('/', requireRole('superadmin', 'hr'), ctrl.create);
-router.put('/:id', requireRole('superadmin', 'hr'), ctrl.update);
-router.delete('/:id', requireRole('superadmin', 'hr'), ctrl.remove);
+router.post('/', requireRole('superadmin', 'admin'), ctrl.create);
+router.put('/:id', requireRole('superadmin', 'admin'), ctrl.update);
+router.delete('/:id', requireRole('superadmin', 'admin'), ctrl.remove);
 
 module.exports = router;

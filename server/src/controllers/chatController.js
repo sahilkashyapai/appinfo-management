@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const { emitToUsers, isUserOnline } = require('../realtime/io');
 const { sendPushToUser } = require('../services/pushService');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
+const { scopedUserIds } = require('../utils/officeScope');
 
 const MEMBER_SELECT = 'name avatarIndex avatarUrl role';
 const MAX_ATTACHMENTS = 5;
@@ -28,6 +29,18 @@ function validateAttachments(attachments) {
 async function listUsers(req, res) {
   const filter = { isActive: true, approvalStatus: 'approved', _id: { $ne: req.user._id } };
   await excludeSuperadminUsers(filter, req.user.role, '_id');
+
+  // Office isolation only limits contact with other office-bound people —
+  // company-wide admin/unscoped-superadmin contacts stay reachable from any office.
+  const scopedIds = await scopedUserIds(req.user);
+  if (scopedIds) {
+    filter.$or = [
+      { role: 'admin' },
+      { role: 'superadmin', managedLocation: { $in: [null, ''] } },
+      { _id: { $in: scopedIds } },
+    ];
+  }
+
   const users = await User.find(filter, MEMBER_SELECT).sort({ name: 1 });
   res.json({ items: users });
 }
@@ -157,7 +170,7 @@ async function sendMessage(req, res) {
   await message.populate('senderRef', MEMBER_SELECT);
 
   conversation.lastMessageAt = message.createdAt;
-  conversation.lastMessageText = message.text || (message.attachments.length ? '📎 Attachment' : '');
+  conversation.lastMessageText = message.text || (message.attachments.length ? 'Attachment' : '');
   await conversation.save();
 
   emitToUsers(conversation.members, 'message:new', { conversationId: String(conversation._id), message });
@@ -165,12 +178,12 @@ async function sendMessage(req, res) {
   // Offline recipients (no live socket connection) get an in-app notification + push;
   // online recipients already got the real-time message:new event above.
   const notifyTitle = `New message from ${req.user.name}`;
-  const notifyBody = message.text || '📎 Sent an attachment';
+  const notifyBody = message.text || 'Sent an attachment';
   const notifyLink = `/messages?conversation=${conversation._id}`;
   conversation.members
     .filter((id) => String(id) !== String(req.user._id) && !isUserOnline(id))
     .forEach((id) => {
-      Notification.create({ recipientRef: id, icon: '💬', type: 'chat', title: notifyTitle, body: notifyBody, link: notifyLink }).catch((e) =>
+      Notification.create({ recipientRef: id, icon: 'fa-solid fa-comment-dots', type: 'chat', title: notifyTitle, body: notifyBody, link: notifyLink }).catch((e) =>
         console.error('[chat] failed to create notification:', e.message)
       );
       sendPushToUser(id, { title: notifyTitle, body: notifyBody, url: notifyLink }).catch((e) => console.error('[push] chat message failed:', e.message));

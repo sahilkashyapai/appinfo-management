@@ -7,6 +7,7 @@ const writeAudit = require('../utils/audit');
 const { sendPushToUser, sendPushToUsers } = require('../services/pushService');
 const { ADMIN_ROLES, APPROVER_ROLES } = require('../utils/roles');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { resolveScopeLocation, scopeEmployeeLocationFilter, scopeByEmployeeRef } = require('../utils/officeScope');
 
 const LEAVE_TYPES = ['casual', 'sick', 'earned'];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -58,6 +59,7 @@ async function report(req, res) {
   if (isAdmin) {
     const filter = { status: 'active' };
     await excludeSuperadminEmployees(filter, req.user.role, '_id');
+    await scopeEmployeeLocationFilter(filter, req.user);
     employees = await Employee.find(filter).select('name dept desig avatarIndex');
   } else {
     if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
@@ -126,11 +128,14 @@ async function report(req, res) {
 
 async function balance(req, res) {
   let employeeRef = req.user.employeeRef;
-  if (req.query.employeeId && ['superadmin', 'hr'].includes(req.user.role)) {
-    employeeRef = req.query.employeeId;
-  } else if (req.query.employeeId && req.user.role === 'manager') {
-    const target = await Employee.findById(req.query.employeeId, 'managerRef');
-    if (target && String(target.managerRef) === String(req.user.employeeRef)) employeeRef = req.query.employeeId;
+  if (req.query.employeeId && APPROVER_ROLES.includes(req.user.role)) {
+    const scopeLoc = await resolveScopeLocation(req.user);
+    if (scopeLoc) {
+      const target = await Employee.findById(req.query.employeeId, 'location');
+      if (target && target.location === scopeLoc) employeeRef = req.query.employeeId;
+    } else {
+      employeeRef = req.query.employeeId;
+    }
   }
   if (!employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
 
@@ -165,11 +170,8 @@ async function list(req, res) {
   if (type && type !== 'all') filter.type = type;
   if (employeeRef) filter.employeeRef = employeeRef;
 
-  if (req.user.role === 'manager') {
-    const reports = await Employee.find({ managerRef: req.user.employeeRef }, '_id');
-    filter.employeeRef = { $in: reports.map((r) => r._id) };
-  }
   await excludeSuperadminEmployees(filter, req.user.role);
+  await scopeByEmployeeRef(filter, req.user);
 
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
@@ -186,12 +188,14 @@ async function list(req, res) {
 }
 
 async function getOne(req, res) {
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name avatarIndex dept desig managerRef userRef');
+  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name avatarIndex dept desig managerRef userRef location');
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
 
   const isOwner = String(request.employeeRef._id) === String(req.user.employeeRef);
   const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
-  if (!isOwner && !isManager && !APPROVER_ROLES.includes(req.user.role)) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
+  if (!isOwner && !isManager && !isApprover) {
     return res.status(403).json({ message: 'You do not have permission to view this request.' });
   }
   res.json({ item: request });
@@ -240,15 +244,19 @@ async function create(req, res) {
     detail: `Requested ${type} leave: ${start.toDateString()} – ${end.toDateString()}`,
   });
 
-  const approverUsers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id');
-  const recipientIds = approverUsers.map((u) => u._id);
+  // A superadmin scoped to another office shouldn't be pinged about this
+  // employee's request — only unscoped approvers and this employee's own office.
+  const approverUsers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id managedLocation');
+  const recipientIds = approverUsers
+    .filter((u) => !u.managedLocation || u.managedLocation === employee.location)
+    .map((u) => u._id);
   if (employee.managerRef) {
     const manager = await Employee.findById(employee.managerRef, 'userRef');
     if (manager?.userRef) recipientIds.push(manager.userRef);
   }
   notifyLeaveEvent({
     recipientIds,
-    icon: '🗓️',
+    icon: 'fa-solid fa-calendar-days',
     title: 'New leave request',
     body: `${employee.name} requested ${days} day(s) of ${type} leave.`,
     link: '/leave?tab=approvals',
@@ -260,12 +268,14 @@ async function create(req, res) {
 function decide(status) {
   return async function handler(req, res) {
     const { note } = req.body;
-    const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef');
+    const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
     if (!request) return res.status(404).json({ message: 'Leave request not found.' });
     if (!['pending', 'on_hold'].includes(request.status)) return res.status(400).json({ message: 'This request has already been decided.' });
 
     const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
-    if (!APPROVER_ROLES.includes(req.user.role) && !isManager) {
+    const scopeLoc = await resolveScopeLocation(req.user);
+    const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
+    if (!isApprover && !isManager) {
       return res.status(403).json({ message: 'You do not have permission to decide this request.' });
     }
 
@@ -287,7 +297,7 @@ function decide(status) {
     if (request.employeeRef.userRef) {
       notifyLeaveEvent({
         recipientIds: [request.employeeRef.userRef],
-        icon: status === 'approved' ? '✅' : '❌',
+        icon: status === 'approved' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark',
         title: `Leave request ${status}`,
         body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) was ${status}.${note ? ` Note: ${note}` : ''}`,
       });
@@ -299,12 +309,14 @@ function decide(status) {
 
 async function hold(req, res) {
   const { note } = req.body;
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef');
+  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
   if (request.status !== 'pending') return res.status(400).json({ message: 'Only pending requests can be put on hold.' });
 
   const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
-  if (!APPROVER_ROLES.includes(req.user.role) && !isManager) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
+  if (!isApprover && !isManager) {
     return res.status(403).json({ message: 'You do not have permission to update this request.' });
   }
 
@@ -324,7 +336,7 @@ async function hold(req, res) {
   if (request.employeeRef.userRef) {
     notifyLeaveEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '⏸️',
+      icon: 'fa-solid fa-pause',
       title: 'Leave request on hold',
       body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) is on hold.${note ? ` Note: ${note}` : ''}`,
     });
@@ -337,12 +349,14 @@ async function addComment(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text is required.' });
 
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef');
+  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
 
   const isOwner = String(request.employeeRef._id) === String(req.user.employeeRef);
   const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
-  if (!isOwner && !isManager && !APPROVER_ROLES.includes(req.user.role)) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
+  if (!isOwner && !isManager && !isApprover) {
     return res.status(403).json({ message: 'You do not have permission to comment on this request.' });
   }
 
@@ -352,7 +366,7 @@ async function addComment(req, res) {
   if (!isOwner && request.employeeRef.userRef) {
     notifyLeaveEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '💬',
+      icon: 'fa-solid fa-comment-dots',
       title: 'New comment on your leave request',
       body: `${req.user.name}: ${text.trim()}`,
     });

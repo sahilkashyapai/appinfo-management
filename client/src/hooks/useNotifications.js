@@ -21,6 +21,10 @@ export function useNotificationActions() {
     mutationFn: () => api.patch('/notifications/read-all'),
     onSuccess: invalidate,
   });
+  const clearAll = useMutation({
+    mutationFn: () => api.delete('/notifications/clear-all'),
+    onSuccess: invalidate,
+  });
 
-  return { markRead, markAllRead };
+  return { markRead, markAllRead, clearAll };
 }

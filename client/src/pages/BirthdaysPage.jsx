@@ -13,6 +13,13 @@ const TABS = [
   { key: 'upcoming', label: 'Upcoming' },
 ];
 
+const EMPTY_MESSAGES = {
+  today: 'No birthdays today.',
+  week: 'No birthdays this week.',
+  month: 'No birthdays this month.',
+  upcoming: 'No upcoming birthdays.',
+};
+
 export default function BirthdaysPage() {
   const [tab, setTab] = useState('today');
   const { openEmployee } = useDrawers();
@@ -47,8 +54,8 @@ export default function BirthdaysPage() {
   const todayCount = withDays.filter((e) => e.days === 0).length;
 
   function sendWish(e) {
-    wish.mutate(`🎂 Happy Birthday, ${e.name}! Wishing you a fantastic year ahead! 🎉`, {
-      onSuccess: () => toast(`Wish sent to ${e.name}! 🎂`, 'birthday'),
+    wish.mutate(`Happy Birthday, ${e.name}! Wishing you a fantastic year ahead!`, {
+      onSuccess: () => toast(`Wish sent to ${e.name}!`, 'birthday'),
     });
   }
 
@@ -58,8 +65,8 @@ export default function BirthdaysPage() {
       toast('No birthdays today.', 'info');
       return;
     }
-    Promise.all(todays.map((e) => api.post('/wall', { text: `🎂 Happy Birthday, ${e.name}! 🎉`, tag: 'birthday' }))).then(() => {
-      toast(`Bulk wishes sent to ${todays.length} employee(s)! 🎂`, 'birthday');
+    Promise.all(todays.map((e) => api.post('/wall', { text: `Happy Birthday, ${e.name}!`, tag: 'birthday' }))).then(() => {
+      toast(`Bulk wishes sent to ${todays.length} employee(s)!`, 'birthday');
       qc.invalidateQueries({ queryKey: ['wall'] });
     });
   }
@@ -80,11 +87,19 @@ export default function BirthdaysPage() {
           <div key={t.key} className={`tab${tab === t.key ? ' on' : ''}`} onClick={() => setTab(t.key)}>{t.label}</div>
         ))}
       </div>
+      {filtered.length === 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 13px', borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 8%, transparent)', color: 'var(--accent)', fontSize: 12, fontWeight: 600, marginBottom: 13 }}>
+          <i className="fa-solid fa-circle-info" />
+          {EMPTY_MESSAGES[tab]}
+        </div>
+      )}
       <div className="g4">
         {filtered.map((e) => (
           <div key={e._id} className="card" style={{ textAlign: 'center', padding: 15 }}>
             <Avatar name={e.name} index={e.avatarIndex} size={52} fontSize={17} onClick={() => openEmployee(e._id)} style={{ margin: '0 auto 9px' }} />
-            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)', marginBottom: 2 }}>🎂 {e.name}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)', marginBottom: 2 }}>
+              <i className="fa-solid fa-cake-candles" style={{ marginRight: 5, color: 'var(--orange)' }} />{e.name}
+            </div>
             <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 2 }}>{e.dept}</div>
             <div style={{ fontSize: 10.5, color: 'var(--t3)', marginBottom: 9 }}>{e.desig}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--orange)', marginBottom: 9 }}>

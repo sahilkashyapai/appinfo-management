@@ -52,7 +52,7 @@ export default function DocumentRequestModal({ onClose }) {
   const submit = useMutation({
     mutationFn: () => api.post('/documents/requests', { type, period, note }),
     onSuccess: () => {
-      toast('Document request submitted ✓', 'success');
+      toast('Document request submitted', 'success');
       qc.invalidateQueries({ queryKey: ['document-requests'] });
       onClose();
     },

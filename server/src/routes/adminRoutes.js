@@ -7,10 +7,10 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-router.get('/', requireRole(...ADMIN_ROLES), ctrl.list);
-router.get('/eligible-employees', requireRole('superadmin'), ctrl.eligibleEmployees);
-router.post('/', requireRole('superadmin'), ctrl.create);
-router.put('/:id', requireRole(...ADMIN_ROLES), ctrl.update);
-router.delete('/:id', requireRole('superadmin'), ctrl.remove);
+router.get('/', requireRole('proadmin', ...ADMIN_ROLES), ctrl.list);
+router.get('/eligible-employees', requireRole('proadmin', 'superadmin'), ctrl.eligibleEmployees);
+router.post('/', requireRole('proadmin', 'superadmin'), ctrl.create);
+router.put('/:id', requireRole('proadmin', 'superadmin'), ctrl.update);
+router.delete('/:id', requireRole('proadmin', 'superadmin'), ctrl.remove);
 
 module.exports = router;

@@ -3,6 +3,7 @@ const getSettings = require('../utils/getSettings');
 const writeAudit = require('../utils/audit');
 const { startOfDay, autoStopIfExpired } = require('../utils/timeTracking');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
+const { scopedUserIds } = require('../utils/officeScope');
 
 async function findToday(userRef) {
   const timer = await TimeLog.findOne({ userRef, date: startOfDay() });
@@ -72,6 +73,8 @@ async function stop(req, res) {
 async function today(req, res) {
   const filter = { date: startOfDay() };
   await excludeSuperadminUsers(filter, req.user.role, 'userRef');
+  const scopedIds = await scopedUserIds(req.user);
+  if (scopedIds) filter.userRef = { $in: scopedIds };
   const items = await TimeLog.find(filter)
     .populate('userRef', 'name email department avatarIndex avatarUrl')
     .sort({ startedAt: -1 });
@@ -93,6 +96,12 @@ function buildFilter(query) {
 async function list(req, res) {
   const filter = buildFilter(req.query);
   await excludeSuperadminUsers(filter, req.user.role, 'userRef');
+  const scopedIds = await scopedUserIds(req.user);
+  if (scopedIds) {
+    filter.userRef = filter.userRef && !scopedIds.some((id) => String(id) === String(filter.userRef))
+      ? { $in: [] }
+      : { $in: scopedIds };
+  }
   const { page = 1, limit = 25 } = req.query;
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);

@@ -11,7 +11,7 @@ const eventSchema = new Schema(
     date: { type: Date, required: true },
     venue: { type: String, default: '' },
     status: { type: String, enum: ['draft', 'published'], default: 'draft' },
-    emoji: { type: String, default: '🎉' },
+    emoji: { type: String, default: 'fa-solid fa-calendar-days' }, // Font Awesome icon class
     color: { type: String, default: '#2E86AB' },
     capacity: { type: Number, default: 100 },
     createdByRef: { type: Schema.Types.ObjectId, ref: 'User', default: null },

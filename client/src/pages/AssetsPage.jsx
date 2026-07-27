@@ -7,13 +7,14 @@ import AssetAssignModal from '../components/AssetAssignModal';
 import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const STATUS_BADGE = { unassigned: 'b-gy', assigned: 'b-bl', returned: 'b-gy', damaged: 'b-re', lost: 'b-re' };
 const CATEGORY_LABEL = { laptop: 'Laptop', mobile: 'Mobile', id_card: 'ID Card', access_card: 'Access Card', other: 'Other' };
 
 export default function AssetsPage() {
   const { user } = useAuth();
-  const canDelete = user?.role === 'superadmin' || user?.role === 'hr';
+  const canDelete = APPROVER_ROLES.includes(user?.role);
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showForm, setShowForm] = useState(false);

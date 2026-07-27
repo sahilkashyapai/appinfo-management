@@ -6,8 +6,9 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const writeAudit = require('../utils/audit');
 const { sendPushToUsers } = require('../services/pushService');
-const { APPROVER_ROLES } = require('../utils/roles');
-const { excludeSuperadminEmployees, superadminUserIds } = require('../utils/hideSuperadmin');
+const { ADMIN_ROLES, APPROVER_ROLES } = require('../utils/roles');
+const { excludeAdminAttendanceForEmployee, excludeSuperadminAttendance, superadminEmployeeIds } = require('../utils/hideSuperadmin');
+const { resolveScopeLocation, isOutsideScope, scopeEmployeeLocationFilter, scopeByEmployeeRef, scopedEmployeeIds } = require('../utils/officeScope');
 const { countWorkingDays } = require('../utils/workingDays');
 const { startOfDayUTC: startOfDay } = require('../utils/attendanceDate');
 
@@ -61,13 +62,14 @@ async function mySummary(req, res) {
 
 async function list(req, res) {
   const { employeeId, from, to, month } = req.query;
-  const isAdmin = ['superadmin', 'hr', 'manager'].includes(req.user.role);
+  const isAdmin = ADMIN_ROLES.includes(req.user.role);
 
   const filter = {};
 
   if (isAdmin) {
     if (employeeId) filter.employeeRef = employeeId;
-    await excludeSuperadminEmployees(filter, req.user.role);
+    await excludeSuperadminAttendance(filter);
+    await scopeByEmployeeRef(filter, req.user);
   } else {
     const ownId = await resolveOwnEmployeeId(req);
     if (!ownId) return res.json({ items: [] });
@@ -88,28 +90,21 @@ async function list(req, res) {
     .populate('employeeRef', 'name dept avatarIndex')
     .populate('markedBy', 'name');
 
-  let shaped = items;
-  if (req.user.role !== 'superadmin') {
-    const saIds = new Set((await superadminUserIds()).map(String));
-    shaped = items.map((it) => {
-      if (it.markedBy && saIds.has(String(it.markedBy._id))) {
-        const obj = it.toObject();
-        obj.markedBy = { ...obj.markedBy, name: 'Admin' };
-        return obj;
-      }
-      return it;
-    });
-  }
-
-  res.json({ items: shaped });
+  res.json({ items });
 }
 
 async function today(req, res) {
   const filter = { date: startOfDay(new Date()) };
-  await excludeSuperadminEmployees(filter, req.user.role);
+  await excludeSuperadminAttendance(filter);
+  await scopeByEmployeeRef(filter, req.user);
+  await excludeAdminAttendanceForEmployee(filter, req.user.role);
   const items = await Attendance.find(filter, 'employeeRef status');
   const byEmployee = Object.fromEntries(items.map((a) => [String(a.employeeRef), a.status]));
-  res.json({ date: startOfDay(new Date()), statuses: byEmployee });
+  // Superadmins are exempt from attendance tracking entirely — the client uses
+  // this to show "N/A" instead of "Not marked", without needing to know the
+  // viewer-restricted login-access role.
+  const exemptIds = (await superadminEmployeeIds()).map(String);
+  res.json({ date: startOfDay(new Date()), statuses: byEmployee, exemptIds });
 }
 
 // Full employee list behind a single today's-attendance stat (dashboard drill-down).
@@ -120,17 +115,22 @@ async function todayByStatus(req, res) {
   }
 
   const employeeFilter = { status: 'active' };
-  await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await excludeSuperadminAttendance(employeeFilter, '_id');
+  await excludeAdminAttendanceForEmployee(employeeFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
 
   if (status === 'not_marked') {
     const marked = await Attendance.find({ date: startOfDay(new Date()) }, 'employeeRef');
-    employeeFilter._id = { $nin: marked.map((a) => a.employeeRef) };
+    const alreadyExcluded = employeeFilter._id?.$nin || [];
+    employeeFilter._id = { $nin: [...alreadyExcluded, ...marked.map((a) => a.employeeRef)] };
     const items = await Employee.find(employeeFilter, 'name dept avatarIndex').sort({ name: 1 });
     return res.json({ items });
   }
 
   const attendanceFilter = { date: startOfDay(new Date()), status };
-  await excludeSuperadminEmployees(attendanceFilter, req.user.role);
+  await excludeSuperadminAttendance(attendanceFilter);
+  await scopeByEmployeeRef(attendanceFilter, req.user);
+  await excludeAdminAttendanceForEmployee(attendanceFilter, req.user.role);
   const records = await Attendance.find(attendanceFilter).populate('employeeRef', 'name dept avatarIndex status');
   const items = records
     .filter((r) => r.employeeRef && r.employeeRef.status === 'active')
@@ -143,11 +143,15 @@ async function todayByStatus(req, res) {
 // dashboard's "View all" breakdown, grouped separately rather than one flat list.
 async function todayBreakdown(req, res) {
   const employeeFilter = { status: 'active' };
-  await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+  await excludeSuperadminAttendance(employeeFilter, '_id');
+  await excludeAdminAttendanceForEmployee(employeeFilter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(employeeFilter, req.user);
   const activeEmployees = await Employee.find(employeeFilter, 'name dept avatarIndex');
 
   const attendanceFilter = { date: startOfDay(new Date()) };
-  await excludeSuperadminEmployees(attendanceFilter, req.user.role);
+  await excludeSuperadminAttendance(attendanceFilter);
+  await scopeByEmployeeRef(attendanceFilter, req.user);
+  await excludeAdminAttendanceForEmployee(attendanceFilter, req.user.role);
   const records = await Attendance.find(attendanceFilter).populate('employeeRef', 'name dept avatarIndex status');
 
   const groups = { office: [], wfh: [], leave: [], absent: [] };
@@ -173,8 +177,11 @@ async function upsert(req, res) {
     return res.status(400).json({ message: `employeeRef, date and a status (${STATUSES.join(', ')}) are required.` });
   }
 
-  const employee = await Employee.findById(employeeRef, 'name');
+  const employee = await Employee.findById(employeeRef, 'name location');
   if (!employee) return res.status(404).json({ message: 'Employee not found.' });
+  if (await isOutsideScope(req.user, employee.location)) {
+    return res.status(404).json({ message: 'Employee not found.' });
+  }
 
   const day = startOfDay(date);
   const record = await Attendance.findOneAndUpdate(
@@ -202,9 +209,13 @@ async function bulkUpsert(req, res) {
   }
   const day = startOfDay(date);
 
+  const scopedIds = await scopedEmployeeIds(req.user);
+  const allowed = scopedIds ? new Set(scopedIds.map(String)) : null;
+
   const results = [];
   for (const { employeeRef, status, note } of entries) {
     if (!employeeRef || !STATUSES.includes(status)) continue;
+    if (allowed && !allowed.has(String(employeeRef))) continue;
     const record = await Attendance.findOneAndUpdate(
       { employeeRef, date: day },
       { employeeRef, date: day, status, note: note || '', markedBy: req.user._id },
@@ -240,7 +251,8 @@ async function exportPdf(req, res) {
 
   if (employeeId) {
     const employeeFilter = { _id: employeeId };
-    await excludeSuperadminEmployees(employeeFilter, req.user.role, '_id');
+    await excludeSuperadminAttendance(employeeFilter, '_id');
+    await scopeEmployeeLocationFilter(employeeFilter, req.user);
     const employee = await Employee.findOne(employeeFilter, 'name empId dept desig');
     if (!employee) {
       doc.text('Employee not found.');
@@ -271,7 +283,8 @@ async function exportPdf(req, res) {
     if (records.length === 0) doc.fontSize(10).fillColor('#666').text('No attendance records for this month.');
   } else {
     const employeesFilter = {};
-    await excludeSuperadminEmployees(employeesFilter, req.user.role, '_id');
+    await excludeSuperadminAttendance(employeesFilter, '_id');
+    await scopeEmployeeLocationFilter(employeesFilter, req.user);
     const employees = await Employee.find(employeesFilter, 'name empId dept').sort({ name: 1 });
     const records = await Attendance.find({ date: { $gte: from, $lte: to } }, 'employeeRef status');
 
@@ -297,6 +310,13 @@ async function exportPdf(req, res) {
 }
 
 async function remove(req, res) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  if (scopeLoc) {
+    const existing = await Attendance.findById(req.params.id).populate('employeeRef', 'location');
+    if (!existing || existing.employeeRef?.location !== scopeLoc) {
+      return res.status(404).json({ message: 'Attendance record not found.' });
+    }
+  }
   const record = await Attendance.findByIdAndDelete(req.params.id);
   if (!record) return res.status(404).json({ message: 'Attendance record not found.' });
   res.json({ message: 'Attendance record deleted.' });
@@ -337,7 +357,7 @@ async function createCorrectionRequest(req, res) {
   const approvers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id');
   notifyAttendanceEvent({
     recipientIds: approvers.map((u) => u._id),
-    icon: '📅',
+    icon: 'fa-solid fa-calendar-days',
     title: 'Attendance correction requested',
     body: `${employee?.name || 'An employee'} disputed ${day.toDateString()}: ${STATUS_LABEL_FULL[currentStatus]} → ${STATUS_LABEL_FULL[requestedStatus]}.`,
     link: '/attendance?tab=corrections',
@@ -357,7 +377,8 @@ async function listCorrectionRequests(req, res) {
   const { status } = req.query;
   const filter = {};
   if (status && status !== 'all') filter.status = status;
-  await excludeSuperadminEmployees(filter, req.user.role);
+  await excludeSuperadminAttendance(filter);
+  await scopeByEmployeeRef(filter, req.user);
   const items = await AttendanceCorrectionRequest.find(filter)
     .populate('employeeRef', 'name avatarIndex dept')
     .sort({ createdAt: -1 });
@@ -365,8 +386,11 @@ async function listCorrectionRequests(req, res) {
 }
 
 async function approveCorrectionRequest(req, res) {
-  const request = await AttendanceCorrectionRequest.findById(req.params.id).populate('employeeRef', 'name userRef');
+  const request = await AttendanceCorrectionRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
   if (!request) return res.status(404).json({ message: 'Correction request not found.' });
+  if (await isOutsideScope(req.user, request.employeeRef?.location)) {
+    return res.status(404).json({ message: 'Correction request not found.' });
+  }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
   await Attendance.findOneAndUpdate(
@@ -392,7 +416,7 @@ async function approveCorrectionRequest(req, res) {
   if (request.employeeRef.userRef) {
     notifyAttendanceEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '✅',
+      icon: 'fa-solid fa-circle-check',
       title: 'Attendance correction approved',
       body: `Your ${request.date.toDateString()} attendance was updated to ${STATUS_LABEL_FULL[request.requestedStatus]}.`,
     });
@@ -403,8 +427,11 @@ async function approveCorrectionRequest(req, res) {
 
 async function rejectCorrectionRequest(req, res) {
   const { note } = req.body;
-  const request = await AttendanceCorrectionRequest.findById(req.params.id).populate('employeeRef', 'name userRef');
+  const request = await AttendanceCorrectionRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
   if (!request) return res.status(404).json({ message: 'Correction request not found.' });
+  if (await isOutsideScope(req.user, request.employeeRef?.location)) {
+    return res.status(404).json({ message: 'Correction request not found.' });
+  }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
   request.status = 'rejected';
@@ -425,7 +452,7 @@ async function rejectCorrectionRequest(req, res) {
   if (request.employeeRef.userRef) {
     notifyAttendanceEvent({
       recipientIds: [request.employeeRef.userRef],
-      icon: '❌',
+      icon: 'fa-solid fa-circle-xmark',
       title: 'Attendance correction rejected',
       body: `Your correction request for ${request.date.toDateString()} was rejected.${note ? ` Note: ${note}` : ''}`,
     });

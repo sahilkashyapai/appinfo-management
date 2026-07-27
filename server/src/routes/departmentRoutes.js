@@ -9,8 +9,8 @@ router.get('/public', ctrl.publicList);
 router.use(requireAuth);
 
 router.get('/', ctrl.list);
-router.post('/', requireRole('superadmin', 'hr'), ctrl.create);
-router.put('/:id', requireRole('superadmin', 'hr'), ctrl.update);
+router.post('/', requireRole('superadmin', 'admin'), ctrl.create);
+router.put('/:id', requireRole('superadmin', 'admin'), ctrl.update);
 router.delete('/:id', requireRole('superadmin'), ctrl.remove);
 
 module.exports = router;

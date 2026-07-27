@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import AnnouncementFormModal from '../components/AnnouncementFormModal';
 import { formatDate } from '../utils/avatar';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const PRIORITY_BADGE = { high: 'b-re', medium: 'b-or', low: 'b-gr' };
 
@@ -13,7 +14,7 @@ export default function AnnouncementsPage() {
   const toast = useToast();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const canManage = ['superadmin', 'hr'].includes(user?.role);
+  const canManage = APPROVER_ROLES.includes(user?.role);
 
   const { data: items = [] } = useQuery({ queryKey: ['announcements'], queryFn: () => api.get('/announcements').then((r) => r.data.items) });
 
@@ -41,10 +42,10 @@ export default function AnnouncementsPage() {
       </div>
       {items.map((a) => (
         <div className={`ann ${a.priority}`} key={a._id}>
-          <div style={{ fontSize: 21, flexShrink: 0, marginTop: 1 }}>{a.icon}</div>
+          <div style={{ fontSize: 19, flexShrink: 0, marginTop: 1, color: 'var(--accent)' }}><i className={a.icon || 'fa-solid fa-bullhorn'} /></div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--t1)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {a.pinned ? '📌 ' : ''}{a.title}
+              {a.pinned && <i className="fa-solid fa-thumbtack" style={{ fontSize: 10.5 }} />}{a.title}
               <span className={`badge ${PRIORITY_BADGE[a.priority]}`} style={{ textTransform: 'capitalize' }}>{a.priority}</span>
               {a.type === 'hiring' && <span className="badge b-gr"><i className="fa-solid fa-briefcase" /> Hiring</span>}
             </div>

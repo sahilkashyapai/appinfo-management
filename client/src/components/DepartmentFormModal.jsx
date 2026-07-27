@@ -22,7 +22,7 @@ export default function DepartmentFormModal({ department, onClose }) {
   const save = useMutation({
     mutationFn: () => (isEdit ? api.put(`/departments/${department._id}`, form) : api.post('/departments', form)),
     onSuccess: () => {
-      toast(isEdit ? 'Department updated ✓' : 'Department added ✓', 'success');
+      toast(isEdit ? 'Department updated' : 'Department added', 'success');
       qc.invalidateQueries({ queryKey: ['departments'] });
       onClose();
     },

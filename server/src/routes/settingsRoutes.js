@@ -8,11 +8,11 @@ router.use(requireAuth);
 
 router.get('/', ctrl.get);
 router.put('/notifications', ctrl.updateNotifications);
-router.put('/integrations', requireRole('superadmin', 'hr'), ctrl.updateIntegrations);
+router.put('/integrations', requireRole('superadmin', 'admin'), ctrl.updateIntegrations);
 router.put('/smtp', requireRole('superadmin'), ctrl.updateSmtp);
 router.put('/security', requireRole('superadmin'), ctrl.updateSecurity);
 router.put('/timeTracking', requireRole('superadmin'), ctrl.updateTimeTracking);
-router.put('/leavePolicy', requireRole('superadmin', 'hr'), ctrl.updateLeavePolicy);
+router.put('/leavePolicy', requireRole('superadmin', 'admin'), ctrl.updateLeavePolicy);
 router.post('/test-email', requireRole('superadmin'), ctrl.sendTestEmail);
 
 module.exports = router;

@@ -7,8 +7,8 @@ import ConfirmModal from './ConfirmModal';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { formatDate, daysUntilNext } from '../utils/avatar';
-import { ADMIN_ROLES } from '../utils/roles';
+import { formatDate, daysUntilNext, daysSinceLast } from '../utils/avatar';
+import { ADMIN_ROLES, APPROVER_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
 const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
@@ -29,7 +29,7 @@ export default function EmployeeDrawer({ onEdit }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canManage = ['superadmin', 'hr'].includes(user?.role);
+  const canManage = APPROVER_ROLES.includes(user?.role);
   const canSeePhone = ADMIN_ROLES.includes(user?.role);
   const canDelete = user?.role === 'superadmin';
 
@@ -48,7 +48,7 @@ export default function EmployeeDrawer({ onEdit }) {
       const bday = daysUntilNext(data.employee.dob) === 0;
       const text = bday
         ? `Happy Birthday, ${data.employee.name}! Wishing you a fantastic year ahead!`
-        : `Congratulations ${data.employee.name} on your work anniversary! 🎉`;
+        : `Congratulations ${data.employee.name} on your work anniversary!`;
       return api.post('/wall', { text, tag: bday ? 'birthday' : 'anniversary' });
     },
     onSuccess: () => {
@@ -71,7 +71,7 @@ export default function EmployeeDrawer({ onEdit }) {
   const uploadDoc = useMutation({
     mutationFn: (body) => api.post('/documents', body),
     onSuccess: () => {
-      toast('Document uploaded ✓', 'success');
+      toast('Document uploaded', 'success');
       qc.invalidateQueries({ queryKey: ['employee', employeeId] });
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not upload document.', 'error'),
@@ -114,7 +114,7 @@ export default function EmployeeDrawer({ onEdit }) {
   if (!employeeId || !data) return <div id="epd" />;
 
   const { employee: e, years, milestones, stats } = data;
-  const canWishToday = daysUntilNext(e.dob) === 0 || (years >= 1 && daysUntilNext(e.joined) === 0);
+  const canWishToday = daysSinceLast(e.dob) <= 3 || (years >= 1 && daysSinceLast(e.joined) <= 3);
   const canChat = e.userRef && e.userRef._id !== user?.id;
   const isOwnRecord = e.userRef?._id === user?.id;
   const canManageAssets = ADMIN_ROLES.includes(user?.role);
@@ -243,7 +243,7 @@ export default function EmployeeDrawer({ onEdit }) {
             </button>
           )}
           {canDelete && (
-            <button className="btn bor bsm" onClick={() => setConfirmingDelete(true)} disabled={deleteEmployee.isPending} style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>
+            <button className="btn brd bsm" onClick={() => setConfirmingDelete(true)} disabled={deleteEmployee.isPending}>
               <i className="fa-solid fa-trash" /> Delete Permanently
             </button>
           )}

@@ -81,7 +81,7 @@ export default function LeavePage() {
   const approve = useMutation({
     mutationFn: (id) => api.patch(`/leave/requests/${id}/approve`),
     onSuccess: () => {
-      toast('Leave request approved ✓', 'success');
+      toast('Leave request approved', 'success');
       invalidate();
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not approve request.', 'error'),

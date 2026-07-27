@@ -29,20 +29,20 @@ async function sendMail({ to, subject, html }) {
 
 const templates = {
   birthday: (name) => ({
-    subject: `🎂 Happy Birthday, ${name}!`,
-    html: `<p>Happy Birthday, <strong>${name}</strong>! 🎉</p><p>Wishing you a fantastic year ahead from everyone at Applied Information India.</p>`,
+    subject: `Happy Birthday, ${name}!`,
+    html: `<p>Happy Birthday, <strong>${name}</strong>!</p><p>Wishing you a fantastic year ahead from everyone at Applied Information India.</p>`,
   }),
   anniversary: (name, years) => ({
-    subject: `🏆 Congratulations on ${years} year${years === 1 ? '' : 's'}, ${name}!`,
-    html: `<p>Congratulations <strong>${name}</strong> on completing <strong>${years}</strong> year${years === 1 ? '' : 's'} with Applied Information India! 🌟</p>`,
+    subject: `Congratulations on ${years} year${years === 1 ? '' : 's'}, ${name}!`,
+    html: `<p>Congratulations <strong>${name}</strong> on completing <strong>${years}</strong> year${years === 1 ? '' : 's'} with Applied Information India!</p>`,
   }),
   eventReminder: (title, date, daysLeft) => ({
-    subject: `📅 Reminder: ${title} in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+    subject: `Reminder: ${title} in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
     html: `<p><strong>${title}</strong> is coming up on ${date}. Don't forget to RSVP!</p>`,
   }),
   generic: (title, body) => ({ subject: title, html: `<p>${body}</p>` }),
   registrationApproved: (name) => ({
-    subject: '✅ Your AII Celebrations account is active',
+    subject: 'Your AII Celebrations account is active',
     html: `<p>Hi <strong>${name}</strong>,</p><p>Your account has been approved. You can now sign in to the Employee Celebrations &amp; Events Platform with the email and password you registered with.</p>`,
   }),
   registrationRejected: (name, reason) => ({

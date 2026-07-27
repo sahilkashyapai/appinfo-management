@@ -27,7 +27,7 @@ export default function ReferralFormModal({ referral, onClose }) {
   const submit = useMutation({
     mutationFn: (body) => (isEdit ? api.patch(`/job-applications/${referral._id}/referral`, body) : api.post('/job-applications/refer', body)),
     onSuccess: () => {
-      toast(isEdit ? 'Referral updated ✓' : `Thanks! ${candidateName} has been referred for ${department}.`, 'success');
+      toast(isEdit ? 'Referral updated' : `Thanks! ${candidateName} has been referred for ${department}.`, 'success');
       qc.invalidateQueries({ queryKey: ['job-applications'] });
       qc.invalidateQueries({ queryKey: ['my-referrals'] });
       onClose();
@@ -98,7 +98,7 @@ export default function ReferralFormModal({ referral, onClose }) {
           <label className="fl">Department</label>
           <Select value={department} onChange={(e) => setDepartment(e.target.value)}>
             <option value="">Select department</option>
-            {depts.filter((d) => d.name.toLowerCase() !== 'Head of Company').map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
+            {depts.filter((d) => d.name.toLowerCase() !== 'leadership').map((d) => <option key={d._id} value={d.name}>{d.name}</option>)}
           </Select>
         </div>
         <div className="fg">

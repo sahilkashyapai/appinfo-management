@@ -8,12 +8,12 @@ router.use(requireAuth);
 
 router.get('/', ctrl.list);
 router.get('/summary', ctrl.summary);
-router.get('/next-emp-id', requireRole('superadmin', 'hr'), ctrl.nextId);
+router.get('/next-emp-id', requireRole('superadmin', 'admin'), ctrl.nextId);
 router.get('/org-chart', ctrl.orgChart);
 router.get('/:id', ctrl.getOne);
-router.post('/', requireRole('superadmin', 'hr'), ctrl.create);
-router.put('/:id', requireRole('superadmin', 'hr'), ctrl.update);
-router.patch('/:id/status', requireRole('superadmin', 'hr'), ctrl.setStatus);
+router.post('/', requireRole('superadmin', 'admin'), ctrl.create);
+router.put('/:id', requireRole('superadmin', 'admin'), ctrl.update);
+router.patch('/:id/status', requireRole('superadmin', 'admin'), ctrl.setStatus);
 router.delete('/:id', requireRole('superadmin'), ctrl.remove);
 
 module.exports = router;

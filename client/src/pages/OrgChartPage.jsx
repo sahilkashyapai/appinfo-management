@@ -5,13 +5,14 @@ import OrgChartCanvas from '../components/OrgChartCanvas';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { buildOrgTree, collectSubtreeIds, findOrgNode } from '../utils/orgChart';
+import { APPROVER_ROLES } from '../utils/roles';
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 2;
 
 export default function OrgChartPage() {
   const { user } = useAuth();
-  const canManage = ['superadmin', 'hr'].includes(user?.role);
+  const canManage = APPROVER_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
   const [draggingId, setDraggingId] = useState(null);
@@ -131,7 +132,7 @@ export default function OrgChartPage() {
   const reparent = useMutation({
     mutationFn: ({ id, managerRef }) => api.put(`/employees/${id}`, { managerRef }),
     onSuccess: () => {
-      toast('Reporting line updated ✓', 'success');
+      toast('Reporting line updated', 'success');
       qc.invalidateQueries({ queryKey: ['org-chart'] });
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not update reporting line.', 'error'),

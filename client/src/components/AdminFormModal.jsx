@@ -3,25 +3,37 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Select from './Select';
 import { useToast } from '../context/ToastContext';
-import { OFFICE_LOCATIONS } from '../utils/offices';
+import { useAuth } from '../context/AuthContext';
+import { OFFICE_LOCATIONS, BRANCH_LOCATIONS } from '../utils/offices';
 
-const ROLE_LABEL = { manager: 'Manager', hr: 'HR', superadmin: 'Superadmin' };
-// Superadmin is never a choice here — an existing superadmin account can still be
-// deactivated/deleted elsewhere on this page, but nobody grants that role from a dropdown.
-const SETTABLE_ROLES = ['manager', 'hr'];
+const BRANCHES = Object.keys(BRANCH_LOCATIONS);
+
+const ROLE_LABEL = { admin: 'Admin', superadmin: 'Superadmin' };
+const ROLE_BADGE = { admin: 'b-bl', superadmin: 'b-go' };
+// Granting/revoking superadmin is a deliberate action, but it's no longer
+// blocked from this dropdown — a superadmin can pick either role here.
+const GRANTABLE_ROLES = ['admin', 'superadmin'];
 
 export default function AdminFormModal({ admin, onClose }) {
+  const { user } = useAuth();
+  const isProadmin = user?.role === 'proadmin';
   const isEdit = !!admin;
-  const isTargetSuperadmin = isEdit && admin?.role === 'superadmin';
   const [form, setForm] = useState({
     name: admin?.name || '',
     email: admin?.email || '',
-    role: admin?.role || 'manager',
+    role: admin?.role || 'admin',
     phone: admin?.phone || '',
     department: admin?.department || '',
     location: admin?.location || '',
+    managedLocation: admin?.managedLocation || '',
+    managedBranch: admin?.managedBranch || '',
     employeeId: '',
   });
+  // Branch/office scoping is available on both admin (HR) and superadmin
+  // accounts. A proadmin can set it on either; a plain superadmin can only
+  // set it on an admin they manage — touching another superadmin's account
+  // at all is blocked elsewhere in this modal already.
+  const canEditScoping = isEdit && ['admin', 'superadmin'].includes(form.role) && (isProadmin || (user?.role === 'superadmin' && form.role === 'admin'));
   const [created, setCreated] = useState(null);
   const [copied, setCopied] = useState(false);
   const toast = useToast();
@@ -40,22 +52,16 @@ export default function AdminFormModal({ admin, onClose }) {
     enabled: !isEdit,
   });
   const selectedEmployee = employees.find((e) => e._id === form.employeeId);
-  // Mirrors the server's roleFromLabel — shown so the admin knows what access
-  // level they're about to grant, without making them pick it separately.
-  const inferredRole = selectedEmployee ? (/hr/i.test(selectedEmployee.roleLabel || '') ? 'hr' : 'manager') : null;
 
   const save = useMutation({
     mutationFn: () => {
-      if (isEdit) {
-        const payload = isTargetSuperadmin ? { ...form, role: undefined } : form;
-        return api.put(`/admins/${admin._id}`, payload);
-      }
+      if (isEdit) return api.put(`/admins/${admin._id}`, form);
       return api.post('/admins', { employeeId: form.employeeId });
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['admins'] });
       if (isEdit) {
-        toast(`${form.name} updated ✓`, 'success');
+        toast(`${form.name} updated`, 'success');
         onClose();
       } else {
         const { item, tempPassword, upgraded } = res.data;
@@ -87,7 +93,7 @@ export default function AdminFormModal({ admin, onClose }) {
           <div style={{ padding: '2px 2px 14px' }}>
             <p style={{ margin: '0 0 10px', fontSize: 13 }}>
               <strong>{created.name}</strong> {created.upgraded ? 'was promoted to' : 'was added as'}{' '}
-              <span className={`badge ${created.role === 'hr' ? 'b-gr' : 'b-bl'}`}>{ROLE_LABEL[created.role]}</span>.
+              <span className={`badge ${ROLE_BADGE[created.role]}`}>{ROLE_LABEL[created.role]}</span>.
             </p>
             {created.upgraded ? (
               <div style={{ fontSize: 11.5, color: 'var(--t3)' }}>
@@ -142,7 +148,7 @@ export default function AdminFormModal({ admin, onClose }) {
         ) : (
           <div className="fg">
             <label className="fl">Employee</label>
-            <Select value={form.employeeId} onChange={(e) => selectEmployee(e.target.value)}>
+            <Select value={form.employeeId} onChange={(e) => selectEmployee(e.target.value)} searchable searchPlaceholder="Search employees…">
               <option value="">Select…</option>
               {employees.map((e) => (
                 <option key={e._id} value={e._id}>{e.name} · {e.email}{e.hasLogin ? ' (existing login)' : ''}</option>
@@ -159,7 +165,7 @@ export default function AdminFormModal({ admin, onClose }) {
                 {selectedEmployee.phone && <span>{selectedEmployee.phone}</span>}
                 <span>
                   {selectedEmployee.hasLogin ? 'Existing login will be promoted to' : 'Will be added as'}{' '}
-                  <span className={`badge ${inferredRole === 'hr' ? 'b-gr' : 'b-bl'}`}>{ROLE_LABEL[inferredRole]}</span>, based on their Role Label ({selectedEmployee.roleLabel})
+                  <span className={`badge ${ROLE_BADGE.admin}`}>Admin</span>
                 </span>
               </div>
             )}
@@ -168,17 +174,47 @@ export default function AdminFormModal({ admin, onClose }) {
         {isEdit && (
           <div className="fg">
             <label className="fl">Role</label>
-            {isTargetSuperadmin ? (
-              <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="badge b-go">Superadmin</span>
-                <span style={{ fontSize: 10.5, color: 'var(--t3)' }}>Can't be changed here</span>
-              </div>
-            ) : (
+            {isProadmin ? (
               <Select value={form.role} onChange={(e) => set('role', e.target.value)}>
-                {SETTABLE_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                {GRANTABLE_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
               </Select>
+            ) : (
+              <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className={`badge ${ROLE_BADGE[form.role]}`}>{ROLE_LABEL[form.role]}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--t3)' }}>Only a Pro Admin can change this</span>
+              </div>
             )}
           </div>
+        )}
+        {canEditScoping && (
+          <>
+            <div className="fg">
+              <label className="fl">Managed Branch</label>
+              <Select
+                value={form.managedBranch}
+                onChange={(e) => {
+                  const managedBranch = e.target.value;
+                  setForm((f) => ({ ...f, managedBranch, managedLocation: managedBranch ? BRANCH_LOCATIONS[managedBranch] : f.managedLocation }));
+                }}
+              >
+                <option value="">All branches (unscoped)</option>
+                {BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}
+              </Select>
+              <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>
+                Picking a branch auto-fills Managed Office below to that branch's location.
+              </div>
+            </div>
+            <div className="fg">
+              <label className="fl">Managed Office</label>
+              <Select value={form.managedLocation} onChange={(e) => set('managedLocation', e.target.value)}>
+                <option value="">All offices (unscoped)</option>
+                {OFFICE_LOCATIONS.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+              </Select>
+              <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>
+                Restricts this {form.role === 'superadmin' ? 'superadmin' : 'admin'} to one office's employees, attendance, leave, assets, documents and more. Leave unset for full access.
+              </div>
+            </div>
+          </>
         )}
         {isEdit && (
           <>

@@ -5,6 +5,7 @@ const Event = require('../models/Event');
 const Notification = require('../models/Notification');
 const WallPost = require('../models/WallPost');
 const writeAudit = require('../utils/audit');
+const { BRANCH_LOCATIONS } = require('../utils/offices');
 
 async function getProfile(req, res) {
   const [employees, events, notifications, wallPosts, activity] = await Promise.all([
@@ -29,7 +30,16 @@ async function updateProfile(req, res) {
   if (phone !== undefined) updates.phone = phone;
   if (department !== undefined) updates.department = department;
   if (location !== undefined) updates.location = location;
-  if (branch !== undefined) updates.branch = branch;
+  // Branch determines office scoping downstream (see managedBranch/managedLocation
+  // in adminController), so only a superadmin may change their own branch —
+  // anyone else's request to change it is silently ignored rather than accepted.
+  if (branch !== undefined && req.user.role === 'superadmin') {
+    if (branch && !BRANCH_LOCATIONS[branch]) {
+      return res.status(400).json({ message: `Unknown branch: ${branch}` });
+    }
+    updates.branch = branch;
+    if (branch) updates.location = BRANCH_LOCATIONS[branch];
+  }
   if (avatarUrl !== undefined) {
     if (avatarUrl && !avatarUrl.startsWith('data:image/')) return res.status(400).json({ message: 'Invalid image data.' });
     updates.avatarUrl = avatarUrl;

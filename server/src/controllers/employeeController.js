@@ -9,14 +9,22 @@ const Document = require('../models/Document');
 const Asset = require('../models/Asset');
 const writeAudit = require('../utils/audit');
 const { EMP_ID_PREFIX, EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
-const { ADMIN_ROLES } = require('../utils/roles');
-const { superadminEmployeeIds, excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { ADMIN_ROLES, LOGIN_ACCESS_ROLES } = require('../utils/roles');
+const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
+const { resolveScopeLocation, isOutsideScope, scopeEmployeeLocationFilter } = require('../utils/officeScope');
+const { ROLE_LABEL_ORDER } = require('../utils/roleLabels');
 
 // Mobile numbers are only shown to admin-panel roles — everyone else gets the
 // directory view (name/email/role/photo/designation/dates) with phone stripped.
 function shapeForViewer(emp, viewerRole) {
-  const obj = emp.toObject();
+  // list() sorts via aggregation, which returns plain objects rather than
+  // Mongoose documents — only call toObject() when it's actually a document.
+  const obj = typeof emp.toObject === 'function' ? emp.toObject() : { ...emp };
   if (!ADMIN_ROLES.includes(viewerRole)) delete obj.phone;
+  // Login access (the linked account's role) is only meaningful to admin-tier
+  // viewers — plain employees browsing the directory shouldn't see who has
+  // admin/superadmin login access.
+  if (!LOGIN_ACCESS_ROLES.includes(viewerRole) && obj.userRef) delete obj.userRef.role;
   return obj;
 }
 
@@ -43,16 +51,34 @@ async function list(req, res) {
   const lim = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
 
   await excludeSuperadminEmployees(filter, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(filter, req.user);
 
+  // Sorted by seniority (roleLabel, most senior first) rather than creation
+  // order — Mongo can't sort by an arbitrary enum order directly, so rank is
+  // computed via aggregation. Real employees still rank ahead of demo/seed
+  // data at the same seniority, otherwise a freshly-seeded demo batch buries
+  // real employees at that level on later pages.
   const [items, total] = await Promise.all([
-    // Real employees before demo/seed data, regardless of when each was created —
-    // otherwise a freshly-seeded demo batch buries real employees on later pages.
-    Employee.find(filter)
-      .sort({ isDemo: 1, createdAt: -1 })
-      .skip((pg - 1) * lim)
-      .limit(lim)
-      .populate('managerRef', 'name')
-      .populate('userRef', 'role avatarUrl'),
+    Employee.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          // Legacy records with a roleLabel outside the current enum (e.g. old
+          // free-text titles from before the dropdown existed) get $indexOfArray
+          // -1 — fall those back to "least senior" instead of letting them float
+          // to the very top of the list.
+          roleRank: {
+            $let: {
+              vars: { idx: { $indexOfArray: [ROLE_LABEL_ORDER, '$roleLabel'] } },
+              in: { $cond: [{ $eq: ['$$idx', -1] }, ROLE_LABEL_ORDER.length, '$$idx'] },
+            },
+          },
+        },
+      },
+      { $sort: { roleRank: 1, isDemo: 1, name: 1 } },
+      { $skip: (pg - 1) * lim },
+      { $limit: lim },
+    ]).then((docs) => Employee.populate(docs, [{ path: 'managerRef', select: 'name' }, { path: 'userRef', select: 'role avatarUrl' }])),
     Employee.countDocuments(filter),
   ]);
 
@@ -68,6 +94,7 @@ async function list(req, res) {
 async function summary(req, res) {
   const exclude = {};
   await excludeSuperadminEmployees(exclude, req.user.role, '_id');
+  await scopeEmployeeLocationFilter(exclude, req.user);
   const [active, inactive, leave, total] = await Promise.all([
     Employee.countDocuments({ ...exclude, status: 'active' }),
     Employee.countDocuments({ ...exclude, status: 'inactive' }),
@@ -81,7 +108,7 @@ async function getOne(req, res) {
   const emp = await Employee.findById(req.params.id).populate('managerRef', 'name').populate('userRef', 'email role avatarUrl');
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 
-  if (req.user.role !== 'superadmin' && emp.userRef?.role === 'superadmin') {
+  if (await isOutsideScope(req.user, emp.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
@@ -116,14 +143,14 @@ async function nextId(req, res) {
 }
 
 async function orgChart(req, res) {
-  const employees = await Employee.find({ status: 'active' })
-    .select('name desig dept roleLabel avatarIndex managerRef userRef')
+  const filter = { status: 'active' };
+  await scopeEmployeeLocationFilter(filter, req.user);
+  const employees = await Employee.find(filter)
+    .select('name desig dept roleLabel avatarIndex managerRef userRef location')
     .populate('userRef', 'avatarUrl role')
     .lean();
 
-  const visible = req.user.role === 'superadmin' ? employees : employees.filter((e) => e.userRef?.role !== 'superadmin');
-
-  const items = visible.map((e) => ({
+  const items = employees.map((e) => ({
     _id: e._id,
     name: e.name,
     desig: e.desig,
@@ -145,6 +172,10 @@ async function create(req, res) {
   if (empId && !EMP_ID_REGEX.test(empId)) {
     return res.status(400).json({ message: `Employee ID must look like ${EMP_ID_PREFIX}000071.` });
   }
+  // A superadmin scoped to one office can only ever create employees there —
+  // silently pin the location rather than trusting whatever the client sent.
+  const scopeLoc = await resolveScopeLocation(req.user);
+  const effectiveLocation = scopeLoc || location;
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const trimmedPhone = phone ? String(phone).trim() : '';
@@ -176,7 +207,7 @@ async function create(req, res) {
       dob: new Date(dob),
       email: normalizedEmail,
       phone: trimmedPhone,
-      location,
+      location: effectiveLocation,
       status: status || 'active',
       managerRef: managerRef || null,
       avatarIndex: Math.floor(Math.random() * 10),
@@ -194,13 +225,18 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
-  const current = await Employee.findById(req.params.id, 'empId userRef').populate('userRef', 'role');
+  const current = await Employee.findById(req.params.id, 'empId location');
   if (!current) return res.status(404).json({ message: 'Employee not found.' });
-  if (req.user.role !== 'superadmin' && current.userRef?.role === 'superadmin') {
+  if (await isOutsideScope(req.user, current.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
   const updates = { ...req.body };
+  // A scoped superadmin can't move an employee to another office — pin it.
+  const scopeLocForUpdate = await resolveScopeLocation(req.user);
+  if (scopeLocForUpdate && updates.location !== undefined) {
+    updates.location = scopeLocForUpdate;
+  }
 
   if (updates.empId !== undefined) {
     const empId = String(updates.empId).trim();
@@ -297,9 +333,9 @@ async function setStatus(req, res) {
   const { status } = req.body;
   if (!['active', 'inactive', 'leave'].includes(status)) return res.status(400).json({ message: 'Invalid status.' });
 
-  const target = await Employee.findById(req.params.id).populate('userRef', 'role');
+  const target = await Employee.findById(req.params.id);
   if (!target) return res.status(404).json({ message: 'Employee not found.' });
-  if (req.user.role !== 'superadmin' && target.userRef?.role === 'superadmin') {
+  if (await isOutsideScope(req.user, target.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
@@ -310,6 +346,13 @@ async function setStatus(req, res) {
 }
 
 async function remove(req, res) {
+  const scopeLoc = await resolveScopeLocation(req.user);
+  if (scopeLoc) {
+    const target = await Employee.findById(req.params.id, 'location');
+    if (!target || target.location !== scopeLoc) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
+  }
   const emp = await Employee.findByIdAndDelete(req.params.id);
   if (!emp) return res.status(404).json({ message: 'Employee not found.' });
 

@@ -17,7 +17,7 @@ function ApproveModal({ registration, onClose }) {
   const approve = useMutation({
     mutationFn: () => api.post(`/registrations/${registration._id}/approve`, { desig, location }),
     onSuccess: () => {
-      toast(`${registration.name}'s account is now active ✓`, 'success');
+      toast(`${registration.name}'s account is now active`, 'success');
       qc.invalidateQueries({ queryKey: ['registrations'] });
       onClose();
     },

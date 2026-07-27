@@ -10,5 +10,6 @@ router.get('/', ctrl.list);
 router.get('/unread-count', ctrl.unreadCount);
 router.patch('/:id/read', ctrl.markRead);
 router.patch('/read-all', ctrl.markAllRead);
+router.delete('/clear-all', ctrl.clearAll);
 
 module.exports = router;

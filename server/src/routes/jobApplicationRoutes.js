@@ -16,7 +16,7 @@ router.get('/my-referrals', requireAuth, ctrl.myReferrals);
 router.patch('/:id/referral', requireAuth, ctrl.updateReferral);
 router.delete('/:id/referral', requireAuth, ctrl.deleteReferral);
 
-router.use(requireAuth, requireRole('superadmin', 'hr'));
+router.use(requireAuth, requireRole('superadmin', 'admin'));
 
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);

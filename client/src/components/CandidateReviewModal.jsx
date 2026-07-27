@@ -12,7 +12,7 @@ export default function CandidateReviewModal({ candidate, onClose }) {
   const save = useMutation({
     mutationFn: () => api.patch(`/job-applications/${candidate._id}`, { notes, referrerComment }),
     onSuccess: () => {
-      toast('Saved ✓', 'success');
+      toast('Saved', 'success');
       qc.invalidateQueries({ queryKey: ['job-applications'] });
       onClose();
     },

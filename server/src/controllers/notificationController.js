@@ -8,17 +8,19 @@ function shape(n, userId) {
   return obj;
 }
 
+function visibilityFilter(userId) {
+  return { $or: [{ recipientRef: userId }, { recipientRef: null, clearedBy: { $ne: userId } }] };
+}
+
 async function list(req, res) {
-  const notifs = await Notification.find({
-    $or: [{ recipientRef: req.user._id }, { recipientRef: null }],
-  })
+  const notifs = await Notification.find(visibilityFilter(req.user._id))
     .sort({ createdAt: -1 })
     .limit(50);
   res.json({ items: notifs.map((n) => shape(n, req.user._id)) });
 }
 
 async function unreadCount(req, res) {
-  const notifs = await Notification.find({ $or: [{ recipientRef: req.user._id }, { recipientRef: null }] });
+  const notifs = await Notification.find(visibilityFilter(req.user._id));
   const count = notifs.filter((n) => shape(n, req.user._id).unread).length;
   res.json({ count });
 }
@@ -49,4 +51,29 @@ async function markAllRead(req, res) {
   res.json({ message: 'All notifications marked as read.' });
 }
 
-module.exports = { list, unreadCount, markRead, markAllRead };
+// Personal notifications are only ever visible to their one recipient, so
+// clearing them means deleting them outright. Broadcasts are shared with
+// everyone, so they can't be deleted — clearing just hides them from this
+// viewer (via clearedBy) without affecting anyone else's notification list.
+async function clearAll(req, res) {
+  const notifs = await Notification.find(visibilityFilter(req.user._id));
+  const personalIds = [];
+  const broadcastSaves = [];
+
+  notifs.forEach((n) => {
+    if (n.recipientRef) {
+      personalIds.push(n._id);
+    } else if (!n.clearedBy.some((id) => String(id) === String(req.user._id))) {
+      n.clearedBy.push(req.user._id);
+      broadcastSaves.push(n.save());
+    }
+  });
+
+  await Promise.all([
+    personalIds.length ? Notification.deleteMany({ _id: { $in: personalIds } }) : null,
+    ...broadcastSaves,
+  ]);
+  res.json({ message: 'All notifications cleared.' });
+}
+
+module.exports = { list, unreadCount, markRead, markAllRead, clearAll };

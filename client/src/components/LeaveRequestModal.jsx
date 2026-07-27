@@ -23,7 +23,7 @@ export default function LeaveRequestModal({ onClose }) {
   const save = useMutation({
     mutationFn: () => api.post('/leave/requests', form),
     onSuccess: () => {
-      toast('Leave request submitted ✓', 'success');
+      toast('Leave request submitted', 'success');
       qc.invalidateQueries({ queryKey: ['leave-requests'] });
       qc.invalidateQueries({ queryKey: ['leave-balance'] });
       onClose();

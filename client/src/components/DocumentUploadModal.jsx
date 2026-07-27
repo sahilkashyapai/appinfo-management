@@ -36,7 +36,7 @@ export default function DocumentUploadModal({ employeeRef, document: existingDoc
   const save = useMutation({
     mutationFn: (body) => (isEdit ? api.patch(`/documents/${existingDoc._id}`, body) : api.post('/documents', body)),
     onSuccess: () => {
-      toast(isEdit ? 'Document updated ✓' : 'Document uploaded ✓', 'success');
+      toast(isEdit ? 'Document updated' : 'Document uploaded', 'success');
       qc.invalidateQueries({ queryKey: ['my-documents'] });
       onClose();
     },

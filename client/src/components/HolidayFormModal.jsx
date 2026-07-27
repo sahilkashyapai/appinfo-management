@@ -24,7 +24,7 @@ export default function HolidayFormModal({ holiday, onClose }) {
   const save = useMutation({
     mutationFn: () => (isEdit ? api.put(`/holidays/${holiday._id}`, form) : api.post('/holidays', form)),
     onSuccess: () => {
-      toast(isEdit ? 'Holiday updated ✓' : 'Holiday added ✓', 'success');
+      toast(isEdit ? 'Holiday updated' : 'Holiday added', 'success');
       qc.invalidateQueries({ queryKey: ['holidays'] });
       onClose();
     },

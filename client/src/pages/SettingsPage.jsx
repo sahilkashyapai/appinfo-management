@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const putSmtp = useMutation({
     mutationFn: (body) => api.put('/settings/smtp', body),
     onSuccess: () => {
-      toast('Email configuration saved ✓', 'success');
+      toast('Email configuration saved', 'success');
       invalidate();
     },
   });

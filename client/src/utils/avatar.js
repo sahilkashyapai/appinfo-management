@@ -32,6 +32,15 @@ export function daysUntilNext(monthDayDate) {
   return Math.round((next - now) / (24 * 60 * 60 * 1000));
 }
 
+export function daysSinceLast(monthDayDate) {
+  const d = new Date(monthDayDate);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  let last = new Date(now.getFullYear(), d.getMonth(), d.getDate());
+  if (last > now) last = new Date(now.getFullYear() - 1, d.getMonth(), d.getDate());
+  return Math.round((now - last) / (24 * 60 * 60 * 1000));
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
