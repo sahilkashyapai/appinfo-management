@@ -5,7 +5,7 @@ const userSchema = new Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
-    role: { type: String, enum: ['proadmin', 'superadmin', 'admin', 'employee'], default: 'employee' },
+    role: { type: String, enum: ['proadmin', 'superadmin', 'admin', 'developer', 'employee'], default: 'employee' },
     employeeRef: { type: Schema.Types.ObjectId, ref: 'Employee', default: null },
 
     // Only meaningful for role 'superadmin': restricts that account to one office

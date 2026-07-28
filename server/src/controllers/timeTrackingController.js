@@ -4,6 +4,7 @@ const writeAudit = require('../utils/audit');
 const { startOfDay, autoStopIfExpired } = require('../utils/timeTracking');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 const { scopedUserIds } = require('../utils/officeScope');
+const { SUPER_TIER_ROLES } = require('../utils/roles');
 
 async function findToday(userRef) {
   const timer = await TimeLog.findOne({ userRef, date: startOfDay() });
@@ -17,8 +18,8 @@ async function myToday(req, res) {
 }
 
 async function start(req, res) {
-  if (req.user.role === 'superadmin') {
-    return res.status(403).json({ message: 'Time tracking is not applicable for superadmin accounts.' });
+  if (SUPER_TIER_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ message: 'Time tracking is not applicable for superadmin/proadmin accounts.' });
   }
   const settings = await getSettings();
   if (!settings.timeTracking.enabled) {

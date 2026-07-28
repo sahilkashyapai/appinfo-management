@@ -9,6 +9,7 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { DrawerProvider } from './context/DrawerContext.jsx';
 import { SocketProvider } from './context/SocketContext.jsx';
+import { BrandingProvider } from './context/BrandingContext.jsx';
 import { registerServiceWorker } from './utils/push.js';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import './styles/global.css';
@@ -25,13 +26,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <BrowserRouter>
         <ThemeProvider>
           <ToastProvider>
-            <AuthProvider>
-              <SocketProvider>
-                <DrawerProvider>
-                  <App />
-                </DrawerProvider>
-              </SocketProvider>
-            </AuthProvider>
+            <BrandingProvider>
+              <AuthProvider>
+                <SocketProvider>
+                  <DrawerProvider>
+                    <App />
+                  </DrawerProvider>
+                </SocketProvider>
+              </AuthProvider>
+            </BrandingProvider>
           </ToastProvider>
         </ThemeProvider>
       </BrowserRouter>

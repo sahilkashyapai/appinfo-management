@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/client';
 import Select from '../components/Select';
+import { useBranding } from '../context/BrandingContext';
 
 const MAX_RESUME_BYTES = 4 * 1024 * 1024;
 
@@ -17,6 +18,7 @@ const EMPTY_FORM = {
 };
 
 export default function ApplyPage() {
+  const branding = useBranding();
   const [form, setForm] = useState(EMPTY_FORM);
   const [sameAsPermanent, setSameAsPermanent] = useState(false);
   const [resume, setResume] = useState(null);
@@ -82,14 +84,14 @@ export default function ApplyPage() {
   return (
     <div id="auth">
       <div className="al">
-        <div className="al-icon"><img src="/images/ai-icon.png" alt="Applied Information" /></div>
-        <div className="al-h">Careers at Applied<br />Information India</div>
+        <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
+        <div className="al-h">Careers at {branding.companyName}</div>
         <div className="al-sub">We're always looking for great people. Tell us about yourself and we'll be in touch.</div>
       </div>
       <div className="ar">
         <div className="af" style={{ maxWidth: 480 }}>
           <div className="af-logo">
-            <div className="af-logo-ic"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+            <div className="af-logo-ic"><img src={branding.logoUrl} alt={branding.companyName} /></div>
           </div>
 
           {done ? (

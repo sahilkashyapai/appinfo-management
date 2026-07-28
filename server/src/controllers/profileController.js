@@ -6,6 +6,7 @@ const Notification = require('../models/Notification');
 const WallPost = require('../models/WallPost');
 const writeAudit = require('../utils/audit');
 const { BRANCH_LOCATIONS } = require('../utils/offices');
+const { BRANCH_EDITOR_ROLES } = require('../utils/roles');
 
 async function getProfile(req, res) {
   const [employees, events, notifications, wallPosts, activity] = await Promise.all([
@@ -31,9 +32,9 @@ async function updateProfile(req, res) {
   if (department !== undefined) updates.department = department;
   if (location !== undefined) updates.location = location;
   // Branch determines office scoping downstream (see managedBranch/managedLocation
-  // in adminController), so only a superadmin may change their own branch —
-  // anyone else's request to change it is silently ignored rather than accepted.
-  if (branch !== undefined && req.user.role === 'superadmin') {
+  // in adminController), so only a superadmin or proadmin may change their own
+  // branch — anyone else's request to change it is silently ignored rather than accepted.
+  if (branch !== undefined && BRANCH_EDITOR_ROLES.includes(req.user.role)) {
     if (branch && !BRANCH_LOCATIONS[branch]) {
       return res.status(400).json({ message: `Unknown branch: ${branch}` });
     }

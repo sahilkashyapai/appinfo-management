@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
+import { useBranding } from '../context/BrandingContext';
 import api from '../api/client';
 import DatePicker from '../components/DatePicker';
 import Select from '../components/Select';
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
 
 export default function SignupPage() {
   const { user } = useAuth();
+  const branding = useBranding();
   const navigate = useNavigate();
   const [form, setForm] = useState(EMPTY_FORM);
   const [showPwd, setShowPwd] = useState(false);
@@ -76,9 +78,9 @@ export default function SignupPage() {
   return (
     <div id="auth">
       <div className="al">
-        <div className="al-icon"><img src="/images/ai-icon.png" alt="Applied Information" /></div>
+        <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
         <div className="al-h">Employee &amp; Events <br/> Management System</div>
-        <div className="al-sub">Create your employee account to see birthdays, anniversaries, events, and announcements from Applied Information India.</div>
+        <div className="al-sub">Create your employee account to see birthdays, anniversaries, events, and announcements from {branding.companyName}.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>See today's birthdays &amp; anniversaries</div>
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-days" /></div>RSVP to company events</div>
@@ -89,7 +91,7 @@ export default function SignupPage() {
       <div className="ar">
         <div className="af" style={{ maxWidth: 460 }}>
           <div className="af-logo">
-            <div className="af-logo-ic"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+            <div className="af-logo-ic"><img src={branding.logoUrl} alt={branding.companyName} /></div>
           </div>
 
           {done ? (

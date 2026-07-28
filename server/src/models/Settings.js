@@ -44,6 +44,15 @@ const settingsSchema = new Schema(
       },
       blockOverlapping: { type: Boolean, default: true },
     },
+    // Managed exclusively via the Developer Panel (role 'developer' or 'proadmin').
+    // logoUrl/faviconUrl/bannerUrl are base64 data URLs, same convention as
+    // User.avatarUrl — empty string means "use the built-in default asset".
+    branding: {
+      companyName: { type: String, default: 'Applied Information India' },
+      logoUrl: { type: String, default: '' },
+      faviconUrl: { type: String, default: '' },
+      bannerUrl: { type: String, default: '' },
+    },
   },
   { timestamps: true }
 );

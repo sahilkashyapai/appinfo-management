@@ -8,7 +8,7 @@ import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { yearsSince, formatDate } from '../utils/avatar';
-import { ADMIN_ROLES, LOGIN_ACCESS_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, LOGIN_ACCESS_ROLES, SUPER_TIER_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
 const LOGIN_ROLE_BADGE = { employee: 'b-gy', admin: 'b-bl', superadmin: 'b-go' };
@@ -21,7 +21,7 @@ export default function EmployeesPage() {
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes(user?.role);
   const canSeeLoginAccess = LOGIN_ACCESS_ROLES.includes(user?.role);
-  const canDelete = user?.role === 'superadmin';
+  const canDelete = SUPER_TIER_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
 

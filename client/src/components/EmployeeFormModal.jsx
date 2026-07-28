@@ -6,6 +6,7 @@ import Select from './Select';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { OFFICE_LOCATIONS } from '../utils/offices';
+import { SUPER_TIER_ROLES } from '../utils/roles';
 
 const EMP_ID_REGEX = /^APIIND\d{6}$/;
 const ROLE_LABELS = [
@@ -22,7 +23,7 @@ function toInputDate(d) {
 export default function EmployeeFormModal({ employee, onClose }) {
   const isEdit = !!employee;
   const { user } = useAuth();
-  const canEditEmpId = !isEdit || user?.role === 'superadmin';
+  const canEditEmpId = !isEdit || SUPER_TIER_ROLES.includes(user?.role);
   const [form, setForm] = useState({
     empId: employee?.empId || '',
     name: employee?.name || '',

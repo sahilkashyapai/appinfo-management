@@ -4,7 +4,8 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import Avatar from './Avatar';
-import { ADMIN_ROLES, APPROVER_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, APPROVER_ROLES, DEVELOPER_ROLES } from '../utils/roles';
+import { useBranding } from '../context/BrandingContext';
 
 // Full nav for superadmin/hr/manager — the management/admin panel.
 const ADMIN_NAV = [
@@ -52,14 +53,9 @@ const ADMIN_NAV = [
       { to: '/time-tracking', label: 'Time Tracking', icon: 'fa-solid fa-clock' },
       { to: '/assets', label: 'Assets', icon: 'fa-solid fa-boxes-stacked', roles: ADMIN_ROLES },
       { to: '/settings', label: 'Settings', icon: 'fa-solid fa-gear' },
+      { to: '/developer', label: 'Developer Panel', icon: 'fa-solid fa-code', roles: DEVELOPER_ROLES },
     ],
   },
-];
-
-// A proadmin has no operational access anywhere else in the app — their entire
-// job is granting/revoking Superadmin and assigning an office, from one page.
-const PROADMIN_NAV = [
-  { section: 'Admin', items: [{ to: '/admins', label: 'Admins', icon: 'fa-solid fa-user-shield' }] },
 ];
 
 // Simplified nav for the 'employee' self-service user panel — no employee/department
@@ -99,8 +95,13 @@ const EMPLOYEE_NAV = [
   },
 ];
 
+// The 'developer' role's whole purpose is the Developer Panel (branding), so
+// it gets the plain employee self-service nav plus that one extra section.
+const DEVELOPER_NAV = [...EMPLOYEE_NAV, { section: 'Developer', items: [{ to: '/developer', label: 'Developer Panel', icon: 'fa-solid fa-code' }] }];
+
 export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
   const { user, logout } = useAuth();
+  const branding = useBranding();
   const { data: notifs = [] } = useNotifications();
   const unread = notifs.filter((n) => n.unread).length;
   const { data: conversations = [] } = useQuery({
@@ -113,7 +114,8 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
 
   const isProadmin = user?.role === 'proadmin';
   const isAdminPanel = ADMIN_ROLES.includes(user?.role);
-  const navSource = isProadmin ? PROADMIN_NAV : isAdminPanel ? ADMIN_NAV : EMPLOYEE_NAV;
+  const isDeveloper = user?.role === 'developer';
+  const navSource = isAdminPanel ? ADMIN_NAV : isDeveloper ? DEVELOPER_NAV : EMPLOYEE_NAV;
   const nav = navSource
     .map((group) => ({ ...group, items: group.items.filter((item) => !item.roles || item.roles.includes(user?.role)) }))
     .filter((group) => group.items.length > 0);
@@ -121,9 +123,9 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
   return (
     <aside id="sb" className={open ? 'mobile-open' : ''}>
       <div className="sb-brand">
-        <div className="sb-blogo"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+        <div className="sb-blogo"><img src={branding.logoUrl} alt={branding.companyName} /></div>
         <div className="sb-bt">
-          <div className="l2">{isProadmin ? 'Pro Admin' : isAdminPanel ? 'Applied Information India' : 'Employee Portal'}</div>
+          <div className="l2">{isProadmin ? 'Pro Admin' : isAdminPanel ? branding.companyName : isDeveloper ? 'Developer Panel' : 'Employee Portal'}</div>
         </div>
       </div>
       <nav className="sb-nav">

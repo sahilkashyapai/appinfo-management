@@ -4,7 +4,7 @@ import api from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { ADMIN_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, SUPER_TIER_ROLES } from '../utils/roles';
 import { subscribeToPush, unsubscribeFromPush } from '../utils/push';
 
 function ToggleRow({ label, hint, checked, onChange }) {
@@ -26,7 +26,7 @@ function ToggleRow({ label, hint, checked, onChange }) {
 export default function SettingsPage() {
   const { user } = useAuth();
   const isAdmin = ADMIN_ROLES.includes(user?.role);
-  const isSuperadmin = user?.role === 'superadmin';
+  const isSuperadmin = SUPER_TIER_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((r) => r.data.settings) });

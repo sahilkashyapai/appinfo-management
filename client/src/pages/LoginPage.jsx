@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useBranding } from '../context/BrandingContext';
 import api from '../api/client';
 
 export default function LoginPage() {
   const { user, login, verify2fa, pending2fa } = useAuth();
+  const branding = useBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -58,9 +60,9 @@ export default function LoginPage() {
   return (
     <div id="auth">
       <div className="al">
-        <div className="al-icon"><img src="/images/ai-icon.png" alt="Applied Information" /></div>
+        <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
         <div className="al-h">Employee &amp; Events <br/> Management System</div>
-        <div className="al-sub">Applied Information India's unified hub for birthdays, anniversaries, events, attendance, and team collaboration.</div>
+        <div className="al-sub">{branding.companyName}'s unified hub for birthdays, anniversaries, events, attendance, and team collaboration.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>Automated birthday &amp; anniversary notifications</div>
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-days" /></div>End-to-end event management with RSVP</div>
@@ -74,7 +76,7 @@ export default function LoginPage() {
       <div className="ar">
         <div className="af">
           <div className="af-logo">
-            <img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" />
+            <img src={branding.logoUrl} alt={branding.companyName} />
           </div>
 
           {!pending2fa ? (

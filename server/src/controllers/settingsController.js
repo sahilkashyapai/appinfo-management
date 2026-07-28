@@ -7,6 +7,37 @@ async function get(req, res) {
   res.json({ settings });
 }
 
+// Public (no auth) — the login/signup/apply screens and the sidebar need the
+// company name/logo/favicon before a user is signed in.
+async function getBranding(req, res) {
+  const settings = await getSettings();
+  res.json({ branding: settings.branding });
+}
+
+const IMAGE_FIELDS = ['logoUrl', 'faviconUrl', 'bannerUrl'];
+
+async function updateBranding(req, res) {
+  const { companyName, logoUrl, faviconUrl, bannerUrl } = req.body;
+  const updates = {};
+  if (companyName !== undefined) {
+    if (!String(companyName).trim()) return res.status(400).json({ message: 'Company name cannot be empty.' });
+    updates.companyName = String(companyName).trim();
+  }
+  const imageInputs = { logoUrl, faviconUrl, bannerUrl };
+  for (const field of IMAGE_FIELDS) {
+    const value = imageInputs[field];
+    if (value === undefined) continue;
+    if (value && !value.startsWith('data:image/')) return res.status(400).json({ message: 'Invalid image data.' });
+    updates[field] = value;
+  }
+
+  const settings = await getSettings();
+  settings.branding = { ...(settings.branding.toObject?.() ?? settings.branding), ...updates };
+  await settings.save();
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'settings', recordId: 'branding', detail: 'Updated company branding' });
+  res.json({ settings });
+}
+
 function updateSection(section) {
   return async function handler(req, res) {
     const settings = await getSettings();
@@ -27,6 +58,8 @@ async function sendTestEmail(req, res) {
 
 module.exports = {
   get,
+  getBranding,
+  updateBranding,
   updateNotifications: updateSection('notifications'),
   updateIntegrations: updateSection('integrations'),
   updateSmtp: updateSection('smtp'),

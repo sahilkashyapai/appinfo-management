@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import DatePicker from '../components/DatePicker';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { SUPER_TIER_ROLES } from '../utils/roles';
 
 const STATUS_BADGE = { running: 'b-gr', paused: 'b-or', stopped: 'b-bl' };
 const STATUS_LABEL = { running: 'Running', paused: 'Paused', stopped: 'Stopped' };
@@ -134,7 +135,7 @@ export default function TimeTrackingPage() {
               </button>
             </div>
           </div>
-          {user?.role === 'superadmin' && (
+          {SUPER_TIER_ROLES.includes(user?.role) && (
             <button className="btn brd bsm" onClick={handleClear} disabled={clearData.isPending}>
               <i className="fa-solid fa-trash" /> Clear Data in Range
             </button>
@@ -181,7 +182,7 @@ export default function TimeTrackingPage() {
         )}
       </div>
 
-      {user?.role === 'superadmin' && (
+      {SUPER_TIER_ROLES.includes(user?.role) && (
         <div className="card" style={{ marginTop: 13, borderColor: 'var(--red)' }}>
           <div className="chd"><div className="cht"><i className="fa-solid fa-triangle-exclamation" /> Danger Zone</div></div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>

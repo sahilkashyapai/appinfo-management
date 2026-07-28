@@ -7,8 +7,9 @@ import ConfirmModal from './ConfirmModal';
 import { useDrawers } from '../context/DrawerContext';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useBranding } from '../context/BrandingContext';
 import { formatDate, daysUntilNext, daysSinceLast } from '../utils/avatar';
-import { ADMIN_ROLES, APPROVER_ROLES } from '../utils/roles';
+import { ADMIN_ROLES, APPROVER_ROLES, SUPER_TIER_ROLES } from '../utils/roles';
 import { STATUS_LABEL, STATUS_BADGE } from '../utils/attendance';
 
 const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
@@ -29,9 +30,10 @@ export default function EmployeeDrawer({ onEdit }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const branding = useBranding();
   const canManage = APPROVER_ROLES.includes(user?.role);
   const canSeePhone = ADMIN_ROLES.includes(user?.role);
-  const canDelete = user?.role === 'superadmin';
+  const canDelete = SUPER_TIER_ROLES.includes(user?.role);
 
   const { data } = useQuery({
     queryKey: ['employee', employeeId],
@@ -122,8 +124,8 @@ export default function EmployeeDrawer({ onEdit }) {
 
   return (
     <div id="epd" className="open">
-      <div className="ep-banner">
-        <div className="ep-banner-logo"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+      <div className="ep-banner" style={branding.bannerUrl ? { background: `center/cover no-repeat url(${branding.bannerUrl})` } : undefined}>
+        <div className="ep-banner-logo"><img src={branding.logoUrl} alt={branding.companyName} /></div>
         <button className="ep-close" onClick={closeEmployee}>
           <i className="fa-solid fa-xmark" />
         </button>

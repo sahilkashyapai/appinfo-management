@@ -167,11 +167,16 @@ async function update(req, res) {
     return res.status(403).json({ message: 'Only a Pro Admin can grant the superadmin role.' });
   }
 
-  const demotingOrDeactivating = target.role === 'superadmin' && ((role && role !== 'superadmin') || isActive === false);
+  // The app requires at least one active admin AND at least one active superadmin
+  // at all times — demoting/deactivating the last one of either is declined with
+  // a warning to create a replacement first.
+  const demotingOrDeactivating = target.isActive && ((role && role !== target.role) || isActive === false);
   if (demotingOrDeactivating) {
-    const otherActiveSuperadmins = await User.countDocuments({ role: 'superadmin', isActive: true, _id: { $ne: target._id } });
-    if (otherActiveSuperadmins === 0) {
-      return res.status(400).json({ message: 'At least one active superadmin must remain.' });
+    const otherActive = await User.countDocuments({ role: target.role, isActive: true, _id: { $ne: target._id } });
+    if (otherActive === 0) {
+      return res.status(400).json({
+        message: `At least one active ${target.role} must remain. Please create another ${target.role} before removing this one.`,
+      });
     }
   }
 
@@ -237,9 +242,17 @@ async function remove(req, res) {
     return res.status(403).json({ message: 'Only a Pro Admin can remove a superadmin account.' });
   }
 
-  if (target.role === 'superadmin') {
-    const otherActiveSuperadmins = await User.countDocuments({ role: 'superadmin', isActive: true, _id: { $ne: target._id } });
-    if (otherActiveSuperadmins === 0) return res.status(400).json({ message: 'At least one active superadmin must remain.' });
+  // The app requires at least one active admin AND at least one active superadmin
+  // at all times — deleting (or revoking) the last active one of either is
+  // declined with a warning to create a replacement first. Removing an account
+  // that's already inactive never shrinks the active count, so it's unaffected.
+  if (target.isActive) {
+    const otherActive = await User.countDocuments({ role: target.role, isActive: true, _id: { $ne: target._id } });
+    if (otherActive === 0) {
+      return res.status(400).json({
+        message: `At least one active ${target.role} must remain. Please create another ${target.role} before deleting this one.`,
+      });
+    }
   }
 
   // A promoted login pre-existed as the employee's own account — revoke admin

@@ -5,8 +5,10 @@ import Avatar from '../components/Avatar';
 import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useBranding } from '../context/BrandingContext';
 import { formatDateTime } from '../utils/avatar';
 import { BRANCH_LOCATIONS } from '../utils/offices';
+import { BRANCH_EDITOR_ROLES } from '../utils/roles';
 
 const BRANCHES = Object.keys(BRANCH_LOCATIONS);
 
@@ -23,7 +25,8 @@ const ACTION_ICON = {
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth();
-  const canEditBranch = user?.role === 'superadmin';
+  const branding = useBranding();
+  const canEditBranch = BRANCH_EDITOR_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
   const photoInputRef = useRef(null);
@@ -118,8 +121,8 @@ export default function ProfilePage() {
       <div className="g2">
         <div>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 'var(--rl)', overflow: 'hidden', marginBottom: 13, boxShadow: 'var(--sh)' }}>
-            <div className="prof-banner">
-              <div className="prof-banner-logo"><img src="/images/AI-horizontal-logo-R-gray-454x116-1.png" alt="Applied Information" /></div>
+            <div className="prof-banner" style={branding.bannerUrl ? { background: `center/cover no-repeat url(${branding.bannerUrl})` } : undefined}>
+              <div className="prof-banner-logo"><img src={branding.logoUrl} alt={branding.companyName} /></div>
               <div className="prof-av-pos">
                 <Avatar name={user.name} index={user.avatarIndex} src={user.avatarUrl} size={58} fontSize={20} style={{ border: '3px solid var(--bg2)' }} />
                 <button
@@ -198,7 +201,7 @@ export default function ProfilePage() {
                 ) : (
                   <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--t3)' }}>
                     <span>{profile.branch || '—'}</span>
-                    <span style={{ fontSize: 10.5 }}>Only a Super Admin can change this</span>
+                    <span style={{ fontSize: 10.5 }}>Only a Super Admin or Pro Admin can change this</span>
                   </div>
                 )}
               </div>

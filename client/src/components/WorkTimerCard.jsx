@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { SUPER_TIER_ROLES } from '../utils/roles';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -30,7 +31,7 @@ function formatClock(dateStr) {
 
 export default function WorkTimerCard() {
   const { user } = useAuth();
-  const isSuperadmin = user?.role === 'superadmin';
+  const isSuperadmin = SUPER_TIER_ROLES.includes(user?.role);
   const toast = useToast();
   const qc = useQueryClient();
   const [, setTick] = useState(0);

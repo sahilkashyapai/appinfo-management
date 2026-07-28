@@ -1,7 +1,6 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import { useAuth } from './context/AuthContext';
 
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -33,14 +32,12 @@ import DocumentsPage from './pages/DocumentsPage';
 import AdminsPage from './pages/AdminsPage';
 import HiringPage from './pages/HiringPage';
 import MyReferralsPage from './pages/MyReferralsPage';
-import { ADMIN_ROLES, APPROVER_ROLES } from './utils/roles';
+import DeveloperPage from './pages/DeveloperPage';
+import { ADMIN_ROLES, APPROVER_ROLES, DEVELOPER_ROLES } from './utils/roles';
 
-// A proadmin has no operational access anywhere else in the app (see roles.js) —
-// their entire job is managing Admin/Superadmin accounts, so they land straight
-// on Admins instead of a Dashboard full of widgets that don't apply to them.
+// A proadmin now has every permission an admin/superadmin has (see roles.js),
+// so it lands on the normal Dashboard like any other admin-tier account.
 function HomeRoute() {
-  const { user } = useAuth();
-  if (user?.role === 'proadmin') return <Navigate to="/admins" replace />;
   return <DashboardPage />;
 }
 
@@ -81,9 +78,10 @@ export default function App() {
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
-        <Route path="admins" element={<ProtectedRoute roles={['proadmin', ...ADMIN_ROLES]}><AdminsPage /></ProtectedRoute>} />
+        <Route path="admins" element={<ProtectedRoute roles={ADMIN_ROLES}><AdminsPage /></ProtectedRoute>} />
         <Route path="hiring" element={<ProtectedRoute roles={APPROVER_ROLES}><HiringPage /></ProtectedRoute>} />
         <Route path="my-referrals" element={<MyReferralsPage />} />
+        <Route path="developer" element={<ProtectedRoute roles={DEVELOPER_ROLES}><DeveloperPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>
