@@ -1,6 +1,6 @@
-import { avatarColor, initials } from '../utils/avatar';
+import { initials } from '../utils/avatar';
 
-export default function Avatar({ name, index = 0, size = 32, fontSize, src, onClick, style }) {
+export default function Avatar({ name, size = 32, fontSize, src, onClick, style }) {
   if (src) {
     return (
       <img
@@ -27,7 +27,7 @@ export default function Avatar({ name, index = 0, size = 32, fontSize, src, onCl
         width: size,
         height: size,
         fontSize: fontSize || Math.round(size * 0.32),
-        background: avatarColor(index),
+        background: 'var(--accent)',
         cursor: onClick ? 'pointer' : undefined,
         ...style,
       }}

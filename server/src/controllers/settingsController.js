@@ -15,9 +15,11 @@ async function getBranding(req, res) {
 }
 
 const IMAGE_FIELDS = ['logoUrl', 'faviconUrl', 'bannerUrl'];
+const COLOR_FIELDS = ['primaryColor', 'secondaryColor'];
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
 async function updateBranding(req, res) {
-  const { companyName, logoUrl, faviconUrl, bannerUrl } = req.body;
+  const { companyName, logoUrl, faviconUrl, bannerUrl, primaryColor, secondaryColor } = req.body;
   const updates = {};
   if (companyName !== undefined) {
     if (!String(companyName).trim()) return res.status(400).json({ message: 'Company name cannot be empty.' });
@@ -28,6 +30,13 @@ async function updateBranding(req, res) {
     const value = imageInputs[field];
     if (value === undefined) continue;
     if (value && !value.startsWith('data:image/')) return res.status(400).json({ message: 'Invalid image data.' });
+    updates[field] = value;
+  }
+  const colorInputs = { primaryColor, secondaryColor };
+  for (const field of COLOR_FIELDS) {
+    const value = colorInputs[field];
+    if (value === undefined) continue;
+    if (!HEX_COLOR_REGEX.test(value)) return res.status(400).json({ message: `Invalid color for ${field} — expected a hex code like #2E86AB.` });
     updates[field] = value;
   }
 

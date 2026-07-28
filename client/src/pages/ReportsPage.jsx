@@ -132,7 +132,7 @@ export default function ReportsPage() {
           {byDept.map((d) => (
             <div className="cbr" key={d.dept}>
               <div className="cbl">{d.dept.split(' ')[0]}</div>
-              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((d.count / maxDept) * 100)}%`, background: '#2E86AB' }}>{d.count}</div></div>
+              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((d.count / maxDept) * 100)}%`, background: 'var(--accent)' }}>{d.count}</div></div>
               <div className="cbv">{d.count}</div>
             </div>
           ))}

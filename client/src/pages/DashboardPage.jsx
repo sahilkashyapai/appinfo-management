@@ -373,7 +373,7 @@ export default function DashboardPage() {
           {data.deptHeadcount.map((d) => (
             <div className="cbr" key={d.dept}>
               <div className="cbl">{d.dept.split(' ')[0]}</div>
-              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((d.count / maxDept) * 100)}%`, background: d.color }}>{d.count >= 8 ? d.count : ''}</div></div>
+              <div className="cbb"><div className="cbf" style={{ width: `${Math.round((d.count / maxDept) * 100)}%`, background: 'var(--accent)' }}>{d.count >= 8 ? d.count : ''}</div></div>
               <div className="cbv">{d.count}</div>
             </div>
           ))}
@@ -385,7 +385,7 @@ export default function DashboardPage() {
           <div className="mb12">
             <div className="sparkline">
               {data.sparkline.map((s, i) => (
-                <div key={s.label} className="spk" style={{ height: `${Math.round((s.value / maxSpark) * 100)}%`, background: i === data.sparkline.length - 1 ? '#2E86AB' : 'rgba(46,134,171,.3)' }} />
+                <div key={s.label} className="spk" style={{ height: `${Math.round((s.value / maxSpark) * 100)}%`, background: i === data.sparkline.length - 1 ? 'var(--accent)' : 'rgba(var(--accent-rgb), .3)' }} />
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>

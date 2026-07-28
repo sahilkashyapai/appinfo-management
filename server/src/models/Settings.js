@@ -47,11 +47,15 @@ const settingsSchema = new Schema(
     // Managed exclusively via the Developer Panel (role 'developer' or 'proadmin').
     // logoUrl/faviconUrl/bannerUrl are base64 data URLs, same convention as
     // User.avatarUrl — empty string means "use the built-in default asset".
+    // primaryColor/secondaryColor drive the --accent/--blue CSS variables
+    // (see client global.css :root) for every user, in both light and dark mode.
     branding: {
       companyName: { type: String, default: 'Applied Information India' },
       logoUrl: { type: String, default: '' },
       faviconUrl: { type: String, default: '' },
       bannerUrl: { type: String, default: '' },
+      primaryColor: { type: String, default: '#2E86AB' },
+      secondaryColor: { type: String, default: '#1E3A5F' },
     },
   },
   { timestamps: true }
