@@ -112,7 +112,6 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
   const unreadMessages = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
   const BADGE_VALUE = { unreadMessages };
 
-  const isProadmin = user?.role === 'proadmin';
   const isAdminPanel = ADMIN_ROLES.includes(user?.role);
   const isDeveloper = user?.role === 'developer';
   const navSource = isAdminPanel ? ADMIN_NAV : isDeveloper ? DEVELOPER_NAV : EMPLOYEE_NAV;
@@ -125,7 +124,7 @@ export default function Sidebar({ open, onNavigate, onOpenNotifications }) {
       <div className="sb-brand">
         <div className="sb-blogo"><img src={branding.logoUrl} alt={branding.companyName} /></div>
         <div className="sb-bt">
-          <div className="l2">{isProadmin ? 'Pro Admin' : isAdminPanel ? branding.companyName : isDeveloper ? 'Developer Panel' : 'Employee Portal'}</div>
+          <div className="l2">{isAdminPanel ? branding.companyName : isDeveloper ? 'Developer Panel' : 'Employee Portal'}</div>
         </div>
       </div>
       <nav className="sb-nav">

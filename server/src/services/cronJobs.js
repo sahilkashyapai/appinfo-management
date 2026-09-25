@@ -39,7 +39,7 @@ async function runBirthdayAndAnniversaryJob() {
       const title = `Birthday: ${emp.name}`;
       if (!(await alreadyNotifiedToday(title))) {
         const body = `Today is ${emp.name}'s birthday! Be the first to wish them.`;
-        await Notification.create({ icon: 'fa-solid fa-cake-candles', bg: '#FDEBD0', type: 'birthday', title, body, link: '/wall' });
+        await Notification.create({ icon: 'fa-solid fa-cake-candles', bg: '#FDEBD0', type: 'birthday', title, body, link: '/wall', aboutEmployeeRef: emp._id });
         broadcastPush({ title, body, url: '/wall' }).catch((e) => console.error('[push] birthday broadcast failed', e));
         if (settings.notifications.emailDelivery && emp.email) {
           const { subject, html } = templates.birthday(emp.name);
@@ -53,7 +53,7 @@ async function runBirthdayAndAnniversaryJob() {
       const title = `Anniversary: ${emp.name} – ${years} Year${years === 1 ? '' : 's'}!`;
       if (!(await alreadyNotifiedToday(title))) {
         const body = `${emp.name} completes ${years} year${years === 1 ? '' : 's'} at Applied Information India today.`;
-        await Notification.create({ icon: 'fa-solid fa-trophy', bg: '#D5F5E3', type: 'anniversary', title, body, link: '/wall' });
+        await Notification.create({ icon: 'fa-solid fa-trophy', bg: '#D5F5E3', type: 'anniversary', title, body, link: '/wall', aboutEmployeeRef: emp._id });
         broadcastPush({ title, body, url: '/wall' }).catch((e) => console.error('[push] anniversary broadcast failed', e));
         if (settings.notifications.emailDelivery && emp.email) {
           const { subject, html } = templates.anniversary(emp.name, years);

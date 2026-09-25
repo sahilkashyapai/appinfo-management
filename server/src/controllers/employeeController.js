@@ -82,6 +82,24 @@ async function list(req, res) {
     Employee.countDocuments(filter),
   ]);
 
+  // Some logins (e.g. admins created before linking existed) point at their
+  // employee via User.employeeRef or share its email, but the Employee's own
+  // userRef was never set — match those up so Login Access shows the real role.
+  const unlinked = items.filter((e) => !e.userRef);
+  if (unlinked.length) {
+    const users = await User.find({
+      $or: [
+        { employeeRef: { $in: unlinked.map((e) => e._id) } },
+        { email: { $in: unlinked.map((e) => String(e.email || '').toLowerCase()) } },
+      ],
+    }).select('role avatarUrl email employeeRef');
+    for (const e of unlinked) {
+      const match = users.find((u) => String(u.employeeRef) === String(e._id))
+        || users.find((u) => u.email === String(e.email || '').toLowerCase());
+      if (match) e.userRef = { _id: match._id, role: match.role, avatarUrl: match.avatarUrl };
+    }
+  }
+
   res.json({
     items: items.map((e) => shapeForViewer(e, req.user.role)),
     total,

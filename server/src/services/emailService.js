@@ -17,14 +17,14 @@ function getTransporter() {
   return transporter;
 }
 
-async function sendMail({ to, subject, html }) {
+async function sendMail({ to, bcc, subject, html }) {
   const t = getTransporter();
   const from = `"${process.env.SMTP_FROM_NAME || 'AII Celebrations'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`;
   if (!t) {
-    console.log(`[email:mock] to=${to} subject="${subject}"`);
+    console.log(`[email:mock] to=${to}${bcc ? ` bcc=${[].concat(bcc).length} recipient(s)` : ''} subject="${subject}"`);
     return { mocked: true };
   }
-  return t.sendMail({ from, to, subject, html });
+  return t.sendMail({ from, to, bcc, subject, html });
 }
 
 const templates = {

@@ -36,6 +36,16 @@ async function create(req, res) {
       type: 'hiring',
       link: '/announcements',
     });
+  } else if (!ann.scheduledAt || new Date(ann.scheduledAt) <= new Date()) {
+    // Scheduled-for-later announcements aren't live yet, so they don't notify now.
+    await Notification.create({
+      recipientRef: null,
+      icon: ann.icon,
+      title: `Announcement: ${ann.title}`,
+      body: ann.body,
+      type: 'announcement',
+      link: '/announcements',
+    });
   }
 
   res.status(201).json({ announcement: ann });

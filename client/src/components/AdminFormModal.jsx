@@ -181,7 +181,6 @@ export default function AdminFormModal({ admin, onClose }) {
             ) : (
               <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className={`badge ${ROLE_BADGE[form.role]}`}>{ROLE_LABEL[form.role]}</span>
-                <span style={{ fontSize: 10.5, color: 'var(--t3)' }}>Only a Pro Admin can change this</span>
               </div>
             )}
           </div>

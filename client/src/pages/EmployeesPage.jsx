@@ -130,11 +130,11 @@ export default function EmployeesPage() {
                   </td>
                   {canSeeLoginAccess && (
                     <td>
-                      {e.userRef?.role ? (
-                        <span className={`badge ${LOGIN_ROLE_BADGE[e.userRef.role] || 'b-gy'}`}><i className="fa-solid fa-key" style={{ fontSize: 9, marginRight: 4 }} />{LOGIN_ROLE_LABEL[e.userRef.role] || e.userRef.role}</span>
-                      ) : (
-                        <span style={{ color: 'var(--t3)', fontSize: 11 }}>No Login</span>
-                      )}
+                      {(() => {
+                        // Anyone without an admin-tier login defaults to Employee access.
+                        const role = e.userRef?.role || 'employee';
+                        return <span className={`badge ${LOGIN_ROLE_BADGE[role] || 'b-gy'}`}><i className="fa-solid fa-key" style={{ fontSize: 9, marginRight: 4 }} />{LOGIN_ROLE_LABEL[role] || role}</span>;
+                      })()}
                     </td>
                   )}
                   <td><span className="badge b-bl">{e.dept}</span></td>

@@ -161,10 +161,10 @@ async function update(req, res) {
   const { name, role, isActive, phone, department, location, managedLocation, managedBranch } = req.body;
 
   if (!isProadmin && target.role === 'superadmin') {
-    return res.status(403).json({ message: 'Only a Pro Admin can manage a superadmin account.' });
+    return res.status(403).json({ message: 'You do not have permission to manage a superadmin account.' });
   }
   if (!isProadmin && role && role !== 'admin') {
-    return res.status(403).json({ message: 'Only a Pro Admin can grant the superadmin role.' });
+    return res.status(403).json({ message: 'You do not have permission to grant the superadmin role.' });
   }
 
   // The app requires at least one active admin AND at least one active superadmin
@@ -239,7 +239,7 @@ async function remove(req, res) {
 
   const isProadmin = req.user.role === 'proadmin';
   if (!isProadmin && target.role === 'superadmin') {
-    return res.status(403).json({ message: 'Only a Pro Admin can remove a superadmin account.' });
+    return res.status(403).json({ message: 'You do not have permission to remove a superadmin account.' });
   }
 
   // The app requires at least one active admin AND at least one active superadmin

@@ -201,7 +201,7 @@ export default function ProfilePage() {
                 ) : (
                   <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--t3)' }}>
                     <span>{profile.branch || '—'}</span>
-                    <span style={{ fontSize: 10.5 }}>Only a Super Admin or Pro Admin can change this</span>
+                    <span style={{ fontSize: 10.5 }}>Only a Super Admin can change this</span>
                   </div>
                 )}
               </div>
