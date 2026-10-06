@@ -54,19 +54,27 @@ export default function PayrollSettingsTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  const canEditShared = data?.scope?.canEditShared ?? true;
+
   const save = useMutation({
     mutationFn: () => {
       const n = (v) => Number(v) || 0;
+      // Only what this HR may change: an office-scoped HR sends just their
+      // office (plus PF/ESI/PT for an Indian office); the server enforces this too.
       const body = {
         offices: Object.fromEntries(Object.entries(form.offices).map(([k, o]) => [k, { ...o, currency: String(o.currency || '').trim().toUpperCase() }])),
-        pf: { ...form.pf, ratePct: n(form.pf.ratePct), wageCeiling: n(form.pf.wageCeiling) },
-        esi: { ...form.esi, ratePct: n(form.esi.ratePct), grossThreshold: n(form.esi.grossThreshold) },
-        pt: { ...form.pt, monthlyAmount: n(form.pt.monthlyAmount), annualIncomeThreshold: n(form.pt.annualIncomeThreshold) },
-        lopBasis: form.lopBasis,
-        defaultEarnings: form.defaultEarnings.map((l) => ({ name: l.name, ...(l.isBasic ? { isBasic: true } : {}) })),
-        defaultDeductions: form.defaultDeductions.map((l) => ({ name: l.name })),
-        footerNote: form.footerNote,
       };
+      if (form.pf) {
+        body.pf = { ...form.pf, ratePct: n(form.pf.ratePct), wageCeiling: n(form.pf.wageCeiling) };
+        body.esi = { ...form.esi, ratePct: n(form.esi.ratePct), grossThreshold: n(form.esi.grossThreshold) };
+        body.pt = { ...form.pt, monthlyAmount: n(form.pt.monthlyAmount), annualIncomeThreshold: n(form.pt.annualIncomeThreshold) };
+      }
+      if (canEditShared) {
+        body.lopBasis = form.lopBasis;
+        body.defaultEarnings = form.defaultEarnings.map((l) => ({ name: l.name, ...(l.isBasic ? { isBasic: true } : {}) }));
+        body.defaultDeductions = form.defaultDeductions.map((l) => ({ name: l.name }));
+        body.footerNote = form.footerNote;
+      }
       return api.put('/payroll/settings', body).then((r) => r.data.payroll);
     },
     onSuccess: (payroll) => {
@@ -83,6 +91,8 @@ export default function PayrollSettingsTab() {
   if (!form) return <div style={{ fontSize: 12, color: 'var(--t3)' }}>Loading payroll settings…</div>;
 
   const defaults = data?.defaults || {};
+  const scope = data?.scope || { office: null, canEditShared: true };
+  const officeEntries = Object.entries(form.offices || {});
   const update = (fn) => {
     setForm((f) => {
       const next = clone(f);
@@ -101,10 +111,12 @@ export default function PayrollSettingsTab() {
           <ResetButton onClick={() => resetKey('offices')} />
         </div>
         <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 10 }}>
-          Each employee is paid in their office's currency, and the office's company name and address appear at the top of their slip.
+          {scope.office
+            ? `You manage payroll for ${scope.office}. Its currency, company name and address appear on your employees' slips.`
+            : "Each employee is paid in their office's currency, and the office's company name and address appear at the top of their slip."}
         </div>
-        <div className="g2">
-          {Object.entries(form.offices || {}).map(([name, o]) => (
+        <div className={officeEntries.length > 1 ? 'g2' : ''}>
+          {officeEntries.map(([name, o]) => (
             <div key={name} style={{ border: '1px solid var(--bd)', borderRadius: 'var(--r)', padding: 12 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--t1)', marginBottom: 8 }}><i className="fa-solid fa-location-dot" style={{ color: 'var(--t3)' }} /> {name}</div>
               <div className="fg2">
@@ -123,8 +135,9 @@ export default function PayrollSettingsTab() {
               </div>
               <ToggleRow
                 label="Apply Indian statutory deductions"
-                hint="PF, ESI and Professional Tax"
+                hint={canEditShared ? 'PF, ESI and Professional Tax' : 'PF, ESI and Professional Tax · set by a company-wide admin'}
                 checked={o.statutory}
+                disabled={!canEditShared}
                 onChange={(v) => update((f) => { f.offices[name].statutory = v; })}
               />
             </div>
@@ -132,6 +145,7 @@ export default function PayrollSettingsTab() {
         </div>
       </div>
 
+      {form.pf ? (
       <div className="g2 mb13">
         <div>
           <div className="card mb13">
@@ -164,27 +178,36 @@ export default function PayrollSettingsTab() {
             <NumberRow label="Monthly amount" value={form.pt.monthlyAmount} disabled={!form.pt.enabled} onChange={(v) => update((f) => { f.pt.monthlyAmount = v; })} />
             <NumberRow label="Annual income limit" hint="PT applies when annual gross is above this" value={form.pt.annualIncomeThreshold} disabled={!form.pt.enabled} onChange={(v) => update((f) => { f.pt.annualIncomeThreshold = v; })} />
           </div>
-          <div className="card">
-            <div className="chd">
-              <div className="cht"><i className="fa-solid fa-calendar-minus" /> Loss of Pay</div>
-              <ResetButton onClick={() => resetKey('lopBasis')} />
-            </div>
-            <div className="fg">
-              <label className="fl">Days used for per-day pay</label>
-              <Select value={form.lopBasis} onChange={(e) => update((f) => { f.lopBasis = e.target.value; })}>
-                {LOP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-              <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>Per-day pay = monthly gross ÷ these days. Each LOP day deducts one day's pay.</div>
-            </div>
-          </div>
+        </div>
+      </div>
+      ) : null}
+
+      {/* Shared by every office: read-only for an office-scoped HR. */}
+      {!canEditShared && (
+        <div style={{ fontSize: 11.5, color: 'var(--t3)', margin: '4px 0 8px' }}>
+          <i className="fa-solid fa-lock" /> Loss of pay, default lines and the slip footer apply to every office. Only a company-wide admin can change them.
+        </div>
+      )}
+      <div className="card mb13">
+        <div className="chd">
+          <div className="cht"><i className="fa-solid fa-calendar-minus" /> Loss of Pay</div>
+          {canEditShared && <ResetButton onClick={() => resetKey('lopBasis')} />}
+        </div>
+        <div className="fg">
+          <label className="fl">Days used for per-day pay</label>
+          <Select value={form.lopBasis} disabled={!canEditShared} onChange={(e) => update((f) => { f.lopBasis = e.target.value; })}>
+            {LOP_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </Select>
+          <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>Per-day pay = monthly gross ÷ these days. Each LOP day deducts one day's pay.</div>
         </div>
       </div>
 
+      <fieldset disabled={!canEditShared} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="g2 mb13">
         <div className="card">
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-list" /> Default Earnings</div>
-            <ResetButton onClick={() => resetKey('defaultEarnings')} />
+            {canEditShared && <ResetButton onClick={() => resetKey('defaultEarnings')} />}
           </div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8 }}>Lines a new salary structure starts with. Mark one as Basic — PF is calculated on it.</div>
           {form.defaultEarnings.map((l, i) => (
@@ -207,7 +230,7 @@ export default function PayrollSettingsTab() {
         <div className="card">
           <div className="chd">
             <div className="cht"><i className="fa-solid fa-list-check" /> Default Deductions</div>
-            <ResetButton onClick={() => resetKey('defaultDeductions')} />
+            {canEditShared && <ResetButton onClick={() => resetKey('defaultDeductions')} />}
           </div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8 }}>Fixed deduction lines a new salary structure starts with (PF/ESI/PT are added automatically).</div>
           {form.defaultDeductions.length === 0 && <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 6 }}>None.</div>}
@@ -224,10 +247,11 @@ export default function PayrollSettingsTab() {
       <div className="card mb13">
         <div className="chd">
           <div className="cht"><i className="fa-solid fa-note-sticky" /> Slip Footer</div>
-          <ResetButton onClick={() => resetKey('footerNote')} />
+          {canEditShared && <ResetButton onClick={() => resetKey('footerNote')} />}
         </div>
         <textarea className="fc" rows={2} maxLength={300} placeholder="e.g. This is a computer-generated slip and does not need a signature." value={form.footerNote || ''} onChange={(e) => update((f) => { f.footerNote = e.target.value; })} />
       </div>
+      </fieldset>
 
       <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', alignItems: 'center' }}>
         {dirty && <span style={{ fontSize: 11.5, color: 'var(--t3)' }}>Unsaved changes</span>}

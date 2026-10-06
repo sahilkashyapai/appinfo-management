@@ -4,7 +4,7 @@ const { prisma, shape, shapeMany, sel, andWhere } = require('../db');
 const writeAudit = require('../utils/audit');
 const getSettings = require('../utils/getSettings');
 const { updateSettingsSection, SETTINGS_DEFAULTS } = getSettings;
-const { scopeEmployeeLocationFilter, isOutsideScope } = require('../utils/officeScope');
+const { scopeEmployeeLocationFilter, isOutsideScope, resolveScopeLocation } = require('../utils/officeScope');
 const { countWorkingDays } = require('../utils/workingDays');
 const { LOP_BASES, parsePeriod, officeSettings, computeSlip, withTotals, renderSlipPdf, round2 } = require('../services/payroll');
 
@@ -59,9 +59,35 @@ async function scopedSlip(user, id) {
 
 // ─── Settings ───────────────────────────────────────────────────────────────
 
+// An office-scoped HR (admin/superadmin with a managed office) only sees and
+// edits their own office: its card, and PF/ESI/PT only if that office uses
+// Indian statutory deductions. Settings shared by every office (LOP basis,
+// default lines, slip footer) are read-only for them; a company-wide admin
+// (no managed office) sees and edits everything.
+const STATUTORY_KEYS = ['pf', 'esi', 'pt'];
+const SHARED_KEYS = ['lopBasis', 'defaultEarnings', 'defaultDeductions', 'footerNote'];
+
+async function settingsScope(user) {
+  const office = await resolveScopeLocation(user);
+  return office ? { office, canEditShared: false } : { office: null, canEditShared: true };
+}
+
+function scopedPayroll(payroll, scope) {
+  if (!scope.office) return { ...payroll, statutoryOffice: Object.values(payroll.offices).some((o) => o.statutory) };
+  const own = payroll.offices[scope.office];
+  const out = { offices: own ? { [scope.office]: own } : {} };
+  if (own?.statutory) STATUTORY_KEYS.forEach((k) => { out[k] = payroll[k]; });
+  SHARED_KEYS.forEach((k) => { out[k] = payroll[k]; });
+  return { ...out, statutoryOffice: !!own?.statutory };
+}
+
 async function getPayrollSettings(req, res) {
-  const settings = await getSettings();
-  res.json({ payroll: settings.payroll, defaults: SETTINGS_DEFAULTS.payroll });
+  const [settings, scope] = await Promise.all([getSettings(), settingsScope(req.user)]);
+  res.json({
+    payroll: scopedPayroll(settings.payroll, scope),
+    defaults: scopedPayroll(SETTINGS_DEFAULTS.payroll, scope),
+    scope: { ...scope, statutory: scopedPayroll(settings.payroll, scope).statutoryOffice },
+  });
 }
 
 function num(value, label, { min = 0, max = Infinity } = {}) {
@@ -71,9 +97,23 @@ function num(value, label, { min = 0, max = Infinity } = {}) {
 }
 
 async function updatePayrollSettings(req, res) {
-  const current = (await getSettings()).payroll;
+  const [current, scope] = await Promise.all([getSettings().then((s) => s.payroll), settingsScope(req.user)]);
   const b = req.body || {};
   const patch = {};
+
+  if (scope.office) {
+    const own = current.offices[scope.office];
+    const otherOffice = Object.keys(b.offices || {}).find((name) => name !== scope.office);
+    if (otherOffice) return res.status(403).json({ message: `You can only change payroll settings for ${scope.office}.` });
+    if (!own?.statutory && STATUTORY_KEYS.some((k) => b[k] !== undefined)) {
+      return res.status(403).json({ message: `PF, ESI and Professional Tax don't apply to ${scope.office}.` });
+    }
+    if (SHARED_KEYS.some((k) => b[k] !== undefined)) {
+      return res.status(403).json({ message: 'Loss of pay, default lines and the slip footer apply to every office and can only be changed by a company-wide admin.' });
+    }
+    // The statutory switch decides which country's rules apply — company-wide admins only.
+    if (b.offices?.[scope.office] && own) b.offices[scope.office].statutory = own.statutory;
+  }
 
   if (b.offices !== undefined) {
     const offices = {};
@@ -121,8 +161,8 @@ async function updatePayrollSettings(req, res) {
   if (b.footerNote !== undefined) patch.footerNote = String(b.footerNote || '').trim().slice(0, 300);
 
   const settings = await updateSettingsSection('payroll', patch);
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'payroll', recordId: 'settings', detail: 'Updated payroll settings' });
-  res.json({ payroll: settings.payroll });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'payroll', recordId: 'settings', detail: `Updated payroll settings${scope.office ? ` for ${scope.office}` : ''}` });
+  res.json({ payroll: scopedPayroll(settings.payroll, scope) });
 }
 
 // ─── Salary structures ──────────────────────────────────────────────────────
