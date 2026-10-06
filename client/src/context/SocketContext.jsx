@@ -5,9 +5,11 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
+// The socket server lives on the same host as the API. With no VITE_API_URL
+// (production, same origin) io() connects to the page's own origin.
 function socketBaseUrl() {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = import.meta.env.VITE_API_URL;
+  return apiUrl ? apiUrl.replace(/\/api\/?$/, '') : undefined;
 }
 
 export function SocketProvider({ children }) {

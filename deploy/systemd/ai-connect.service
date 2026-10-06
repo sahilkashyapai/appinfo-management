@@ -1,0 +1,24 @@
+# systemd unit for AI Connect (Linux).
+#   sudo cp deploy/systemd/ai-connect.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ai-connect
+#   journalctl -u ai-connect -f        # logs
+#
+# Adjust User and WorkingDirectory to where the repo is checked out.
+# Secrets live in server/.env (never in this file or in git).
+
+[Unit]
+Description=AI Connect (Applied Information India)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aiconnect
+WorkingDirectory=/opt/ai-connect/server
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

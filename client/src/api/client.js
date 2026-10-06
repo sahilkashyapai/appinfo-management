@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Production builds call the API on the same origin they're served from
+// (the Node server serves both); local dev points VITE_API_URL at the API port.
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({ baseURL });
 
