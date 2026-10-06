@@ -1,2 +1,4 @@
 # Prisma checksums migration files byte-for-byte: never rewrite their line endings.
 server/prisma/migrations/** text eol=lf
+# Server config files are copied to Linux hosts as-is.
+deploy/** text eol=lf
