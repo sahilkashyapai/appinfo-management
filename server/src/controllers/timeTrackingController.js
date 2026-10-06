@@ -140,7 +140,7 @@ async function clear(req, res) {
     user: req.user,
     action: 'DELETE',
     entity: 'time_logs',
-    recordId: '—',
+    recordId: '-',
     detail: `Cleared ${result.count} time-tracking record(s)${from ? ` from ${from}` : ''}${to ? ` to ${to}` : ''}`,
   });
   res.json({ deletedCount: result.count });
@@ -153,7 +153,7 @@ async function clearAll(req, res) {
     user: req.user,
     action: 'DELETE',
     entity: 'time_logs',
-    recordId: '—',
+    recordId: '-',
     detail: `Cleared all ${result.count} time-tracking record(s)`,
   });
   res.json({ deletedCount: result.count });

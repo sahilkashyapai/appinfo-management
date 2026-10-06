@@ -4,7 +4,7 @@ const ctrl = require('../controllers/settingsController');
 
 const router = express.Router();
 
-// Public — pre-login screens (login/signup/apply) and the sidebar need the
+// Public - pre-login screens (login/signup/apply) and the sidebar need the
 // company name/logo/favicon before there's a session to authenticate.
 router.get('/branding', ctrl.getBranding);
 

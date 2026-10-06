@@ -6,37 +6,37 @@ const { sendMail, templates } = require('../services/emailService');
 const { OFFICE_LOCATIONS, BRANCH_LOCATIONS } = require('../utils/offices');
 
 // Manager and HR were merged into a single 'admin' role. Above that sits a
-// proadmin — invisible everywhere else in the app (see hideSuperadmin.js,
-// audit.js) — whose one job is granting/revoking the 'superadmin' role and
+// proadmin - invisible everywhere else in the app (see hideSuperadmin.js,
+// audit.js) - whose one job is granting/revoking the 'superadmin' role and
 // scoping a superadmin to a single office (managedLocation). A plain superadmin
 // can still manage 'admin' accounts exactly as before, but can no longer touch
-// the superadmin role or another superadmin's account — that's proadmin-only now.
-const MANAGEABLE_ROLES = ['admin', 'superadmin']; // 'proadmin' is deliberately never included — it never appears here
+// the superadmin role or another superadmin's account - that's proadmin-only now.
+const MANAGEABLE_ROLES = ['admin', 'superadmin']; // 'proadmin' is deliberately never included - it never appears here
 const SAFE_FIELDS = 'name email role isActive avatarIndex avatarUrl phone department location managedLocation managedBranch branch lastLogin createdAt employeeRef promotedAdmin';
 
-// A user row as the API returned it after `toObject()` minus the password hash —
+// A user row as the API returned it after `toObject()` minus the password hash -
 // minus the other secrets too, which the Mongo version happened to leak.
 function safeItem(user) {
   const { passwordHash, totpSecret, passwordResetToken, passwordResetExpires, ...rest } = shape('User', user);
   return rest;
 }
 
-// Regular admins only ever see their peers here — superadmin accounts are
+// Regular admins only ever see their peers here - superadmin accounts are
 // invisible to anyone below superadmin, and proadmin is invisible to everyone.
 async function list(req, res) {
   const isProOrSuper = req.user.role === 'proadmin' || req.user.role === 'superadmin';
   const roleFilter = isProOrSuper ? { in: MANAGEABLE_ROLES } : 'admin';
   const rows = await prisma.user.findMany({ where: { role: roleFilter }, select: sel('User', SAFE_FIELDS), orderBy: { name: 'asc' } });
-  // Sort by role as a string ('admin' before 'superadmin', as Mongo did) — MySQL
+  // Sort by role as a string ('admin' before 'superadmin', as Mongo did) - MySQL
   // would sort the enum column by declaration order instead. Stable, so name order holds within a role.
   rows.sort((a, b) => (a.role < b.role ? -1 : a.role > b.role ? 1 : 0));
   res.json({ items: shapeMany('User', rows) });
 }
 
-// Admins are no longer typed in from scratch — an admin login must correspond to
+// Admins are no longer typed in from scratch - an admin login must correspond to
 // a real employee, picked from a dropdown (see eligibleEmployees). Name/email/phone
 // come straight from that Employee record. Employees who already have their own
-// login (e.g. self-registered as a plain employee) still show up here — picking
+// login (e.g. self-registered as a plain employee) still show up here - picking
 // one promotes that existing login instead of creating a second account (see
 // create). Only employees who are already admins are excluded.
 async function eligibleEmployees(req, res) {
@@ -61,7 +61,7 @@ async function eligibleEmployees(req, res) {
   res.json({ items });
 }
 
-// No one types a password in anymore — a random one is generated so picking an
+// No one types a password in anymore - a random one is generated so picking an
 // employee and clicking Add Admin is the entire flow. It's emailed to them (and
 // handed back in the response, in case mail delivery isn't configured) and they
 // change it after first login.
@@ -69,7 +69,7 @@ function generatePassword() {
   return crypto.randomBytes(16).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
 }
 
-// Always creates/promotes to plain 'admin' — granting 'superadmin' is a separate,
+// Always creates/promotes to plain 'admin' - granting 'superadmin' is a separate,
 // deliberate action a proadmin takes afterward via update() (Edit Admin), never
 // something inferred or offered at creation time.
 async function create(req, res) {
@@ -162,10 +162,10 @@ async function create(req, res) {
 
 // Both proadmin and superadmin can reach this route (see adminRoutes.js), but a
 // plain superadmin is boxed in here: they can't touch an existing superadmin
-// account, and can't grant the superadmin role — only a proadmin can do either.
+// account, and can't grant the superadmin role - only a proadmin can do either.
 // Branch/office scoping (managedBranch/managedLocation) is different: it now
 // applies to both admin and superadmin targets, and a plain superadmin may set
-// it on an admin (HR) account they manage, same as a proadmin can on anyone —
+// it on an admin (HR) account they manage, same as a proadmin can on anyone -
 // they just still can't touch a superadmin target at all (blocked above).
 async function update(req, res) {
   const target = await prisma.user.findUnique({ where: { id: String(req.params.id) } });
@@ -184,7 +184,7 @@ async function update(req, res) {
   }
 
   // The app requires at least one active admin AND at least one active superadmin
-  // at all times — demoting/deactivating the last one of either is declined with
+  // at all times - demoting/deactivating the last one of either is declined with
   // a warning to create a replacement first.
   const demotingOrDeactivating = target.isActive && ((role && role !== target.role) || isActive === false);
   if (demotingOrDeactivating) {
@@ -203,7 +203,7 @@ async function update(req, res) {
     if (!grantable.includes(role)) return res.status(400).json({ message: `role must be one of ${grantable.join(', ')}.` });
     data.role = role;
   }
-  // managedBranch is the authoritative source when sent — it always drives
+  // managedBranch is the authoritative source when sent - it always drives
   // managedLocation (see BRANCH_LOCATIONS), so a stray/mismatched managedLocation
   // sent alongside it in the same request is ignored rather than trusted.
   if (canScope && managedBranch !== undefined) {
@@ -225,7 +225,7 @@ async function update(req, res) {
   if (location !== undefined) data.location = String(location ?? '');
 
   // Assigning an office manager (admin or superadmin) moves their own employee
-  // record there too — so office-scoped Employee lists (see officeScope.js)
+  // record there too - so office-scoped Employee lists (see officeScope.js)
   // start showing them under the new office and stop showing them under the old one.
   const effectiveManagedLocation = data.managedLocation !== undefined ? data.managedLocation : target.managedLocation;
   if (canScope && effectiveManagedLocation && target.employeeId) {
@@ -261,7 +261,7 @@ async function remove(req, res) {
   }
 
   // The app requires at least one active admin AND at least one active superadmin
-  // at all times — deleting (or revoking) the last active one of either is
+  // at all times - deleting (or revoking) the last active one of either is
   // declined with a warning to create a replacement first. Removing an account
   // that's already inactive never shrinks the active count, so it's unaffected.
   if (target.isActive) {
@@ -273,7 +273,7 @@ async function remove(req, res) {
     }
   }
 
-  // A promoted login pre-existed as the employee's own account — revoke admin
+  // A promoted login pre-existed as the employee's own account - revoke admin
   // access but keep it alive, rather than deleting their only way to sign in.
   if (target.promotedAdmin) {
     await prisma.user.update({

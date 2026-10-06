@@ -17,7 +17,7 @@ export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
 }
 
-// Calls whose own job is to authenticate — a 401 from these means "wrong credentials",
+// Calls whose own job is to authenticate - a 401 from these means "wrong credentials",
 // not "your session died", so they must not trigger the global logout handler. Without
 // this, every failed login attempt fires a spurious extra POST /auth/logout (which then
 // itself 401s, since there was never a session to log out of).

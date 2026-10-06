@@ -100,7 +100,7 @@ app.use('/api/bank-detail-requests', bankDetailRequestRoutes);
 const clientDist = process.env.CLIENT_DIST || path.join(__dirname, '../../client/dist');
 if (process.env.SERVE_CLIENT === 'true') {
   if (!fs.existsSync(path.join(clientDist, 'index.html'))) {
-    throw new Error(`SERVE_CLIENT=true but ${clientDist}/index.html is missing — run \`npm run build\` in client/ first.`);
+    throw new Error(`SERVE_CLIENT=true but ${clientDist}/index.html is missing - run \`npm run build\` in client/ first.`);
   }
   app.use(
     express.static(clientDist, {

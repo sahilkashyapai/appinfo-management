@@ -21,7 +21,7 @@ const REQUEST_TYPE_LABEL = {
   other: 'Document',
 };
 
-// The base64 payload is only ever sent by getOne — everything else omits it.
+// The base64 payload is only ever sent by getOne - everything else omits it.
 const OMIT_FILE = { fileUrl: true };
 const DOC_SUMMARY = sel('Document', 'name fileName fileType');
 
@@ -283,7 +283,7 @@ async function fulfillRequest(req, res) {
     const doc = await tx.document.create({
       data: {
         employeeId: request.employeeId,
-        name: `${REQUEST_TYPE_LABEL[request.type]}${request.period ? ` — ${request.period}` : ''}`,
+        name: `${REQUEST_TYPE_LABEL[request.type]}${request.period ? ` - ${request.period}` : ''}`,
         category: request.type === 'other' ? 'other' : request.type,
         fileName: fileName || '',
         fileType: fileType || '',

@@ -37,7 +37,7 @@ export default function CandidateReviewModal({ candidate, onClose }) {
               style={{ height: 70, resize: 'none' }}
               value={referrerComment}
               onChange={(e) => setReferrerComment(e.target.value)}
-              placeholder="Visible to the employee who referred this candidate, e.g. &quot;Thanks — scheduling round 2 next week.&quot;"
+              placeholder="Visible to the employee who referred this candidate, e.g. &quot;Thanks - scheduling round 2 next week.&quot;"
             />
           </div>
         )}

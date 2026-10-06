@@ -62,7 +62,7 @@ async function notifyLeaveEvent({ recipientIds, icon, title, body, link = '/leav
   sendPushToUsers(ids, { title, body, url: link }).catch((err) => console.error('[leave] push failed:', err.message));
 }
 
-// Employee-wise leave report for a given year — admins get every active employee,
+// Employee-wise leave report for a given year - admins get every active employee,
 // a regular employee gets just their own row (same shape, so the frontend can
 // reuse one table for both).
 async function report(req, res) {
@@ -184,7 +184,7 @@ async function mine(req, res) {
 async function list(req, res) {
   const { status, type, employeeRef, page = 1, limit = 25 } = req.query;
   const filter = {};
-  // "pending" from the Approvals tab means "still needs a decision" — on-hold
+  // "pending" from the Approvals tab means "still needs a decision" - on-hold
   // requests are shown there too since they haven't been finally decided yet.
   if (status === 'pending') filter.status = { in: ['pending', 'on_hold'] };
   else if (status && status !== 'all') filter.status = enumFilter(status, LEAVE_STATUSES);
@@ -274,11 +274,11 @@ async function create(req, res) {
     action: 'CREATE',
     entity: 'leave_requests',
     recordId: request.id,
-    detail: `Requested ${type} leave: ${start.toDateString()} – ${end.toDateString()}`,
+    detail: `Requested ${type} leave: ${start.toDateString()} - ${end.toDateString()}`,
   });
 
   // A superadmin scoped to another office shouldn't be pinged about this
-  // employee's request — only unscoped approvers and this employee's own office.
+  // employee's request - only unscoped approvers and this employee's own office.
   const approverUsers = await prisma.user.findMany({ where: { role: { in: APPROVER_ROLES } }, select: { id: true, managedLocation: true } });
   const recipientIds = approverUsers
     .filter((u) => !u.managedLocation || u.managedLocation === employee.location)
@@ -324,7 +324,7 @@ function decide(status) {
       action: 'UPDATE',
       entity: 'leave_requests',
       recordId: request.id,
-      detail: `${status === 'approved' ? 'Approved' : 'Rejected'} ${request.type} leave for ${request.employeeRef.name} (${request.startDate.toDateString()} – ${request.endDate.toDateString()})`,
+      detail: `${status === 'approved' ? 'Approved' : 'Rejected'} ${request.type} leave for ${request.employeeRef.name} (${request.startDate.toDateString()} - ${request.endDate.toDateString()})`,
     });
 
     if (request.employeeRef.userId) {
@@ -332,7 +332,7 @@ function decide(status) {
         recipientIds: [request.employeeRef.userId],
         icon: status === 'approved' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark',
         title: `Leave request ${status}`,
-        body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) was ${status}.${note ? ` Note: ${note}` : ''}`,
+        body: `Your ${request.type} leave request (${request.startDate.toDateString()} - ${request.endDate.toDateString()}) was ${status}.${note ? ` Note: ${note}` : ''}`,
       });
     }
 
@@ -373,7 +373,7 @@ async function hold(req, res) {
       recipientIds: [request.employeeRef.userId],
       icon: 'fa-solid fa-pause',
       title: 'Leave request on hold',
-      body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) is on hold.${note ? ` Note: ${note}` : ''}`,
+      body: `Your ${request.type} leave request (${request.startDate.toDateString()} - ${request.endDate.toDateString()}) is on hold.${note ? ` Note: ${note}` : ''}`,
     });
   }
 

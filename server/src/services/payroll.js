@@ -168,7 +168,7 @@ function imageBuffer(dataUrl) {
 }
 
 function formatDate(d) {
-  if (!d) return '—';
+  if (!d) return '-';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
@@ -177,7 +177,7 @@ function formatDate(d) {
  *  slip:     shaped SalarySlip (numbers, JSON lines, employeeInfo snapshot)
  *  company:  { name, address, phone, logoDataUrl, primaryColor, secondaryColor }
  *  footerNote
- * Any detail missing from the snapshot (older slips, empty fields) prints as "—".
+ * Any detail missing from the snapshot (older slips, empty fields) prints as "-".
  */
 function renderSlipPdf(slip, { company, footerNote }) {
   return new Promise((resolve, reject) => {
@@ -206,8 +206,8 @@ function renderSlipPdf(slip, { company, footerNote }) {
     const info = slip.employeeInfo || {};
     const locale = CURRENCY_LOCALE[slip.currency] || 'en-US';
     const num = (n) => Number(n || 0).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const cell = (n) => (Number(n) ? num(n) : '—');
-    const dash = (v) => (v === undefined || v === null || v === '' ? '—' : String(v));
+    const cell = (n) => (Number(n) ? num(n) : '-');
+    const dash = (v) => (v === undefined || v === null || v === '' ? '-' : String(v));
     const caps = (text, x, y, opts = {}) =>
       doc.font('Helvetica-Bold').fontSize(opts.size || 7.5).fillColor(opts.color || C.muted).text(text.toUpperCase(), x, y, { characterSpacing: 0.8, lineBreak: false, ...opts });
 
@@ -248,7 +248,7 @@ function renderSlipPdf(slip, { company, footerNote }) {
       cy = doc.y;
     }
     if (period) {
-      const range = `${formatDate(period.start)} – ${formatDate(new Date(period.end - 1))}`;
+      const range = `${formatDate(period.start)} - ${formatDate(new Date(period.end - 1))}`;
       caps('Pay period', left, y + 1, { width: W, align: 'right' });
       doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.ink).text(range, left, y + 12, { width: W, align: 'right' });
       caps('Office', left, y + 30, { width: W, align: 'right' });

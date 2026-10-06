@@ -23,7 +23,7 @@ export function findOrgNode(tree, id) {
   return null;
 }
 
-// A node's own id plus every descendant's id — dropping a node onto any of
+// A node's own id plus every descendant's id - dropping a node onto any of
 // these would create a cycle (you can't report to your own report).
 export function collectSubtreeIds(node) {
   const ids = new Set([node._id]);

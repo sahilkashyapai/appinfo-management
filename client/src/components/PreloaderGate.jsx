@@ -5,7 +5,7 @@ import { brandingQuery } from '../context/BrandingContext';
 
 // Removes the #preloader from index.html once the app can show its real first
 // screen: every page resource has loaded (window `load`), the stored sign-in
-// has been checked, and branding (logo, colors) has arrived — so users never
+// has been checked, and branding (logo, colors) has arrived - so users never
 // see a blank screen or a flash of the default colors. A failed branding or
 // sign-in request still counts as "done"; the app handles those itself.
 function hidePreloader() {

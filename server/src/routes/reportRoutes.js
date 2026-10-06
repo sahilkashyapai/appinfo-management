@@ -7,12 +7,12 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-// Company-wide aggregates — admins only.
+// Company-wide aggregates - admins only.
 router.get('/summary', requireRole(...ADMIN_ROLES), ctrl.summary);
 router.get('/birthdays-by-department', requireRole(...ADMIN_ROLES), ctrl.birthdaysByDepartment);
 router.get('/event-type-distribution', requireRole(...ADMIN_ROLES), ctrl.eventTypeDistribution);
 
-// Per-employee reports — any authenticated user, but non-admins are always
+// Per-employee reports - any authenticated user, but non-admins are always
 // scoped to their own record inside the controller (see resolveEmployeeScope).
 router.get('/leave-report', ctrl.leaveReport);
 router.get('/absent-report', ctrl.absentReport);

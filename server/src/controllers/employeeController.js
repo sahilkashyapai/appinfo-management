@@ -6,13 +6,13 @@ const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 const { resolveScopeLocation, isOutsideScope, scopeEmployeeLocationFilter } = require('../utils/officeScope');
 const { ROLE_LABEL_ORDER } = require('../utils/roleLabels');
 
-// Mobile numbers are only shown to admin-panel roles — everyone else gets the
+// Mobile numbers are only shown to admin-panel roles - everyone else gets the
 // directory view (name/email/role/photo/designation/dates) with phone stripped.
 function shapeForViewer(emp, viewerRole) {
   const obj = { ...emp };
   if (!ADMIN_ROLES.includes(viewerRole)) delete obj.phone;
   // Login access (the linked account's role) is only meaningful to admin-tier
-  // viewers — plain employees browsing the directory shouldn't see who has
+  // viewers - plain employees browsing the directory shouldn't see who has
   // admin/superadmin login access.
   if (!LOGIN_ACCESS_ROLES.includes(viewerRole) && obj.userRef && typeof obj.userRef === 'object') {
     obj.userRef = { ...obj.userRef };
@@ -98,7 +98,7 @@ async function list(req, res) {
 
   // Some logins (e.g. admins created before linking existed) point at their
   // employee via User.employeeId or share its email, but the Employee's own
-  // userId was never set — match those up so Login Access shows the real role.
+  // userId was never set - match those up so Login Access shows the real role.
   const unlinked = items.filter((e) => !e.userRef);
   if (unlinked.length) {
     const users = await prisma.user.findMany({
@@ -154,7 +154,7 @@ async function getOne(req, res) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
-  // Documents/assets are personal records — only visible to admin-panel roles
+  // Documents/assets are personal records - only visible to admin-panel roles
   // or the employee viewing their own record, never to a coworker browsing the directory.
   const canSeeDocsAssets = ADMIN_ROLES.includes(req.user.role) || (emp.userRef && String(emp.userRef._id) === String(req.user._id));
 
@@ -221,7 +221,7 @@ async function create(req, res) {
   if (roleLabel && !ROLE_LABEL_ORDER.includes(roleLabel)) {
     return res.status(400).json({ message: `Employee validation failed: roleLabel: ${roleLabelError(roleLabel)}` });
   }
-  // A superadmin scoped to one office can only ever create employees there —
+  // A superadmin scoped to one office can only ever create employees there -
   // silently pin the location rather than trusting whatever the client sent.
   const scopeLoc = await resolveScopeLocation(req.user);
   const effectiveLocation = scopeLoc || location;
@@ -277,7 +277,7 @@ async function create(req, res) {
 // Fields an update may set from the request body (old ref names included).
 // Anything else in the body is ignored, as Mongoose's strict mode did.
 const UPDATABLE = ['empId', 'name', 'dept', 'desig', 'roleLabel', 'joined', 'dob', 'email', 'phone', 'location', 'status', 'managerRef', 'userRef', 'avatarIndex', 'isDemo'];
-// Required fields — Mongoose's runValidators rejected blanking these on update.
+// Required fields - Mongoose's runValidators rejected blanking these on update.
 const REQUIRED_ON_UPDATE = ['empId', 'name', 'dept', 'desig', 'joined', 'dob', 'email'];
 
 async function update(req, res) {
@@ -299,7 +299,7 @@ async function update(req, res) {
     return res.status(400).json({ message: `Validation failed: roleLabel: ${roleLabelError(updates.roleLabel)}` });
   }
 
-  // A scoped superadmin can't move an employee to another office — pin it.
+  // A scoped superadmin can't move an employee to another office - pin it.
   const scopeLocForUpdate = await resolveScopeLocation(req.user);
   if (scopeLocForUpdate && updates.location !== undefined) {
     updates.location = scopeLocForUpdate;
@@ -309,7 +309,7 @@ async function update(req, res) {
     const empId = String(updates.empId).trim();
 
     if (empId === current.empId) {
-      delete updates.empId; // unchanged — don't force format validation on unrelated edits
+      delete updates.empId; // unchanged - don't force format validation on unrelated edits
     } else if (req.user.role !== 'superadmin') {
       delete updates.empId; // only a super admin may change an existing employee id
     } else {
@@ -362,7 +362,7 @@ async function update(req, res) {
     if (data.managerId === current.id) {
       return res.status(400).json({ message: 'An employee cannot be their own manager.' });
     }
-    // Walk up the proposed new manager's chain — if it leads back to this employee, it's a cycle.
+    // Walk up the proposed new manager's chain - if it leads back to this employee, it's a cycle.
     let cursor = await prisma.employee.findUnique({ where: { id: data.managerId }, select: { id: true, managerId: true } });
     const seen = new Set();
     while (cursor) {

@@ -120,10 +120,10 @@ export default function ReportsPage() {
       </div>
 
       <div className="g4 mb13">
-        <KpiCard value={summary?.birthdaysThisMonth ?? '—'} label="Birthdays This Month" bg="#EBF5FB" icon="fa-solid fa-cake-candles" iconColor="#2E86AB" />
-        <KpiCard value={summary?.anniversariesThisMonth ?? '—'} label="Anniversaries" bg="#D5F5E3" icon="fa-solid fa-medal" iconColor="#27AE60" />
-        <KpiCard value={summary?.notificationsSent ?? '—'} label="Notifications Sent" bg="#FDEBD0" icon="fa-solid fa-bell" iconColor="#E67E22" />
-        <KpiCard value={summary?.wallPostsCount ?? '—'} label="Wall Posts" bg="#E8DAEF" icon="fa-solid fa-envelope-open" iconColor="#8E44AD" />
+        <KpiCard value={summary?.birthdaysThisMonth ?? '-'} label="Birthdays This Month" bg="#EBF5FB" icon="fa-solid fa-cake-candles" iconColor="#2E86AB" />
+        <KpiCard value={summary?.anniversariesThisMonth ?? '-'} label="Anniversaries" bg="#D5F5E3" icon="fa-solid fa-medal" iconColor="#27AE60" />
+        <KpiCard value={summary?.notificationsSent ?? '-'} label="Notifications Sent" bg="#FDEBD0" icon="fa-solid fa-bell" iconColor="#E67E22" />
+        <KpiCard value={summary?.wallPostsCount ?? '-'} label="Wall Posts" bg="#E8DAEF" icon="fa-solid fa-envelope-open" iconColor="#8E44AD" />
       </div>
 
       <div className="g2 mb13">
@@ -167,7 +167,7 @@ export default function ReportsPage() {
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
                   <td>{formatDate(r.date)}</td>
-                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -192,7 +192,7 @@ export default function ReportsPage() {
                   <td><div style={{ display: 'flex', alignItems: 'center', gap: 7 }}><Avatar name={r.name} size={24} fontSize={8} /><span style={{ fontWeight: 600 }}>{r.name}</span></div></td>
                   <td><span className="badge b-bl">{r.dept}</span></td>
                   <td>{formatDate(r.date)}</td>
-                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '-'}</td>
                 </tr>
               ))}
             </tbody>

@@ -36,7 +36,7 @@ async function clearAll(req, res) {
     user: req.user,
     action: 'DELETE',
     entity: 'demo_data',
-    recordId: '—',
+    recordId: '-',
     detail: `Cleared ${total} dummy/demo record(s) across ${Object.keys(MODELS).length} collections`,
   });
 

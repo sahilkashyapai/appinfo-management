@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import OrgChartNode from './OrgChartNode';
 
 // Position of `el`, relative to `ancestor`, in *layout* pixels (unaffected by
-// any CSS `zoom`/`transform` applied between them) — walks the offsetParent
+// any CSS `zoom`/`transform` applied between them) - walks the offsetParent
 // chain rather than using getBoundingClientRect, which reports post-zoom
 // screen pixels and would double-scale once fed back into a zoomed SVG.
 function rectRelativeTo(el, ancestor) {
@@ -18,7 +18,7 @@ function rectRelativeTo(el, ancestor) {
 }
 
 // Draws every parent -> children connector by measuring actual rendered card
-// positions after layout, instead of hard-coded CSS math — the old fixed
+// positions after layout, instead of hard-coded CSS math - the old fixed
 // left/right: 140px/2 trick assumed every child was exactly one card wide,
 // which broke as soon as a child's own subtree was wider than its own card.
 export default function OrgChartCanvas({ tree, zoom, ...dragProps }) {

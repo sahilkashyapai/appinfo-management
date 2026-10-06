@@ -5,7 +5,7 @@ let transporter = null;
 function getTransporter() {
   if (transporter) return transporter;
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('[email] SMTP_HOST/SMTP_USER/SMTP_PASS not set — emails will be logged, not sent.');
+    console.warn('[email] SMTP_HOST/SMTP_USER/SMTP_PASS not set - emails will be logged, not sent.');
     return null;
   }
   transporter = nodemailer.createTransport({

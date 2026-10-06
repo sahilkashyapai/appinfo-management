@@ -194,7 +194,7 @@ async function main() {
     console.log(`[copy] --reset: emptied ${tables.length} MySQL tables`);
   }
 
-  // Ids that will exist once a model is inserted — used to validate references.
+  // Ids that will exist once a model is inserted - used to validate references.
   const ids = {};
   for (const [model] of COLLECTIONS) ids[model] = new Set();
   // Pre-register ids for the circular trio so they can reference each other.
@@ -338,12 +338,12 @@ async function main() {
     console.log(`\n[copy] ${warnings.length} warning(s):`);
     for (const w of warnings) console.log(`  - ${w}`);
   }
-  console.log(mismatch ? '\n[copy] done, with skipped rows — review the warnings above.' : '\n[copy] done. Every collection copied in full.');
+  console.log(mismatch ? '\n[copy] done, with skipped rows - review the warnings above.' : '\n[copy] done. Every collection copied in full.');
 }
 
 main()
   .catch((err) => {
-    console.error(`[copy] FAILED — the copy was rolled back${RESET ? ' (tables emptied by --reset stay empty)' : ''}:`, err.message);
+    console.error(`[copy] FAILED - the copy was rolled back${RESET ? ' (tables emptied by --reset stay empty)' : ''}:`, err.message);
     process.exitCode = 1;
   })
   .finally(async () => {

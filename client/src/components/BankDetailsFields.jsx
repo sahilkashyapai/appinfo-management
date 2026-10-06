@@ -50,7 +50,7 @@ export function bankErrors(v, { withConfirm = true } = {}) {
   const acc = String(v.bankAccount || '').trim();
   if (pan && !PAN_REGEX.test(pan)) errs.pan = 'PAN should look like ABCDE1234F.';
   if (ifsc && !IFSC_REGEX.test(ifsc)) errs.ifsc = 'IFSC should look like HDFC0001234 (11 characters, 5th is zero).';
-  if (acc && !ACCOUNT_REGEX.test(acc)) errs.bankAccount = 'Account number should be 6–20 digits.';
+  if (acc && !ACCOUNT_REGEX.test(acc)) errs.bankAccount = 'Account number should be 6-20 digits.';
   if (withConfirm && acc !== String(v.confirmAccount || '').trim()) errs.confirmAccount = 'Account numbers do not match.';
   return errs;
 }
@@ -64,7 +64,7 @@ export function maskAccount(acc) {
 // Masked account number with a small show/hide toggle.
 export function MaskedAccount({ value, style }) {
   const [show, setShow] = useState(false);
-  if (!value) return <span style={{ color: 'var(--t3)', ...style }}>—</span>;
+  if (!value) return <span style={{ color: 'var(--t3)', ...style }}>-</span>;
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...style }}>
       <span style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: show ? 0 : '.04em' }}>{show ? value : maskAccount(value)}</span>
@@ -83,7 +83,7 @@ export function MaskedAccount({ value, style }) {
 // Read-only value for one bank field.
 export function BankValue({ field, value }) {
   if (field === 'bankAccount') return <MaskedAccount value={value} />;
-  return value ? <span>{value}</span> : <span style={{ color: 'var(--t3)' }}>—</span>;
+  return value ? <span>{value}</span> : <span style={{ color: 'var(--t3)' }}>-</span>;
 }
 
 function Hint({ msg }) {
@@ -119,7 +119,7 @@ export function BankDetailsFields({ value, onChange, withConfirm = true, disable
       </div>
       <div className="fg">
         <label className="fl">Account Number</label>
-        <input className="fc" inputMode="numeric" autoComplete="off" placeholder="6–20 digits" maxLength={20} disabled={disabled} value={value.bankAccount} onChange={(e) => onChange('bankAccount', e.target.value.replace(/\D/g, ''))} />
+        <input className="fc" inputMode="numeric" autoComplete="off" placeholder="6-20 digits" maxLength={20} disabled={disabled} value={value.bankAccount} onChange={(e) => onChange('bankAccount', e.target.value.replace(/\D/g, ''))} />
         <Hint msg={errs.bankAccount} />
       </div>
       {withConfirm && (

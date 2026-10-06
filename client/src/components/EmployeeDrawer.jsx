@@ -161,8 +161,8 @@ export default function EmployeeDrawer({ onEdit }) {
         {[
           ['Employee ID', e.empId],
           ['Email', e.email],
-          ['Account Role', e.userRef?.role ? e.userRef.role.charAt(0).toUpperCase() + e.userRef.role.slice(1) : '—'],
-          ...(canSeePhone ? [['Phone', e.phone || '—']] : []),
+          ['Account Role', e.userRef?.role ? e.userRef.role.charAt(0).toUpperCase() + e.userRef.role.slice(1) : '-'],
+          ...(canSeePhone ? [['Phone', e.phone || '-']] : []),
           ['Date of Birth', formatDate(e.dob)],
           ['Location', e.location],
         ].map(([l, v]) => (
@@ -171,7 +171,7 @@ export default function EmployeeDrawer({ onEdit }) {
       </div>
       <div className="ep-sec">
         <div className="ep-sec-t">Work Information</div>
-        {[['Department', e.dept], ['Designation', e.desig], ['Joined', formatDate(e.joined)], ['Manager', e.managerRef?.name || '—'], ['Status', e.status]].map(([l, v]) => (
+        {[['Department', e.dept], ['Designation', e.desig], ['Joined', formatDate(e.joined)], ['Manager', e.managerRef?.name || '-'], ['Status', e.status]].map(([l, v]) => (
           <div className="ep-row" key={l}><div className="ep-lbl">{l}</div><div className="ep-val" style={{ textTransform: 'capitalize' }}>{v}</div></div>
         ))}
       </div>

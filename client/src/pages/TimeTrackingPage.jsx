@@ -12,12 +12,12 @@ const STATUS_BADGE = { running: 'b-gr', paused: 'b-or', stopped: 'b-bl' };
 const STATUS_LABEL = { running: 'Running', paused: 'Paused', stopped: 'Stopped' };
 
 function formatClock(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   return new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDuration(ms) {
-  if (ms == null) return '—';
+  if (ms == null) return '-';
   const mins = Math.max(0, Math.round(ms / 60000));
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -165,7 +165,7 @@ export default function TimeTrackingPage() {
                   <td style={{ fontSize: 10.5, color: 'var(--t3)', fontFamily: 'monospace' }}>
                     {t.status === 'stopped' ? formatClock(t.stoppedAt) : <span className={`badge ${STATUS_BADGE[t.status]}`}>{STATUS_LABEL[t.status]}</span>}
                   </td>
-                  <td style={{ fontSize: 11, color: 'var(--t2)' }}>{t.status === 'stopped' ? formatDuration(liveElapsed(t)) : '—'}</td>
+                  <td style={{ fontSize: 11, color: 'var(--t2)' }}>{t.status === 'stopped' ? formatDuration(liveElapsed(t)) : '-'}</td>
                 </tr>
               ))}
             </tbody>

@@ -178,7 +178,7 @@ export default function LeavePage() {
                   {mine?.map((r) => (
                     <tr key={r._id}>
                       <td>{TYPE_LABEL[r.type]}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.startDate)} – {formatDate(r.endDate)}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.startDate)} - {formatDate(r.endDate)}</td>
                       <td>{r.days}</td>
                       <td style={{ color: 'var(--t3)' }}>
                         {r.reason}
@@ -226,7 +226,7 @@ export default function LeavePage() {
                       </div>
                     </td>
                     <td>{TYPE_LABEL[r.type]}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.startDate)} – {formatDate(r.endDate)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDate(r.startDate)} - {formatDate(r.endDate)}</td>
                     <td>{r.days}</td>
                     <td style={{ color: 'var(--t3)' }}>
                       {r.reason}
@@ -269,7 +269,7 @@ export default function LeavePage() {
       {tab === 'report' && (
         <div className="card">
           <div className="chd">
-            <div className="cht"><i className="fa-solid fa-chart-column" /> {canApprove ? 'Leave Report — All Employees' : 'My Leave Report'}</div>
+            <div className="cht"><i className="fa-solid fa-chart-column" /> {canApprove ? 'Leave Report - All Employees' : 'My Leave Report'}</div>
             <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
               <Select style={{ width: 100 }} value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))}>
                 {[CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].map((y) => (

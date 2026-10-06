@@ -58,7 +58,7 @@ export default function MyReportPage() {
       <div className="ph">
         <div className="ph-l">
           <div className="pgt">My Report</div>
-          <div className="pgs">Your attendance, leave &amp; WFH summary — visible only to you and admins</div>
+          <div className="pgs">Your attendance, leave &amp; WFH summary - visible only to you and admins</div>
         </div>
         <div className="ph-r">
           <MonthPicker style={{ width: 150 }} value={month} onChange={setMonth} />
@@ -99,7 +99,7 @@ export default function MyReportPage() {
               {leaveReport.map((r) => (
                 <tr key={r.id}>
                   <td>{formatDate(r.date)}</td>
-                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -117,7 +117,7 @@ export default function MyReportPage() {
               {absentReport.map((r) => (
                 <tr key={r.id}>
                   <td>{formatDate(r.date)}</td>
-                  <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{r.note || '-'}</td>
                 </tr>
               ))}
             </tbody>

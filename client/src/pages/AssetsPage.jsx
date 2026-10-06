@@ -92,7 +92,7 @@ export default function AssetsPage() {
                         {a.employeeRef.name}
                       </div>
                     ) : (
-                      <span style={{ color: 'var(--t3)' }}>—</span>
+                      <span style={{ color: 'var(--t3)' }}>-</span>
                     )}
                   </td>
                   <td><span className={`badge ${STATUS_BADGE[a.status]}`} style={{ textTransform: 'capitalize' }}>{a.status}</span></td>

@@ -7,8 +7,8 @@ import { useToast } from '../../context/ToastContext';
 import { ToggleRow, errMessage } from './payrollUtils';
 
 const LOP_OPTIONS = [
-  { value: 'calendar', label: 'Days in the month (28–31)' },
-  { value: 'working', label: 'Working days (Mon–Fri, excluding holidays)' },
+  { value: 'calendar', label: 'Days in the month (28-31)' },
+  { value: 'working', label: 'Working days (Mon-Fri, excluding holidays)' },
   { value: 'fixed30', label: 'Always 30 days' },
 ];
 
@@ -236,7 +236,7 @@ export default function PayrollSettingsTab() {
               <div className="cht"><i className="fa-solid fa-list" /> Default Earnings</div>
               {canEditShared && <ResetButton onClick={() => resetKey('defaultEarnings')} />}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8 }}>Lines a new salary structure starts with. Mark one as Basic — PF is calculated on it.</div>
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 8 }}>Lines a new salary structure starts with. Mark one as Basic - PF is calculated on it.</div>
             {form.defaultEarnings.map((l, i) => (
               <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 <input className="fc" style={{ flex: 1, minWidth: 0 }} placeholder="e.g. Basic" value={l.name} onChange={(e) => update((f) => { f.defaultEarnings[i].name = e.target.value; })} />

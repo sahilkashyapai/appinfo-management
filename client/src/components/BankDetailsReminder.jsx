@@ -67,7 +67,7 @@ export default function BankDetailsReminder() {
         </div>
         <div id="bank-reminder-title" style={{ fontSize: 15, fontWeight: 900, color: 'var(--t1)', marginBottom: 6 }}>Please submit your bank details</div>
         <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 16 }}>
-          We need your PAN and salary bank account to process your salary. Please add them in your profile — it only takes a minute.
+          We need your PAN and salary bank account to process your salary. Please add them in your profile - it only takes a minute.
         </div>
         <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button className="btn bs bsm" onClick={later}>Remind me later</button>

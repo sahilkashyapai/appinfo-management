@@ -7,6 +7,6 @@ const warned = new Set();
 export function warnMissingProvider(hookName) {
   if (import.meta.env.DEV && !warned.has(hookName)) {
     warned.add(hookName);
-    console.warn(`${hookName}() was called outside its provider — using a fallback. Usually a hot-reload artefact; reload the page if it persists.`);
+    console.warn(`${hookName}() was called outside its provider - using a fallback. Usually a hot-reload artefact; reload the page if it persists.`);
   }
 }

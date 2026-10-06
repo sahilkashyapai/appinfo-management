@@ -63,7 +63,7 @@ function decideCorrectionRequest(id, data) {
   return prisma.attendanceCorrectionRequest.update({ where: { id }, data, include: CORRECTION_EMPLOYEE });
 }
 
-// Self-only monthly snapshot for the dashboard — always the caller's own record,
+// Self-only monthly snapshot for the dashboard - always the caller's own record,
 // regardless of role (an admin viewing their own dashboard still wants "my" attendance).
 async function mySummary(req, res) {
   const ownId = await resolveOwnEmployeeId(req);
@@ -132,7 +132,7 @@ async function today(req, res) {
   await excludeAdminAttendanceForEmployee(filter, req.user.role);
   const items = await prisma.attendance.findMany({ where: filter, select: { employeeId: true, status: true } });
   const byEmployee = Object.fromEntries(items.map((a) => [String(a.employeeId), a.status]));
-  // Superadmins are exempt from attendance tracking entirely — the client uses
+  // Superadmins are exempt from attendance tracking entirely - the client uses
   // this to show "N/A" instead of "Not marked", without needing to know the
   // viewer-restricted login-access role.
   const exemptIds = (await superadminEmployeeIds()).map(String);
@@ -173,7 +173,7 @@ async function todayByStatus(req, res) {
   res.json({ items });
 }
 
-// All four today's-attendance groups (plus not-marked) in one call — powers the
+// All four today's-attendance groups (plus not-marked) in one call - powers the
 // dashboard's "View all" breakdown, grouped separately rather than one flat list.
 async function todayBreakdown(req, res) {
   const employeeFilter = { status: 'active' };
@@ -306,7 +306,7 @@ async function exportPdf(req, res) {
 
     doc.fontSize(16).text('Attendance Report', { align: 'center' });
     doc.moveDown(0.3);
-    doc.fontSize(11).text(`${employee.name} (${employee.empId}) — ${employee.desig}, ${employee.dept}`, { align: 'center' });
+    doc.fontSize(11).text(`${employee.name} (${employee.empId}) - ${employee.desig}, ${employee.dept}`, { align: 'center' });
     doc.fontSize(10).fillColor('#666').text(monthLabel, { align: 'center' });
     doc.fillColor('#000').moveDown(1);
 
@@ -338,14 +338,14 @@ async function exportPdf(req, res) {
       byEmployee[id][r.status] += 1;
     });
 
-    doc.fontSize(16).text('Attendance Report — All Employees', { align: 'center' });
+    doc.fontSize(16).text('Attendance Report - All Employees', { align: 'center' });
     doc.fontSize(10).fillColor('#666').text(monthLabel, { align: 'center' });
     doc.fillColor('#000').moveDown(1);
 
     doc.fontSize(9);
     employees.forEach((e) => {
       const c = byEmployee[String(e.id)] || { office: 0, wfh: 0, leave: 0, absent: 0 };
-      doc.text(`${e.name} (${e.dept})  —  Office: ${c.office}   WFH: ${c.wfh}   Leave: ${c.leave}   Absent: ${c.absent}`);
+      doc.text(`${e.name} (${e.dept})  -  Office: ${c.office}   WFH: ${c.wfh}   Leave: ${c.leave}   Absent: ${c.absent}`);
     });
   }
 

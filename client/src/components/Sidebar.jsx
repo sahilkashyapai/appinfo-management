@@ -7,7 +7,7 @@ import Avatar from './Avatar';
 import { ADMIN_ROLES, APPROVER_ROLES, DEVELOPER_ROLES } from '../utils/roles';
 import { useBranding } from '../context/BrandingContext';
 
-// Full nav for superadmin/hr/manager — the management/admin panel.
+// Full nav for superadmin/hr/manager - the management/admin panel.
 const ADMIN_NAV = [
   { section: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: 'fa-solid fa-gauge' }] },
   {
@@ -59,7 +59,7 @@ const ADMIN_NAV = [
   },
 ];
 
-// Simplified nav for the 'employee' self-service user panel — no employee/department
+// Simplified nav for the 'employee' self-service user panel - no employee/department
 // management, no reports/audit/settings.
 const EMPLOYEE_NAV = [
   { section: 'Overview', items: [{ to: '/', label: 'My Dashboard', icon: 'fa-solid fa-gauge' }] },

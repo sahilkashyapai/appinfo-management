@@ -2412,7 +2412,7 @@ tbody tr:hover td {
 }
 
 /* Wraps the SVG connector lines + the tree so both scale together under the
-   same `zoom` value — offsets measured in OrgChartCanvas are zoom-independent
+   same `zoom` value - offsets measured in OrgChartCanvas are zoom-independent
    layout pixels, so this is the only place zoom needs to be applied. */
 .org-canvas {
   position: relative;
@@ -2554,7 +2554,7 @@ tbody tr:hover td {
 /* ICONS
    All icons are rendered via self-hosted Font Awesome Free classes
    (e.g. <i class="fa-solid fa-bell">), imported in main.jsx from the
-   @fortawesome/fontawesome-free npm package — no CDN dependency. */
+   @fortawesome/fontawesome-free npm package - no CDN dependency. */
 i.fa-solid,
 i.fa-regular,
 i.fa-brands {

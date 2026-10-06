@@ -36,7 +36,7 @@ export function daysSinceLast(monthDayDate) {
 }
 
 export function formatDate(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const d = new Date(dateStr);
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -44,7 +44,7 @@ export function formatDate(dateStr) {
 }
 
 export function formatDateTime(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const time = new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   return `${formatDate(dateStr)} ${time}`;
 }

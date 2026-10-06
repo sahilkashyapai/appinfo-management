@@ -103,7 +103,7 @@ export default function SlipEditorModal({ slipId, period, onClose }) {
   });
 
   // Recalculate keeps the manual lines stored on the server, so unsaved added
-  // lines are saved first — otherwise they'd silently disappear.
+  // lines are saved first - otherwise they'd silently disappear.
   const recalc = useMutation({
     mutationFn: async () => {
       await api.put(`/payroll/slips/${slipId}`, { ...payload() });
@@ -249,7 +249,7 @@ export default function SlipEditorModal({ slipId, period, onClose }) {
           />
           {!readOnly && lopChanged && (
             <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>
-              Save only records the new LOP days — use Recalculate to re-prorate the salary-structure lines.
+              Save only records the new LOP days - use Recalculate to re-prorate the salary-structure lines.
             </div>
           )}
         </div>

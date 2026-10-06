@@ -56,7 +56,7 @@ export default function EmployeeFormModal({ employee, onClose }) {
   }, [suggestedEmpId]);
 
   // Role Label doubles as the designation shown everywhere else (Org Chart,
-  // directory, reports) — one field, no separate freeform title to keep in sync.
+  // directory, reports) - one field, no separate freeform title to keep in sync.
   const save = useMutation({
     mutationFn: () => {
       const payload = { ...form, desig: form.roleLabel };
@@ -73,7 +73,7 @@ export default function EmployeeFormModal({ employee, onClose }) {
     onError: (err) => toast(err.response?.data?.message || 'Could not save employee.', 'error'),
   });
 
-  // Legacy employee ids (e.g. EMP001) predate the APIIND###### format — only force
+  // Legacy employee ids (e.g. EMP001) predate the APIIND###### format - only force
   // validation when the id is actually being set/changed, not on unrelated edits.
   const empIdChanged = !isEdit || form.empId !== employee?.empId;
   const empIdValid = !empIdChanged || EMP_ID_REGEX.test(form.empId);

@@ -43,7 +43,7 @@ export default function OrgChartPage() {
 
   // Figma-style click-and-drag panning across the chart canvas (any direction),
   // without hijacking clicks/drags that start on a card (those open the employee
-  // drawer or reassign a manager — see OrgChartNode).
+  // drawer or reassign a manager - see OrgChartNode).
   const panRef = useRef(null);
   const panStateRef = useRef(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -149,7 +149,7 @@ export default function OrgChartPage() {
 
   // Reassigning a manager by dragging a card, driven by Pointer Events (fires
   // uniformly for mouse/touch/pen) instead of HTML5 drag-and-drop, which has no
-  // touch equivalent — see OrgChartNode's onPointerDown, which just sets
+  // touch equivalent - see OrgChartNode's onPointerDown, which just sets
   // draggingId; everything else (hit-testing, hover highlight, committing the
   // move) happens here. A ref keeps onReparent/invalidDropIds fresh inside the
   // window listener without needing to re-attach it every render.

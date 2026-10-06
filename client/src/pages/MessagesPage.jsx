@@ -106,7 +106,7 @@ export default function MessagesPage() {
       <div className="ph">
         <div className="ph-l">
           <div className="pgt">Messages</div>
-          <div className="pgs">Chat privately or in groups — separate from the Celebration Wall</div>
+          <div className="pgs">Chat privately or in groups - separate from the Celebration Wall</div>
         </div>
         <div className="ph-r">
           <button className="btn bp bsm" onClick={() => setShowNew(true)}><i className="fa-solid fa-pen" /> New Message</button>

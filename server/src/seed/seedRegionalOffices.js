@@ -1,7 +1,7 @@
 // One-off script: adds a small demo org-chart branch (Manager > Team Lead >
 // Senior Engineer > Engineer / Developer > Intern) for each of the two offices
-// that had no employees yet — Alpharetta, United States and Cape Town, South
-// Africa — so office-scoped superadmin accounts (see adminController's
+// that had no employees yet - Alpharetta, United States and Cape Town, South
+// Africa - so office-scoped superadmin accounts (see adminController's
 // managedLocation) have real data to be scoped to. Additive only, flagged
 // isDemo: true, no existing data touched.
 require('dotenv').config();
@@ -153,13 +153,13 @@ async function seedRegionalOffices(db = prisma) {
   const depts = await db.department.findMany({ where: { name: { in: allDeptNames } } });
   const deptByName = Object.fromEntries(depts.map((d) => [d.name, d]));
   for (const n of allDeptNames) {
-    if (!deptByName[n]) throw new Error(`Department "${n}" not found — cannot seed regional office demo data.`);
+    if (!deptByName[n]) throw new Error(`Department "${n}" not found - cannot seed regional office demo data.`);
   }
 
   for (const office of OFFICES) {
     const existing = await db.employee.findFirst({ where: { location: office.location } });
     if (existing) {
-      console.log(`[seed] skipping ${office.location} — already has employees (e.g. ${existing.name})`);
+      console.log(`[seed] skipping ${office.location} - already has employees (e.g. ${existing.name})`);
       continue;
     }
 

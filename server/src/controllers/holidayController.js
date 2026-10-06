@@ -17,7 +17,7 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
-  // Whitelisted — Prisma rejects unknown fields that Mongo silently ignored.
+  // Whitelisted - Prisma rejects unknown fields that Mongo silently ignored.
   const { name, date, type, description } = req.body;
   const updates = {};
   if (name !== undefined) updates.name = String(name).trim();

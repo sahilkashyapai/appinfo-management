@@ -9,7 +9,7 @@ async function loadUser(id) {
   return row ? shape('User', row) : null;
 }
 
-// What the old User#toSafeJSON returned — never includes secrets.
+// What the old User#toSafeJSON returned - never includes secrets.
 function toSafeUser(u) {
   return {
     id: u.id ?? u._id,

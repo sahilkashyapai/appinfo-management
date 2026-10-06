@@ -25,7 +25,7 @@ function formatHM(ms) {
 }
 
 function formatClock(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   return new Date(dateStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 

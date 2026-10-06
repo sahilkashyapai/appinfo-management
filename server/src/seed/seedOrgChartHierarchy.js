@@ -5,7 +5,7 @@
 //
 // Adds 3 new employees (1 President & CTO + 2 Managers, flagged isDemo: true)
 // and reuses the 8 employees from the earlier dashboard dummy-data seed as the
-// TL/Senior/Junior/Intern layers of each branch — additive only, no existing
+// TL/Senior/Junior/Intern layers of each branch - additive only, no existing
 // data (including the 3 real employees) is touched or removed.
 require('dotenv').config();
 const connectDB = require('../config/db');
@@ -23,14 +23,14 @@ async function seedOrgChartHierarchy(db = prisma) {
   const depts = await db.department.findMany({ where: { name: { in: deptNames } } });
   const deptByName = Object.fromEntries(depts.map((d) => [d.name, d]));
   for (const n of deptNames) {
-    if (!deptByName[n]) throw new Error(`Department "${n}" not found — cannot build org chart.`);
+    if (!deptByName[n]) throw new Error(`Department "${n}" not found - cannot build org chart.`);
   }
 
   const existingNames = ['Aman Chopra', 'Yash Malhotra', 'Ishaan Kulkarni', 'Rajesh Pillai', 'Meera Kapoor', 'Lakshmi Pillai', 'Divya Menon', 'Tanvi Deshpande'];
   const existing = await db.employee.findMany({ where: { name: { in: existingNames } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
   const byName = Object.fromEntries(existing.map((e) => [e.name, e]));
   const missing = existingNames.filter((n) => !byName[n]);
-  if (missing.length) throw new Error(`Missing expected demo employees: ${missing.join(', ')} — run seedDummyDashboardData.js first.`);
+  if (missing.length) throw new Error(`Missing expected demo employees: ${missing.join(', ')} - run seedDummyDashboardData.js first.`);
 
   // --- New top of the chart: CEO + 2 Managers ---------------------------
   const ceo = await db.employee.create({

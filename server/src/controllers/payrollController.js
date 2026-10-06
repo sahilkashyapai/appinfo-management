@@ -112,7 +112,7 @@ async function updatePayrollSettings(req, res) {
     if (SHARED_KEYS.some((k) => b[k] !== undefined)) {
       return res.status(403).json({ message: 'Loss of pay, default lines and the slip footer apply to every office and can only be changed by a company-wide admin.' });
     }
-    // The statutory switch decides which country's rules apply — company-wide admins only.
+    // The statutory switch decides which country's rules apply - company-wide admins only.
     if (b.offices?.[scope.office] && own) b.offices[scope.office].statutory = own.statutory;
   }
 
@@ -587,7 +587,7 @@ async function publishOne(slipRow, user) {
     const doc = await tx.document.create({
       data: {
         employeeId: slip.employeeId,
-        name: `Salary Slip – ${period.label}`,
+        name: `Salary Slip - ${period.label}`,
         category: 'salary_slip',
         fileName: `salary-slip-${slip.period}-${empId}.pdf`,
         fileType: 'application/pdf',

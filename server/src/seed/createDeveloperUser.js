@@ -1,4 +1,4 @@
-// One-off, idempotent script — creates (or fixes up) the single 'developer'
+// One-off, idempotent script - creates (or fixes up) the single 'developer'
 // account used to log into the Developer Panel. Safe to re-run: it only
 // touches the one user row matched by email, never wipes/reseeds
 // anything else (unlike seed.js's seedAll, which is destructive).

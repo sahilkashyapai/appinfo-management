@@ -34,7 +34,7 @@ export default function DepartmentsPage() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--t1)' }}>{d.name}</div>
-              <div style={{ fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 }}>Code: <strong title={d.name}>{d.code}</strong> · Head: {d.headRef?.name || '—'}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--t3)', marginBottom: 4 }}>Code: <strong title={d.name}>{d.code}</strong> · Head: {d.headRef?.name || '-'}</div>
               <div style={{ fontSize: 11, color: 'var(--t2)', marginBottom: 8 }}>{d.description}</div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>{d.count} employees</span>

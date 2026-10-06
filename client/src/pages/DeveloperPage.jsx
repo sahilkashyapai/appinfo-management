@@ -171,12 +171,12 @@ export default function DeveloperPage() {
 
   // Live preview: push every color edit straight into the same style tag
   // BrandingContext writes to (see BrandingContext.jsx), so picking a preset or
-  // dragging the custom picker repaints the whole app instantly — no Save needed
+  // dragging the custom picker repaints the whole app instantly - no Save needed
   // to see it. Falls back to the persisted colors once `form` is cleared
   // (Discard, or after Save invalidates the query), so it never gets stuck
   // showing an unsaved preview.
   // Runs unconditionally (b may be null on first render, before Save
-  // Changes/branding data loads) — Hooks can't follow an early return.
+  // Changes/branding data loads) - Hooks can't follow an early return.
   useEffect(() => {
     if (!colorsValid) return;
     let style = document.getElementById('branding-theme-vars');
@@ -204,7 +204,7 @@ export default function DeveloperPage() {
         <div className="card">
           <div className="chd"><div className="cht"><i className="fa-solid fa-palette" /> Color Theme</div></div>
           <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 14 }}>
-            Applies instantly for every signed-in user, in both light and dark mode — not just your own browser.
+            Applies instantly for every signed-in user, in both light and dark mode - not just your own browser.
           </div>
 
           <label className="fl" style={{ display: 'block', marginBottom: 8 }}>Presets</label>

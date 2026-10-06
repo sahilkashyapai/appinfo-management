@@ -28,13 +28,13 @@ async function list(req, res) {
     if (employeeRef) where.employeeId = String(employeeRef);
     await excludeSuperadminEmployees(where, req.user.role);
 
-    // Assets aren't tied to an office themselves — a scoped superadmin sees
+    // Assets aren't tied to an office themselves - a scoped superadmin sees
     // unassigned inventory plus anything assigned to their own office's employees.
     const scopedIds = await scopedEmployeeIds(req.user);
     if (scopedIds && !employeeRef) {
       andWhere(where, { OR: [{ employeeId: null }, { employeeId: { in: scopedIds } }] });
     } else if (scopedIds && employeeRef && !scopedIds.some((id) => String(id) === String(employeeRef))) {
-      andWhere(where, NO_MATCH); // that employee isn't in this office — zero results
+      andWhere(where, NO_MATCH); // that employee isn't in this office - zero results
     }
   }
 

@@ -22,7 +22,7 @@ function SlipFacts({ slip }) {
     ['Deductions', formatMoney(slip.totalDeductions, slip.currency)],
     ['Net pay', formatMoney(slip.netPay, slip.currency)],
     ['LOP days', slip.lopDays],
-    ['Paid leave', slip.paidLeaveDays ?? '—'],
+    ['Paid leave', slip.paidLeaveDays ?? '-'],
   ];
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 11.5, color: 'var(--t3)' }}>
@@ -40,7 +40,7 @@ function ReplyBox({ query, onDone }) {
   const respond = useMutation({
     mutationFn: (status) => api.patch(`/salary-queries/${query._id}`, { status, response }),
     onSuccess: (_r, status) => {
-      toast(status === 'resolved' ? 'Query resolved — the employee has been notified' : 'Query rejected — the employee has been notified', 'success');
+      toast(status === 'resolved' ? 'Query resolved - the employee has been notified' : 'Query rejected - the employee has been notified', 'success');
       qc.invalidateQueries({ queryKey: ['salary-queries'] });
       onDone();
     },

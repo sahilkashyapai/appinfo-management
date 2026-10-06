@@ -7,7 +7,7 @@ const { ADMIN_ROLES } = require('./roles');
 // (e.g. 'id', 'employeeId', 'userId'), not the old Mongo ref name.
 
 // A proadmin has no Employee record and is hidden from absolutely everyone,
-// including superadmins — the only account type still hidden by design.
+// including superadmins - the only account type still hidden by design.
 // Superadmin accounts are fully visible to everyone now, just like any other
 // employee/role.
 async function proadminUserIds() {
@@ -15,7 +15,7 @@ async function proadminUserIds() {
   return proadmins.map((u) => u.id);
 }
 
-// Employee ids linked to an admin or superadmin login — used to keep daily
+// Employee ids linked to an admin or superadmin login - used to keep daily
 // attendance/leave status private from plain employees even though the
 // employee directory itself shows admins/superadmins like anyone else.
 async function adminEmployeeIds() {
@@ -28,7 +28,7 @@ function exclude(where, field, ids) {
   return andWhere(where, { [field]: { notIn: ids } });
 }
 
-// No-op, kept so existing call sites don't need to change — proadmin never has
+// No-op, kept so existing call sites don't need to change - proadmin never has
 // an Employee record, so there's nothing to exclude here anymore.
 async function excludeSuperadminEmployees(where) {
   return where;
@@ -39,7 +39,7 @@ async function excludeSuperadminUsers(where, viewerRole, field = 'id') {
   return exclude(where, field, await proadminUserIds());
 }
 
-// A plain employee can't see an admin/superadmin's attendance or leave status —
+// A plain employee can't see an admin/superadmin's attendance or leave status -
 // it stays private to admin-tier viewers, who see it same as before. Only
 // applies to the specific attendance endpoints that show everyone's status
 // (see attendanceController.js); the general employee directory is untouched.
@@ -53,7 +53,7 @@ async function superadminEmployeeIds() {
   return supers.map((u) => u.employeeId).filter(Boolean);
 }
 
-// Superadmin accounts never need daily attendance tracked — excluded from
+// Superadmin accounts never need daily attendance tracked - excluded from
 // every attendance list/status/breakdown endpoint for every viewer, admins
 // included, unlike excludeAdminAttendanceForEmployee above which only hides
 // from plain employees.

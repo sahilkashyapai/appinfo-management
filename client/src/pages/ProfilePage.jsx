@@ -142,7 +142,7 @@ export default function ProfilePage() {
             </div>
             <div style={{ padding: '34px 20px 18px' }}>
               <div style={{ fontSize: 17, fontWeight: 900, color: 'var(--t1)' }}>{user.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 3 }}>{user.email} · {user.department || '—'}</div>
+              <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 3 }}>{user.email} · {user.department || '-'}</div>
               <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
                 <span className="badge b-bl" style={{ textTransform: 'capitalize' }}>{user.role}</span>
                 <span className="badge b-gr">Active</span>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
                   </Select>
                 ) : (
                   <div className="fc" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--t3)' }}>
-                    <span>{profile.branch || '—'}</span>
+                    <span>{profile.branch || '-'}</span>
                     <span style={{ fontSize: 10.5 }}>Only a Super Admin can change this</span>
                   </div>
                 )}

@@ -39,7 +39,7 @@ export default function AssetAssignModal({ asset, onClose }) {
           <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
             <option value="">Select an employee…</option>
             {employees.map((e) => (
-              <option key={e._id} value={e._id}>{e.name}{e.dept ? ` — ${e.dept}` : ''}</option>
+              <option key={e._id} value={e._id}>{e.name}{e.dept ? ` - ${e.dept}` : ''}</option>
             ))}
           </Select>
         </div>

@@ -157,7 +157,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ))}
-        {hiringAlerts.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No open hiring alerts right now — know someone great? Refer them anyway.</div>}
+        {hiringAlerts.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No open hiring alerts right now - know someone great? Refer them anyway.</div>}
       </div>
       {showHiringForm && <AnnouncementFormModal defaultType="hiring" lockType onClose={() => setShowHiringForm(false)} />}
       {showReferralForm && <ReferralFormModal onClose={() => setShowReferralForm(false)} />}

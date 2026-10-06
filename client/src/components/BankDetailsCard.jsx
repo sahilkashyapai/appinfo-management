@@ -147,7 +147,7 @@ export default function BankDetailsCard() {
         <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 12 }}>Used to pay your salary and printed on your salary slips.</div>
         <BankDetailsFields value={form} onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
         <div style={{ fontSize: 11.5, color: 'var(--orange)', marginBottom: 10 }}>
-          <i className="fa-solid fa-triangle-exclamation" /> After you save, you can't change these yourself — changes need HR approval.
+          <i className="fa-solid fa-triangle-exclamation" /> After you save, you can't change these yourself - changes need HR approval.
         </div>
         <button
           className="btn bp bsm"

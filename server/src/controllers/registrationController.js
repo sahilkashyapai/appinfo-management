@@ -7,7 +7,7 @@ const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 
 const APPROVAL_STATUSES = ['approved', 'pending', 'rejected'];
 
-// Everything except credentials/secrets — the old `-passwordHash -totpSecret -passwordResetToken` projection.
+// Everything except credentials/secrets - the old `-passwordHash -totpSecret -passwordResetToken` projection.
 function stripSecrets(user) {
   const { passwordHash, totpSecret, passwordResetToken, passwordResetExpires, ...rest } = user;
   return rest;

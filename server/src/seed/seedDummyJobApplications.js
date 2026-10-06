@@ -70,7 +70,7 @@ async function seedJobApplications(db = prisma) {
     select: { id: true, name: true },
     orderBy: natural,
   });
-  if (depts.length === 0) throw new Error('No departments found — seed departments first.');
+  if (depts.length === 0) throw new Error('No departments found - seed departments first.');
 
   const referrers = await db.user.findMany({
     where: { isActive: true, employeeId: { not: null } },

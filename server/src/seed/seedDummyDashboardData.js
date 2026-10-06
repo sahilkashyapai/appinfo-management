@@ -46,13 +46,13 @@ async function seedDashboardData(db = prisma) {
   const { y, m, day } = today();
 
   const superadmin = await db.user.findFirst({ where: { role: 'superadmin' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
-  if (!superadmin) throw new Error('No superadmin user found — cannot attribute seeded actions.');
+  if (!superadmin) throw new Error('No superadmin user found - cannot attribute seeded actions.');
 
   const depts = await db.department.findMany({
     where: { NOT: { name: { contains: 'Leadership' } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  if (!depts.length) throw new Error('No departments found — seed departments first.');
+  if (!depts.length) throw new Error('No departments found - seed departments first.');
   const deptNames = depts.map((d) => d.name);
   function deptFor(i) {
     return depts[i % depts.length];
@@ -258,7 +258,7 @@ async function seedDashboardData(db = prisma) {
     {
       authorId: u2.id,
       tag: 'anniversary',
-      text: '3 years at Applied Information India today — grateful for this journey and this team!',
+      text: '3 years at Applied Information India today - grateful for this journey and this team!',
       reactions: { like: [u1.id], love: [u3.id, superadmin.id], celebrate: [] },
       comments: [],
       isDemo: true,
@@ -318,7 +318,7 @@ async function seedDashboardData(db = prisma) {
       },
       {
         title: 'Office WiFi Maintenance This Weekend',
-        body: 'IT will be upgrading office WiFi infrastructure this Saturday 10 PM–2 AM. Expect brief connectivity drops if working remotely during this window.',
+        body: 'IT will be upgrading office WiFi infrastructure this Saturday 10 PM-2 AM. Expect brief connectivity drops if working remotely during this window.',
         type: 'general',
         priority: 'medium',
         icon: 'fa-solid fa-bullhorn',
@@ -329,7 +329,7 @@ async function seedDashboardData(db = prisma) {
   });
   console.log('[seed] inserted 2 demo announcements (1 hiring alert, 1 general)');
 
-  console.log('\n[seed] done — all demo records flagged isDemo: true, safe to clear from Settings > Danger Zone.');
+  console.log('\n[seed] done - all demo records flagged isDemo: true, safe to clear from Settings > Danger Zone.');
 }
 
 async function main() {

@@ -22,7 +22,7 @@ function cleanBankDetails(body = {}) {
 
   if (data.pan && !PAN_REGEX.test(data.pan)) throw badRequest('PAN should look like ABCDE1234F.');
   if (data.ifsc && !IFSC_REGEX.test(data.ifsc)) throw badRequest('IFSC should look like HDFC0001234 (11 characters, 5th is zero).');
-  if (data.bankAccount && !ACCOUNT_REGEX.test(data.bankAccount)) throw badRequest('Account number should be 6–20 digits.');
+  if (data.bankAccount && !ACCOUNT_REGEX.test(data.bankAccount)) throw badRequest('Account number should be 6-20 digits.');
   return data;
 }
 

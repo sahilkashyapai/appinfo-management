@@ -70,7 +70,7 @@ export default function LoginPage() {
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-check" /></div>Attendance &amp; leave tracking</div>
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-comment-dots" /></div>Direct &amp; group team messaging</div>
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-chart-column" /></div>Real-time analytics &amp; engagement reports</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-shield-halved" /></div>Enterprise security — RBAC, JWT, audit logs</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-shield-halved" /></div>Enterprise security - RBAC, JWT, audit logs</div>
         </div>
       </div>
       <div className="ar">

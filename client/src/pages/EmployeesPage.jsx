@@ -83,7 +83,7 @@ export default function EmployeesPage() {
       <div className="ph">
         <div className="ph-l">
           <div className="pgt">Employees</div>
-          <div className="pgs">{summary ? `${summary.active} active · ${summary.inactive} inactive · ${summary.leave} on leave` : '—'}</div>
+          <div className="pgs">{summary ? `${summary.active} active · ${summary.inactive} inactive · ${summary.leave} on leave` : '-'}</div>
         </div>
         {isAdmin && (
           <div className="ph-r">
@@ -172,7 +172,7 @@ export default function EmployeesPage() {
         {data && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 11, paddingTop: 10, borderTop: '1px solid var(--bd)' }}>
             <div style={{ fontSize: 11, color: 'var(--t3)' }}>
-              Showing {(data.page - 1) * data.limit + 1}–{Math.min(data.page * data.limit, data.total)} of {data.total} employees
+              Showing {(data.page - 1) * data.limit + 1}-{Math.min(data.page * data.limit, data.total)} of {data.total} employees
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
               <button className="btn bs bxs" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Prev</button>

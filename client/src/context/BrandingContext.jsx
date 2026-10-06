@@ -4,7 +4,7 @@ import api from '../api/client';
 import { hexToRgbTriplet } from '../utils/color';
 
 // Ships as the visual identity before any admin ever touches the Developer
-// Panel — and remains the fallback whenever a branding field is cleared.
+// Panel - and remains the fallback whenever a branding field is cleared.
 const DEFAULT_BRANDING = {
   companyName: 'Applied Information India',
   logoUrl: '/images/AI-horizontal-logo-R-gray-454x116-1.png',
@@ -16,7 +16,7 @@ const DEFAULT_BRANDING = {
 
 const BrandingContext = createContext(DEFAULT_BRANDING);
 
-// Public endpoint (see settingsRoutes.js) — must resolve before login, so it
+// Public endpoint (see settingsRoutes.js) - must resolve before login, so it
 // can't sit behind requireAuth like the rest of /settings. Shared with
 // PreloaderGate, which waits for it.
 export const brandingQuery = {
@@ -38,7 +38,7 @@ export function BrandingProvider({ children }) {
   };
 
   useEffect(() => {
-    document.title = `AI Connect – ${branding.companyName}`;
+    document.title = `AI Connect - ${branding.companyName}`;
     let link = document.querySelector('link[rel="icon"]');
     if (!link) {
       link = document.createElement('link');
@@ -50,7 +50,7 @@ export function BrandingProvider({ children }) {
 
   // --accent/--blue aren't redefined by body.dark (see global.css), so overriding
   // them once at :root applies the same theme color in both light and dark mode,
-  // for every signed-in user — not just a local per-browser preference. The
+  // for every signed-in user - not just a local per-browser preference. The
   // *-rgb companions let chart/graph code do rgba(var(--accent-rgb), .3) for a
   // translucent tint, since raw hex can't be alpha-blended in CSS.
   useEffect(() => {

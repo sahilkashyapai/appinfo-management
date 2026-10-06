@@ -37,7 +37,7 @@ export default function SettingsPage() {
     mutationFn: () => api.delete('/demo-data'),
     onSuccess: (res) => {
       toast(res.data.message, 'success');
-      qc.invalidateQueries(); // sweeps every collection — simplest reliable refresh after a cross-collection wipe
+      qc.invalidateQueries(); // sweeps every collection - simplest reliable refresh after a cross-collection wipe
       setConfirmClearDummy(false);
     },
     onError: (err) => toast(err.response?.data?.message || 'Could not clear dummy data.', 'error'),
@@ -144,7 +144,7 @@ export default function SettingsPage() {
                 />
               </div>
               <ToggleRow label="Audit Logging" hint="Log all data changes" checked={data.security.auditLogging} onChange={(v) => putSecurity.mutate({ auditLogging: v })} />
-              <ToggleRow label="CSRF Protection" hint="Informational — auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
+              <ToggleRow label="CSRF Protection" hint="Informational - auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
               <ToggleRow label="Employee Time Tracking" hint="Log start time + IP address on every login" checked={data.timeTracking.enabled} onChange={(v) => putTimeTracking.mutate({ enabled: v })} />
             </div>
             {isSuperadmin && (
@@ -154,7 +154,7 @@ export default function SettingsPage() {
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>Clear All Dummy Data</div>
                     <div style={{ fontSize: 11, color: 'var(--t3)' }}>
-                      Permanently deletes every seeded sample record — employees, attendance, leave, assets, events, wall posts, notifications, announcements, and job applications/referrals. Real data is never touched.
+                      Permanently deletes every seeded sample record - employees, attendance, leave, assets, events, wall posts, notifications, announcements, and job applications/referrals. Real data is never touched.
                     </div>
                   </div>
                   <button className="btn brd bsm" onClick={() => setConfirmClearDummy(true)}><i className="fa-solid fa-broom" /> Clear</button>

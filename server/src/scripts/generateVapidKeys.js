@@ -1,5 +1,5 @@
 // One-off helper: run `node src/scripts/generateVapidKeys.js` and paste the
-// printed keys into server/.env. Not run automatically at server startup —
+// printed keys into server/.env. Not run automatically at server startup -
 // regenerating on every boot would orphan every existing PushSubscription.
 const webpush = require('web-push');
 

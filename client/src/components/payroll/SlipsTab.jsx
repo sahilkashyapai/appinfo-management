@@ -117,7 +117,7 @@ export default function SlipsTab({ onGoToStructures }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
             {skipped.map((s, i) => (
               <div key={s.employeeId || i}>
-                <strong style={{ color: 'var(--t1)' }}>{s.name}</strong> <span style={{ color: 'var(--t3)' }}>— {s.reason}</span>
+                <strong style={{ color: 'var(--t1)' }}>{s.name}</strong> <span style={{ color: 'var(--t3)' }}>- {s.reason}</span>
               </div>
             ))}
           </div>
@@ -140,12 +140,12 @@ export default function SlipsTab({ onGoToStructures }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <Avatar name={emp.name} index={emp.avatarIndex} size={26} fontSize={8} />
                         <div>
-                          <div style={{ fontWeight: 700, color: 'var(--t1)' }}>{emp.name || '—'}</div>
+                          <div style={{ fontWeight: 700, color: 'var(--t1)' }}>{emp.name || '-'}</div>
                           {emp.empId && <div style={{ fontSize: 10.5, color: 'var(--t3)' }}>{emp.empId}</div>}
                         </div>
                       </div>
                     </td>
-                    <td>{emp.dept || <span style={{ color: 'var(--t3)' }}>—</span>}</td>
+                    <td>{emp.dept || <span style={{ color: 'var(--t3)' }}>-</span>}</td>
                     <td>{s.paidDays} <span style={{ color: 'var(--t3)' }}>/ {s.lopDays}</span></td>
                     <td>{formatMoney(s.grossEarnings, s.currency)}</td>
                     <td>{formatMoney(s.totalDeductions, s.currency)}</td>

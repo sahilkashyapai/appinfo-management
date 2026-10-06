@@ -216,7 +216,7 @@ export default function AttendancePage() {
                   <tr key={h._id}>
                     <td>{formatDate(h.date)}</td>
                     <td><span className={`badge ${STATUS_BADGE[h.status]}`}>{STATUS_LABEL[h.status]}</span></td>
-                    <td>{h.markedBy?.name || '—'}</td>
+                    <td>{h.markedBy?.name || '-'}</td>
                     {!canMark && historyTargetId === user?.employeeRef && (
                       <td>
                         <button className="btn bs bxs bico" title="Request correction" onClick={() => setCorrectionDate(new Date(h.date).toISOString().slice(0, 10))}>

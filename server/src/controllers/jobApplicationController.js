@@ -6,7 +6,7 @@ const MAX_RESUME_CHARS = 6 * 1024 * 1024; // ~4.5MB decoded
 const GENDERS = ['male', 'female', 'other'];
 const JOB_STATUSES = Object.values(JobStatus);
 
-// The base64 resume is only sent by getOne — list/update responses omit it.
+// The base64 resume is only sent by getOne - list/update responses omit it.
 const OMIT_RESUME = { resumeUrl: true };
 
 // The Mongoose schema trimmed these string fields on save.
@@ -97,7 +97,7 @@ async function submitReferral(req, res) {
 }
 
 // Authenticated (any employee): the candidates *they* referred, with status
-// and any HR feedback meant for the referrer — never internal notes or the resume.
+// and any HR feedback meant for the referrer - never internal notes or the resume.
 async function myReferrals(req, res) {
   const items = await prisma.jobApplication.findMany({
     where: { referrerId: String(req.user._id), source: 'referral' },
@@ -108,7 +108,7 @@ async function myReferrals(req, res) {
 }
 
 // Only the referrer who submitted it may edit/withdraw, and only before HR has
-// started reviewing — once it's moved past 'new' the record is no longer theirs to change.
+// started reviewing - once it's moved past 'new' the record is no longer theirs to change.
 async function assertOwnEditableReferral(req, res) {
   const application = await prisma.jobApplication.findUnique({
     where: { id: String(req.params.id) },

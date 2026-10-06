@@ -36,7 +36,7 @@ function addMonths(value, n) {
 function computePeriod(startValue, months) {
   if (!startValue) return '';
   if (months <= 1) return monthLabel(startValue);
-  return `${monthLabel(startValue)} – ${monthLabel(addMonths(startValue, months - 1))}`;
+  return `${monthLabel(startValue)} - ${monthLabel(addMonths(startValue, months - 1))}`;
 }
 
 export default function DocumentRequestModal({ onClose }) {

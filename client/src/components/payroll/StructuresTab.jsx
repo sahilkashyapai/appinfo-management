@@ -47,13 +47,13 @@ export default function StructuresTab() {
                       </div>
                     </div>
                   </td>
-                  <td>{e.dept || <span style={{ color: 'var(--t3)' }}>—</span>}</td>
-                  <td>{e.location || <span style={{ color: 'var(--t3)' }}>—</span>}</td>
+                  <td>{e.dept || <span style={{ color: 'var(--t3)' }}>-</span>}</td>
+                  <td>{e.location || <span style={{ color: 'var(--t3)' }}>-</span>}</td>
                   <td>{currency}</td>
-                  <td style={{ fontWeight: hasStructure ? 700 : 400, color: hasStructure ? 'var(--t1)' : 'var(--t3)' }}>{hasStructure ? formatMoney(monthlyGross, currency) : '—'}</td>
-                  <td>{hasStructure ? formatMoney(fixedDeductions, currency) : <span style={{ color: 'var(--t3)' }}>—</span>}</td>
+                  <td style={{ fontWeight: hasStructure ? 700 : 400, color: hasStructure ? 'var(--t1)' : 'var(--t3)' }}>{hasStructure ? formatMoney(monthlyGross, currency) : '-'}</td>
+                  <td>{hasStructure ? formatMoney(fixedDeductions, currency) : <span style={{ color: 'var(--t3)' }}>-</span>}</td>
                   <td><span className={`badge ${hasStructure ? 'b-gr' : 'b-gy'}`}>{hasStructure ? 'Set' : 'Not set'}</span></td>
-                  <td style={{ color: 'var(--t3)' }}>{updatedAt ? new Date(updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{updatedAt ? new Date(updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                   <td>
                     <button className={`btn ${hasStructure ? 'bs' : 'bp'} bxs`} onClick={() => setEditing(e._id)}>
                       <i className={`fa-solid ${hasStructure ? 'fa-pen' : 'fa-plus'}`} /> {hasStructure ? 'Edit' : 'Set up'}

@@ -16,7 +16,7 @@ function monthRange(monthStr) {
 }
 
 // Admins may request any employee's report (or all, via employeeId omitted).
-// Anyone else is always scoped to their own linked employee record — the
+// Anyone else is always scoped to their own linked employee record - the
 // requested employeeId (if any) is ignored so an employee report can never be
 // used to look at a coworker's attendance/leave/WFH data.
 async function resolveEmployeeScope(req) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Avatar from './Avatar';
 import { useDrawers } from '../context/DrawerContext';
 
-// Colored underline per role tier — same idea as the classic org-chart mockups
+// Colored underline per role tier - same idea as the classic org-chart mockups
 // (a colored bar under each title), but drawn from our own theme palette.
 const ROLE_COLOR = {
   'President & CTO': 'var(--gold)',
@@ -32,7 +32,7 @@ export default function OrgChartNode({ node, canManage, draggingId, setDraggingI
   const isDropTarget = dragOverId === node._id && draggingId && !isInvalidTarget && !isDragging;
 
   // Pointer Events (not HTML5 drag-and-drop) so reassigning a manager works the
-  // same way with mouse, touch, or pen — see OrgChartPage for the pointermove/up
+  // same way with mouse, touch, or pen - see OrgChartPage for the pointermove/up
   // tracking and hit-testing this kicks off.
   const pointerHandlers = canManage
     ? {

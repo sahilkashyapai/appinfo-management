@@ -51,7 +51,7 @@ export default function SignupPage() {
       return;
     }
     if (!EMP_ID_REGEX.test(form.empId)) {
-      setErr('Employee ID must look like APIIND000000 — check the ID given to you by HR.');
+      setErr('Employee ID must look like APIIND000000 - check the ID given to you by HR.');
       return;
     }
     if (form.password.length < 8) {
@@ -80,7 +80,7 @@ export default function SignupPage() {
       <div className="al">
         <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
         <div className="al-h">AI Connect</div>
-        <div className="al-sub">Join your colleagues on {branding.companyName}'s employee portal — your attendance, leave, payslips and team updates in one place.</div>
+        <div className="al-sub">Join your colleagues on {branding.companyName}'s employee portal - your attendance, leave, payslips and team updates in one place.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-check" /></div>Mark attendance &amp; apply for leave</div>
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-file-invoice" /></div>Download payslips &amp; documents</div>
@@ -105,7 +105,7 @@ export default function SignupPage() {
           ) : (
             <form onSubmit={onSubmit}>
               <div className="af-h">Create your account</div>
-              <div className="af-sub">Employee sign-up — an admin reviews every new account before it's activated.</div>
+              <div className="af-sub">Employee sign-up - an admin reviews every new account before it's activated.</div>
               <div className={`af-err${err ? ' show' : ''}`}><i className="fa-solid fa-circle-exclamation" /><span>{err}</span></div>
 
               <div className="fg2">

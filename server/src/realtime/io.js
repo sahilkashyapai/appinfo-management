@@ -43,7 +43,7 @@ function emitToUsers(userIds, event, payload) {
   userIds.forEach((id) => io.to(String(id)).emit(event, payload));
 }
 
-// Whether a user has at least one live socket connection right now — used to
+// Whether a user has at least one live socket connection right now - used to
 // skip sending a push notification when the user is already getting a
 // real-time update over the socket.
 function isUserOnline(userId) {

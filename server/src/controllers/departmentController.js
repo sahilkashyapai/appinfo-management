@@ -2,7 +2,7 @@ const { prisma, shape, shapeMany, sel } = require('../db');
 const writeAudit = require('../utils/audit');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 
-// Unauthenticated — powers the department dropdown on the public signup page.
+// Unauthenticated - powers the department dropdown on the public signup page.
 async function publicList(req, res) {
   const depts = await prisma.department.findMany({ select: sel('Department', 'name code icon'), orderBy: { name: 'asc' } });
   res.json({ items: shapeMany('Department', depts) });

@@ -1,6 +1,6 @@
 // Express 4 doesn't catch errors from async route handlers: a rejected promise
 // skips errorHandler entirely, the request hangs, and Node then exits on the
-// unhandled rejection — taking the whole server down. This patches Express's
+// unhandled rejection - taking the whole server down. This patches Express's
 // route layer once so a handler's rejected promise is passed to next(err) and
 // reaches errorHandler like a synchronous throw. (Same approach as the
 // express-async-errors package; Express 5 does this natively.)

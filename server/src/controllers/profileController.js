@@ -29,7 +29,7 @@ async function updateProfile(req, res) {
   if (location !== undefined) updates.location = String(location ?? '');
   // Branch determines office scoping downstream (see managedBranch/managedLocation
   // in adminController), so only a superadmin or proadmin may change their own
-  // branch — anyone else's request to change it is silently ignored rather than accepted.
+  // branch - anyone else's request to change it is silently ignored rather than accepted.
   if (branch !== undefined && BRANCH_EDITOR_ROLES.includes(req.user.role)) {
     if (branch && !BRANCH_LOCATIONS[branch]) {
       return res.status(400).json({ message: `Unknown branch: ${branch}` });

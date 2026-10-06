@@ -4,7 +4,7 @@ const { Prisma } = require('@prisma/client');
 // so the React client keeps working unchanged:
 //  - every row gets `_id` (alongside Prisma's `id`)
 //  - a relation that wasn't included comes back as its bare id under the old
-//    Mongo field name, e.g. `employeeRef: "<id>"` — exactly like an
+//    Mongo field name, e.g. `employeeRef: "<id>"` - exactly like an
 //    un-populated ref; an included relation comes back as the nested object,
 //    like `.populate()`
 //  - optional TEXT columns (nullable in MySQL, see schema.prisma) read as ''

@@ -8,7 +8,7 @@ const { broadcastPush } = require('./pushService');
 const { createNotification, createNotifications } = require('./notify');
 const { yearsSince } = require('../controllers/employeeController');
 
-// Fixed-date national holidays — same Gregorian date every year, safe to auto-create.
+// Fixed-date national holidays - same Gregorian date every year, safe to auto-create.
 const FIXED_NATIONAL_HOLIDAYS = [
   { name: 'Republic Day', month: 0, day: 26 },
   { name: 'Independence Day', month: 7, day: 15 },
@@ -46,7 +46,7 @@ async function runBirthdayAndAnniversaryJob() {
 
     const years = yearsSince(emp.joined);
     if (settings.notifications.anniversary && years >= 1 && isSameMonthDay(emp.joined, today)) {
-      const title = `Anniversary: ${emp.name} – ${years} Year${years === 1 ? '' : 's'}!`;
+      const title = `Anniversary: ${emp.name} - ${years} Year${years === 1 ? '' : 's'}!`;
       if (!(await alreadyNotifiedToday(title))) {
         const body = `${emp.name} completes ${years} year${years === 1 ? '' : 's'} at Applied Information India today.`;
         await createNotification({ icon: 'fa-solid fa-trophy', bg: '#D5F5E3', type: 'anniversary', title, body, link: '/wall', aboutEmployeeId: emp.id });
@@ -96,7 +96,7 @@ async function runYearlyHolidayRolloverJob() {
     created += 1;
   }
 
-  // Festival dates shift every year (lunar calendar) — carry the name/month/day over as a
+  // Festival dates shift every year (lunar calendar) - carry the name/month/day over as a
   // placeholder so the holiday isn't forgotten, but flag it for an admin to verify the real date.
   const thisYearFestivals = await prisma.holiday.findMany({
     where: {
@@ -116,7 +116,7 @@ async function runYearlyHolidayRolloverJob() {
         name: f.name,
         date,
         type: 'Festival',
-        description: `Placeholder date carried over from ${now.getFullYear()} — verify and correct the official ${nextYear} date.`,
+        description: `Placeholder date carried over from ${now.getFullYear()} - verify and correct the official ${nextYear} date.`,
       },
     });
     created += 1;
@@ -125,14 +125,14 @@ async function runYearlyHolidayRolloverJob() {
   if (created > 0) {
     const admins = await prisma.user.findMany({ where: { role: { in: ADMIN_ROLES } }, select: { id: true } });
     const title = `Holiday calendar for ${nextYear} needs review`;
-    const body = `${created} holiday(s) for ${nextYear} were auto-added. Festival dates are placeholders carried over from ${now.getFullYear()} — please verify and correct them.`;
+    const body = `${created} holiday(s) for ${nextYear} were auto-added. Festival dates are placeholders carried over from ${now.getFullYear()} - please verify and correct them.`;
     await createNotifications(
       admins.map((a) => a.id),
       { icon: 'fa-solid fa-umbrella-beach', bg: '#FEF9E7', type: 'holiday', title, body, link: '/holidays' }
     );
   }
 
-  console.log(`[cron] yearly holiday rollover ran at ${now.toISOString()} — created ${created} holiday(s) for ${nextYear}`);
+  console.log(`[cron] yearly holiday rollover ran at ${now.toISOString()} - created ${created} holiday(s) for ${nextYear}`);
 }
 
 async function runTimeTrackingAutoStopJob() {
@@ -144,13 +144,13 @@ async function runTimeTrackingAutoStopJob() {
 }
 
 function startCronJobs() {
-  // Daily at 08:00 — birthday & anniversary notifications/emails.
+  // Daily at 08:00 - birthday & anniversary notifications/emails.
   cron.schedule('0 8 * * *', () => runBirthdayAndAnniversaryJob().catch((e) => console.error('[cron] birthday job failed', e)));
-  // Daily at 09:00 — event D-7/D-1 reminders.
+  // Daily at 09:00 - event D-7/D-1 reminders.
   cron.schedule('0 9 * * *', () => runEventReminderJob().catch((e) => console.error('[cron] event reminder job failed', e)));
-  // Every 15 minutes — auto-stop any work timer that's been running 10+ hours.
+  // Every 15 minutes - auto-stop any work timer that's been running 10+ hours.
   cron.schedule('*/15 * * * *', () => runTimeTrackingAutoStopJob().catch((e) => console.error('[cron] time-tracking auto-stop job failed', e)));
-  // Once a year, Dec 1st at 07:00 — roll next year's holiday calendar forward.
+  // Once a year, Dec 1st at 07:00 - roll next year's holiday calendar forward.
   cron.schedule('0 7 1 12 *', () => runYearlyHolidayRolloverJob().catch((e) => console.error('[cron] yearly holiday rollover job failed', e)));
   console.log('[cron] scheduled daily birthday/anniversary (08:00), event reminder (09:00), time-tracking auto-stop (every 15 min), and yearly holiday rollover (Dec 1, 07:00) jobs');
 }

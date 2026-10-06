@@ -31,7 +31,7 @@ async function register(req, res) {
     return res.status(400).json({ message: `Employee ID must look like ${EMP_ID_PREFIX}000071 (as given to you by HR).` });
   }
 
-  // Exact name match — the MySQL collation makes it case-insensitive, like the old /^name$/i.
+  // Exact name match - the MySQL collation makes it case-insensitive, like the old /^name$/i.
   const dept = await prisma.department.findFirst({ where: { name: { equals: String(department) } } });
   if (!dept) return res.status(400).json({ message: `Unknown department: ${department}` });
 

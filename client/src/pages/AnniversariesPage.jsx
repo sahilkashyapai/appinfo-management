@@ -19,9 +19,9 @@ const EMPTY_MESSAGES = {
 };
 
 const TENURE_BUCKETS = [
-  { key: '1-2', label: '1–2 years', min: 1, max: 2, color: '#2980B9' },
-  { key: '3-5', label: '3–5 years', min: 3, max: 5, color: '#27AE60' },
-  { key: '6-9', label: '6–9 years', min: 6, max: 9, color: '#E67E22' },
+  { key: '1-2', label: '1-2 years', min: 1, max: 2, color: '#2980B9' },
+  { key: '3-5', label: '3-5 years', min: 3, max: 5, color: '#27AE60' },
+  { key: '6-9', label: '6-9 years', min: 6, max: 9, color: '#E67E22' },
   { key: '10+', label: '10+ years', min: 10, max: Infinity, color: '#8E44AD' },
 ];
 

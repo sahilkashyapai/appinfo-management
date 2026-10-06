@@ -4,10 +4,10 @@ const ctrl = require('../controllers/jobApplicationController');
 
 const router = express.Router();
 
-// Public — the candidate-facing application form uses this, no login involved.
+// Public - the candidate-facing application form uses this, no login involved.
 router.post('/', ctrl.apply);
 
-// Any signed-in employee can refer a candidate — not just admins.
+// Any signed-in employee can refer a candidate - not just admins.
 router.post('/refer', requireAuth, ctrl.submitReferral);
 
 // Any signed-in employee can see the status of candidates they referred, and

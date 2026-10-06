@@ -113,7 +113,7 @@ export default function StructureEditorModal({ employeeId, onClose }) {
         <span><strong style={{ color: 'var(--t1)' }}>{employee?.name}</strong>{employee?.empId ? <span style={{ color: 'var(--t3)' }}> · {employee.empId}</span> : ''}</span>
         {office?.name && <span><i className="fa-solid fa-location-dot" style={{ color: 'var(--t3)' }} /> {office.name}</span>}
         {cur && <span>{cur}</span>}
-        {isNew && <span className="badge b-gy">Not set yet — prefilled from defaults</span>}
+        {isNew && <span className="badge b-gy">Not set yet - prefilled from defaults</span>}
       </div>
 
       <div className="fg">
@@ -129,7 +129,7 @@ export default function StructureEditorModal({ employeeId, onClose }) {
           </div>
         ))}
         <button className="btn bs bxs" onClick={() => set('earnings', [...form.earnings, { name: '', amount: 0, isBasic: false }])}><i className="fa-solid fa-plus" /> Add earning</button>
-        <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>Mark at most one line as Basic — PF is calculated on it. Click the selected radio again to clear it.</div>
+        <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>Mark at most one line as Basic - PF is calculated on it. Click the selected radio again to clear it.</div>
       </div>
 
       <div className="fg">
@@ -174,7 +174,7 @@ export default function StructureEditorModal({ employeeId, onClose }) {
         {bankLocked ? (
           <>
             <div style={{ fontSize: 11.5, color: 'var(--t3)', background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '8px 11px', marginBottom: 8 }}>
-              <i className="fa-solid fa-circle-info" /> Confirmed by the employee — they can request changes from their profile.
+              <i className="fa-solid fa-circle-info" /> Confirmed by the employee - they can request changes from their profile.
             </div>
             <div className="fg2">
               {BANK_FIELDS.map(({ key, label }) => (

@@ -58,17 +58,17 @@ const DEPT_WEIGHTS = { Engineering: 10, Sales: 6, Marketing: 4, Operations: 4, '
 const EVENTS = [
   { title: 'Diwali Celebration', type: 'festival', dayOffset: 45, venue: 'Main Hall, Bangalore', status: 'published', emoji: 'fa-solid fa-fire', color: '#F39C12', capacity: 200 },
   { title: 'Q3 Town Hall', type: 'town_hall', dayOffset: 10, venue: 'Auditorium, HQ', status: 'published', emoji: 'fa-solid fa-building-columns', color: '#2E86AB', capacity: 300 },
-  { title: 'Team Outing – Coorg', type: 'team_outing', dayOffset: 30, venue: 'Coorg, Karnataka', status: 'draft', emoji: 'fa-solid fa-mountain', color: '#27AE60', capacity: 80 },
+  { title: 'Team Outing - Coorg', type: 'team_outing', dayOffset: 30, venue: 'Coorg, Karnataka', status: 'draft', emoji: 'fa-solid fa-mountain', color: '#27AE60', capacity: 80 },
   { title: 'Leadership Workshop', type: 'workshop', dayOffset: 5, venue: 'Conf Room A, HQ', status: 'published', emoji: 'fa-solid fa-graduation-cap', color: '#8E44AD', capacity: 40 },
   { title: 'Annual Sports Day', type: 'sports', dayOffset: 60, venue: 'AII Sports Ground', status: 'draft', emoji: 'fa-solid fa-trophy', color: '#E67E22', capacity: 250 },
-  { title: 'Birthday Bash – This Month', type: 'birthday', dayOffset: 18, venue: 'Cafeteria, Bangalore', status: 'published', emoji: 'fa-solid fa-cake-candles', color: '#E74C3C', capacity: 100 },
+  { title: 'Birthday Bash - This Month', type: 'birthday', dayOffset: 18, venue: 'Cafeteria, Bangalore', status: 'published', emoji: 'fa-solid fa-cake-candles', color: '#E74C3C', capacity: 100 },
 ];
 
 const ANNOUNCEMENTS = [
-  { priority: 'high', icon: 'fa-solid fa-triangle-exclamation', title: 'Mid-Year Performance Reviews – Action Required', body: 'The review cycle begins soon. All managers must complete assessments by the end of the month. Login to the HR portal.', pinned: true },
+  { priority: 'high', icon: 'fa-solid fa-triangle-exclamation', title: 'Mid-Year Performance Reviews - Action Required', body: 'The review cycle begins soon. All managers must complete assessments by the end of the month. Login to the HR portal.', pinned: true },
   { priority: 'medium', icon: 'fa-solid fa-clipboard-list', title: 'Hybrid Work Policy Update', body: 'Hybrid policy updates to 3 days in-office per week. Review the updated policy on the intranet.', pinned: false },
-  { priority: 'low', icon: 'fa-solid fa-champagne-glasses', title: 'Company Picnic – Cubbon Park', body: 'Annual company picnic at Cubbon Park, Bangalore. Families welcome. Register via the Events portal.', pinned: false },
-  { priority: 'medium', icon: 'fa-solid fa-shield-halved', title: 'Cybersecurity Training – Mandatory', body: 'All employees must complete the annual cybersecurity training. Access via the Learning Portal.', pinned: false },
+  { priority: 'low', icon: 'fa-solid fa-champagne-glasses', title: 'Company Picnic - Cubbon Park', body: 'Annual company picnic at Cubbon Park, Bangalore. Families welcome. Register via the Events portal.', pinned: false },
+  { priority: 'medium', icon: 'fa-solid fa-shield-halved', title: 'Cybersecurity Training - Mandatory', body: 'All employees must complete the annual cybersecurity training. Access via the Learning Portal.', pinned: false },
 ];
 
 const HOLIDAYS = [

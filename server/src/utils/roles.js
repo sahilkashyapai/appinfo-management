@@ -4,15 +4,15 @@ const ADMIN_ROLES = ['proadmin', 'superadmin', 'admin'];
 const APPROVER_ROLES = ['proadmin', 'superadmin', 'admin'];
 const LOGIN_ACCESS_ROLES = ['proadmin', 'superadmin', 'admin'];
 
-// Only these two can set office/branch scoping — on their own profile (see
+// Only these two can set office/branch scoping - on their own profile (see
 // profileController.updateProfile) or on another admin/superadmin's account
 // (see adminController's `canScope`). A plain admin never manages branch/office
 // assignment.
 const BRANCH_EDITOR_ROLES = ['proadmin', 'superadmin'];
 
 // A proadmin outranks superadmin, so anywhere a feature was gated to
-// "superadmin only" — SMTP/security/time-tracking-policy settings, clearing
-// dummy/time-tracking data — a proadmin gets it too. Also covers the "no
+// "superadmin only" - SMTP/security/time-tracking-policy settings, clearing
+// dummy/time-tracking data - a proadmin gets it too. Also covers the "no
 // Employee record" exemptions (time tracking doesn't apply to either role,
 // since neither has a tracked employee identity).
 const SUPER_TIER_ROLES = ['proadmin', 'superadmin'];

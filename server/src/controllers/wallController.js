@@ -38,7 +38,7 @@ function shapePost(post, userId) {
   obj.counts = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].length]));
   obj.myReactions = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].some((id) => String(id) === uid)]));
 
-  // Polls are fully anonymous — only aggregate counts are ever exposed, never
+  // Polls are fully anonymous - only aggregate counts are ever exposed, never
   // who voted for what.
   if (obj.poll) {
     obj.poll.myVoteIndex = obj.poll.options.findIndex((o) => o.votes.some((id) => String(id) === uid));
@@ -128,7 +128,7 @@ async function react(req, res) {
   });
   if (!existing) return res.status(404).json({ message: 'Post not found.' });
 
-  // A user may only have one active reaction per post — drop it from every
+  // A user may only have one active reaction per post - drop it from every
   // type first, then re-add to the requested type unless that's what was toggled off.
   const wasActive = existing.reactions.length > 0;
   const authorId = existing.authorId;
@@ -170,7 +170,7 @@ async function votePoll(req, res) {
     return res.status(400).json({ message: 'Invalid option.' });
   }
 
-  // One active vote per user across all options — clicking your current choice
+  // One active vote per user across all options - clicking your current choice
   // again retracts it, clicking a different option switches your vote.
   const wasVotedIdx = options.findIndex((o) => o.votes.length > 0);
   await prisma.$transaction([

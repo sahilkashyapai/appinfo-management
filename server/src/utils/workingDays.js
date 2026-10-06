@@ -2,7 +2,7 @@ const prisma = require('../db/prisma');
 
 // Counts working days (Mon-Fri, excluding declared holidays) in the given
 // 'YYYY-MM' month, from day 1 through `throughDay` (inclusive). Omit
-// `throughDay` to count the whole month. Uses UTC getters throughout —
+// `throughDay` to count the whole month. Uses UTC getters throughout -
 // Attendance/Holiday dates are stored as UTC-midnight for their calendar day
 // (see attendanceController's startOfDay), so this must match that convention
 // regardless of the server process's local timezone.

@@ -9,7 +9,7 @@ function startOfDay(d = new Date()) {
   return x;
 }
 
-// Wall-clock cap from startedAt, regardless of pause state — a paused timer
+// Wall-clock cap from startedAt, regardless of pause state - a paused timer
 // left open indefinitely would otherwise dodge the cap entirely.
 // Takes and returns a shaped TimeLog (see db/shape.js: totalPausedMs is a Number).
 async function autoStopIfExpired(timer) {

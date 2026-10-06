@@ -177,7 +177,7 @@ export default function DocumentsPage() {
                     <tr key={d._id}>
                       <td style={{ fontWeight: 600 }}><i className="fa-solid fa-file" /> {d.name}</td>
                       <td><span className="badge b-bl">{DOC_CATEGORY_LABEL[d.category] || d.category}</span></td>
-                      <td style={{ color: 'var(--t3)' }}>{d.uploadedByRef?.name || '—'}</td>
+                      <td style={{ color: 'var(--t3)' }}>{d.uploadedByRef?.name || '-'}</td>
                       <td style={{ whiteSpace: 'nowrap', color: 'var(--t3)' }}>{formatDate(d.createdAt)}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
@@ -230,7 +230,7 @@ export default function DocumentsPage() {
                         <td><span className={`badge ${QUERY_STATUS_BADGE[q.status]}`}>{QUERY_STATUS_LABEL[q.status]}</span></td>
                         <td style={{ maxWidth: 320, whiteSpace: 'pre-wrap', color: q.response ? 'var(--t1)' : 'var(--t3)' }}>
                           {q.response || 'Waiting for HR'}
-                          {q.respondedByRef?.name && <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 2 }}>— {q.respondedByRef.name}</div>}
+                          {q.respondedByRef?.name && <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 2 }}>- {q.respondedByRef.name}</div>}
                         </td>
                         <td style={{ whiteSpace: 'nowrap', color: 'var(--t3)' }}>{formatDate(q.createdAt)}</td>
                       </tr>
@@ -252,9 +252,9 @@ export default function DocumentsPage() {
                   {myRequests?.map((r) => (
                     <tr key={r._id}>
                       <td>{REQUEST_TYPE_LABEL[r.type]}</td>
-                      <td style={{ color: 'var(--t3)' }}>{r.period || '—'}</td>
+                      <td style={{ color: 'var(--t3)' }}>{r.period || '-'}</td>
                       <td style={{ color: 'var(--t3)' }}>
-                        {r.note || '—'}
+                        {r.note || '-'}
                         {r.status === 'rejected' && r.decisionNote && (
                           <div style={{ fontSize: 10, color: 'var(--red)', marginTop: 3 }}>Reason: {r.decisionNote}</div>
                         )}
@@ -312,8 +312,8 @@ export default function DocumentsPage() {
                       </div>
                     </td>
                     <td>{REQUEST_TYPE_LABEL[r.type]}</td>
-                    <td style={{ color: 'var(--t3)' }}>{r.period || '—'}</td>
-                    <td style={{ color: 'var(--t3)' }}>{r.note || '—'}</td>
+                    <td style={{ color: 'var(--t3)' }}>{r.period || '-'}</td>
+                    <td style={{ color: 'var(--t3)' }}>{r.note || '-'}</td>
                     <td style={{ whiteSpace: 'nowrap', color: 'var(--t3)' }}>{formatDate(r.createdAt)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>

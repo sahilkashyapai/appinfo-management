@@ -5,10 +5,10 @@ const { andWhere } = require('../db');
 // (company-wide) access. Three distinct ways a viewer ends up restricted:
 //  - A superadmin a proadmin has explicitly opted in via managedLocation.
 //  - An admin (merged Manager/HR) a superadmin or proadmin has opted in the
-//    same way — same managedLocation field, same effect.
-//  - A plain employee — automatically restricted to their own Employee.location,
+//    same way - same managedLocation field, same effect.
+//  - A plain employee - automatically restricted to their own Employee.location,
 //    no admin setup needed; every employee only ever sees their own office.
-// 'proadmin' never reaches these checks (it has no operational access at all —
+// 'proadmin' never reaches these checks (it has no operational access at all -
 // see roles.js).
 async function resolveScopeLocation(user) {
   if (!user) return null;
@@ -43,7 +43,7 @@ async function scopedEmployeeIds(user) {
   return emps.map((e) => e.id);
 }
 
-// Resolves the User ids linked to employees in the viewer's office — for
+// Resolves the User ids linked to employees in the viewer's office - for
 // content authored directly by a User (wall posts, chat, time logs) rather
 // than through an employee. null means "no restriction".
 async function scopedUserIds(user) {
@@ -62,7 +62,7 @@ async function scopeEmployeeLocationFilter(where, user) {
 }
 
 // Applies office scoping to a Prisma `where` on a model that references an
-// employee via `field` (default 'employeeId') — Attendance, LeaveRequest,
+// employee via `field` (default 'employeeId') - Attendance, LeaveRequest,
 // Document, Asset, etc. ANDed, so it intersects any existing condition on
 // the same field.
 async function scopeByEmployeeRef(where, user, field = 'employeeId') {

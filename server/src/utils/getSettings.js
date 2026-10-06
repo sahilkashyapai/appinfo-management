@@ -30,7 +30,7 @@ const DEFAULTS = {
     pf: { enabled: true, ratePct: 12, applyWageCeiling: true, wageCeiling: 15000 },
     esi: { enabled: true, ratePct: 0.75, grossThreshold: 21000 },
     pt: { enabled: true, monthlyAmount: 200, annualIncomeThreshold: 250000 },
-    lopBasis: 'calendar', // 'calendar' | 'working' | 'fixed30' — per-day pay = gross ÷ these days
+    lopBasis: 'calendar', // 'calendar' | 'working' | 'fixed30' - per-day pay = gross ÷ these days
     defaultEarnings: [{ name: 'Basic', isBasic: true }, { name: 'HRA' }, { name: 'Special Allowance' }],
     defaultDeductions: [{ name: 'TDS' }],
     footerNote: 'This is a computer-generated salary slip and does not require a signature.',
@@ -70,7 +70,7 @@ async function getSettings() {
 }
 
 // Shallow-merges `patch` into one settings section and saves it, returning the
-// full updated settings — same semantics as the old `settings[section] = {...}`.
+// full updated settings - same semantics as the old `settings[section] = {...}`.
 async function updateSettingsSection(section, patch) {
   if (!SECTIONS.includes(section)) throw new Error(`Unknown settings section: ${section}`);
   const current = await getSettings();

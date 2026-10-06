@@ -350,7 +350,7 @@ export default function WallPage() {
         </div>
         );
       })}
-      {data?.items.length === 0 && <div style={{ color: 'var(--t3)', fontSize: 12 }}>No posts yet — be the first to share!</div>}
+      {data?.items.length === 0 && <div style={{ color: 'var(--t3)', fontSize: 12 }}>No posts yet - be the first to share!</div>}
     </div>
   );
 }

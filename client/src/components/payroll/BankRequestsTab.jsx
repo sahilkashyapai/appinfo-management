@@ -29,7 +29,7 @@ function useInvalidate() {
 function Comparison({ current = {}, requested }) {
   const [show, setShow] = useState(false);
   const fmt = (key, v) => {
-    if (!v) return <span style={{ color: 'var(--t3)' }}>—</span>;
+    if (!v) return <span style={{ color: 'var(--t3)' }}>-</span>;
     return key === 'bankAccount' && !show ? maskAccount(v) : v;
   };
   return (
@@ -81,7 +81,7 @@ function RejectBox({ request, onDone }) {
   const reject = useMutation({
     mutationFn: () => api.patch(`/bank-detail-requests/${request._id}`, { status: 'rejected', note: note.trim() }),
     onSuccess: () => {
-      toast('Request rejected — the employee has been notified', 'success');
+      toast('Request rejected - the employee has been notified', 'success');
       invalidate();
       onDone();
     },
@@ -122,7 +122,7 @@ export default function BankRequestsTab() {
   const approve = useMutation({
     mutationFn: (id) => api.patch(`/bank-detail-requests/${id}`, { status: 'approved' }),
     onSuccess: () => {
-      toast('Request approved — the new details are now on file', 'success');
+      toast('Request approved - the new details are now on file', 'success');
       invalidate();
       setApproving(null);
     },

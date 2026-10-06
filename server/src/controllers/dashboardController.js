@@ -22,7 +22,7 @@ async function summary(req, res) {
   const todaysBirthdays = employees.filter((e) => e.dob.getMonth() === month && e.dob.getDate() === date);
   const todaysAnniversaries = employees.filter((e) => e.joined.getMonth() === month && e.joined.getDate() === date && yearsSince(e.joined) >= 1);
 
-  // Today's office/WFH/leave/absent split — shown on every user's dashboard,
+  // Today's office/WFH/leave/absent split - shown on every user's dashboard,
   // not just admins'. Superadmins never need attendance marked, so they're
   // excluded from both the attendance records and the eligible headcount
   // here (they still count toward the general totalEmployees stat below).
@@ -72,7 +72,7 @@ async function summary(req, res) {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const postFilter = { createdAt: { gte: monthStart } };
   if (scopedUserSet) postFilter.authorId = { in: [...scopedUserSet] };
-  // Oldest first, reactions in the order they were added — the order Mongo
+  // Oldest first, reactions in the order they were added - the order Mongo
   // returned them in, so leaderboard ties break the same way.
   const posts = shapeMany('WallPost', await prisma.wallPost.findMany({
     where: postFilter,
@@ -128,7 +128,7 @@ async function summary(req, res) {
     const leaveFilter = { status: { in: ['pending', 'on_hold'] } };
     if (scopedIds) leaveFilter.employeeId = { in: scopedIds };
     // Self-registrations have no office yet at the pending stage (no Employee
-    // record/location exists until approved) — pendingRegistrations is
+    // record/location exists until approved) - pendingRegistrations is
     // intentionally left global, there's nothing to scope it by.
     const assetMatch = scopedIds ? { OR: [{ employeeId: null }, { employeeId: { in: scopedIds } }] } : {};
     const [pendingLeaveApprovals, pendingRegistrations, assetCounts] = await Promise.all([

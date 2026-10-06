@@ -11,7 +11,7 @@ const BRANCHES = Object.keys(BRANCH_LOCATIONS);
 const ROLE_LABEL = { admin: 'Admin', superadmin: 'Superadmin' };
 const ROLE_BADGE = { admin: 'b-bl', superadmin: 'b-go' };
 // Granting/revoking superadmin is a deliberate action, but it's no longer
-// blocked from this dropdown — a superadmin can pick either role here.
+// blocked from this dropdown - a superadmin can pick either role here.
 const GRANTABLE_ROLES = ['admin', 'superadmin'];
 
 export default function AdminFormModal({ admin, onClose }) {
@@ -31,7 +31,7 @@ export default function AdminFormModal({ admin, onClose }) {
   });
   // Branch/office scoping is available on both admin (HR) and superadmin
   // accounts. A proadmin can set it on either; a plain superadmin can only
-  // set it on an admin they manage — touching another superadmin's account
+  // set it on an admin they manage - touching another superadmin's account
   // at all is blocked elsewhere in this modal already.
   const canEditScoping = isEdit && ['admin', 'superadmin'].includes(form.role) && (isProadmin || (user?.role === 'superadmin' && form.role === 'admin'));
   const [created, setCreated] = useState(null);
@@ -44,7 +44,7 @@ export default function AdminFormModal({ admin, onClose }) {
     queryFn: () => api.get('/departments').then((r) => r.data.items),
   });
 
-  // New admins are picked from any active employee (except those already admins) —
+  // New admins are picked from any active employee (except those already admins) -
   // name/email/phone come straight from that record instead of being retyped.
   const { data: employees = [] } = useQuery({
     queryKey: ['admins-eligible-employees'],
@@ -97,7 +97,7 @@ export default function AdminFormModal({ admin, onClose }) {
             </p>
             {created.upgraded ? (
               <div style={{ fontSize: 11.5, color: 'var(--t3)' }}>
-                They already had a login — it now has {ROLE_LABEL[created.role]} access. They sign in with their existing password, unchanged.
+                They already had a login - it now has {ROLE_LABEL[created.role]} access. They sign in with their existing password, unchanged.
               </div>
             ) : (
               <>
@@ -117,7 +117,7 @@ export default function AdminFormModal({ admin, onClose }) {
                   </button>
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 8 }}>
-                  This was also emailed to them. Make a note of it now — it won't be shown again. They should change it after signing in.
+                  This was also emailed to them. Make a note of it now - it won't be shown again. They should change it after signing in.
                 </div>
               </>
             )}
@@ -156,7 +156,7 @@ export default function AdminFormModal({ admin, onClose }) {
             </Select>
             {employees.length === 0 && (
               <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 4 }}>
-                No employees available — everyone active is already an admin, or none exist yet.
+                No employees available - everyone active is already an admin, or none exist yet.
               </div>
             )}
             {selectedEmployee && (

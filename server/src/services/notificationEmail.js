@@ -3,13 +3,13 @@ const getSettings = require('../utils/getSettings');
 const { sendMail } = require('./emailService');
 
 // Every in-app notification is mirrored to email automatically (see
-// services/notify.js) — no controller has to remember to
+// services/notify.js) - no controller has to remember to
 // send one. Chat is skipped: a mail per message would flood inboxes.
 const SKIP_TYPES = ['chat'];
 
 // Broadcasts (recipientId: null) go to everyone, so only company-wide news is
 // emailed. For birthday/anniversary the celebrant (aboutEmployeeId) is left
-// out — they already get their own personal wish mail from cronJobs.js.
+// out - they already get their own personal wish mail from cronJobs.js.
 const BROADCAST_EMAIL_TYPES = ['announcement', 'hiring', 'event', 'birthday', 'anniversary'];
 
 function escapeHtml(str) {

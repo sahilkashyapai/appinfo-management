@@ -38,7 +38,7 @@ async function listUsers(req, res) {
   const where = { isActive: true, approvalStatus: 'approved', id: { not: String(req.user._id) } };
   await excludeSuperadminUsers(where, req.user.role, 'id');
 
-  // Office isolation only limits contact with other office-bound people —
+  // Office isolation only limits contact with other office-bound people -
   // company-wide admin/unscoped-superadmin contacts stay reachable from any office.
   const scopedIds = await scopedUserIds(req.user);
   if (scopedIds) {

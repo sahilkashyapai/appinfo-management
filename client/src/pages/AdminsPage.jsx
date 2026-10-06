@@ -79,7 +79,7 @@ export default function AdminsPage() {
                   <td><span className={`badge ${ROLE_BADGE[a.role]}`}>{ROLE_LABEL[a.role]}</span></td>
                   <td style={{ color: 'var(--t3)' }}>{a.managedLocation || 'All offices'}</td>
                   <td><span className={`badge ${a.isActive ? 'b-gr' : 'b-gy'}`}>{a.isActive ? 'Active' : 'Inactive'}</span></td>
-                  <td style={{ color: 'var(--t3)' }}>{a.location || '—'}</td>
+                  <td style={{ color: 'var(--t3)' }}>{a.location || '-'}</td>
                   <td style={{ fontSize: 10.5, color: 'var(--t3)', whiteSpace: 'nowrap' }}>{a.lastLogin ? formatDateTime(a.lastLogin) : 'Never'}</td>
                   {canManage && (
                     <td>
@@ -121,7 +121,7 @@ export default function AdminsPage() {
           title={deleting.promotedAdmin ? 'Revoke Admin Access' : 'Delete Admin Account'}
           message={
             deleting.promotedAdmin
-              ? `Revoke ${deleting.name}'s ${ROLE_LABEL[deleting.role]} access? Their employee login stays active — they just drop back to a regular employee account.`
+              ? `Revoke ${deleting.name}'s ${ROLE_LABEL[deleting.role]} access? Their employee login stays active - they just drop back to a regular employee account.`
               : `Permanently delete ${deleting.name}'s ${ROLE_LABEL[deleting.role]} account? This cannot be undone.`
           }
           confirmLabel={deleting.promotedAdmin ? 'Revoke' : 'Delete'}

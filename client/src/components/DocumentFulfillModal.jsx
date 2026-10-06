@@ -58,7 +58,7 @@ export default function DocumentFulfillModal({ request, onClose }) {
           <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 10 }}>
-          {TYPE_LABEL[request.type]}{request.period ? ` — ${request.period}` : ''} for <strong>{request.employeeRef?.name}</strong>
+          {TYPE_LABEL[request.type]}{request.period ? ` - ${request.period}` : ''} for <strong>{request.employeeRef?.name}</strong>
         </div>
         <div className="fg">
           <label className="fl">File (max 4MB)</label>

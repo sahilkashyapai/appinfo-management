@@ -75,7 +75,7 @@ async function markAllRead(req, res) {
 
 // Personal notifications are only ever visible to their one recipient, so
 // clearing them means deleting them outright. Broadcasts are shared with
-// everyone, so they can't be deleted — clearing just hides them from this
+// everyone, so they can't be deleted - clearing just hides them from this
 // viewer (a notification_clears row) without affecting anyone else's list.
 async function clearAll(req, res) {
   const uid = String(req.user._id);

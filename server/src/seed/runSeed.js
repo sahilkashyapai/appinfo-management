@@ -379,7 +379,7 @@ async function seedAuditLog(users, db = prisma) {
     data: [
       { actorId: superadmin.id, actorName: superadmin.name, action: 'LOGIN', entity: 'users', recordId: String(superadmin.id), ip: '127.0.0.1', detail: 'Seed script initial login placeholder', createdAt: new Date(now - 5 * hour) },
       { actorId: (hr || superadmin).id, actorName: (hr || superadmin).name, action: 'CREATE', entity: 'employees', recordId: 'EMP001', ip: '127.0.0.1', detail: 'Seeded demo employee records', createdAt: new Date(now - 4 * hour) },
-      { actorId: superadmin.id, actorName: superadmin.name, action: 'UPDATE', entity: 'settings', recordId: '—', ip: '127.0.0.1', detail: 'Initialized default settings', createdAt: new Date(now - 3 * hour) },
+      { actorId: superadmin.id, actorName: superadmin.name, action: 'UPDATE', entity: 'settings', recordId: '-', ip: '127.0.0.1', detail: 'Initialized default settings', createdAt: new Date(now - 3 * hour) },
     ],
   });
 }
@@ -406,7 +406,7 @@ async function seedAll(db = prisma) {
   await seedAuditLog(users, db);
   await seedSettings(db);
 
-  console.log(`[seed] done — ${employees.length} employees, ${events.length} events, ${DEPARTMENTS.length} departments.`);
+  console.log(`[seed] done - ${employees.length} employees, ${events.length} events, ${DEPARTMENTS.length} departments.`);
 }
 
 // Blank-slate seed: just the login account + default settings, no demo data.
@@ -433,7 +433,7 @@ async function seedMinimal(db = prisma) {
   });
   await seedSettings(db);
 
-  console.log('[seed] minimal seed done — blank slate, only the login account was created.');
+  console.log('[seed] minimal seed done - blank slate, only the login account was created.');
   console.log(`[seed]   superadmin: ${superadminEmail} / ${superadminPassword}`);
 }
 
