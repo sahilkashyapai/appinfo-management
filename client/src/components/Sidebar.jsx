@@ -52,6 +52,7 @@ const ADMIN_NAV = [
       { to: '/audit', label: 'Audit Logs', icon: 'fa-solid fa-magnifying-glass-chart' },
       { to: '/time-tracking', label: 'Time Tracking', icon: 'fa-solid fa-clock' },
       { to: '/assets', label: 'Assets', icon: 'fa-solid fa-boxes-stacked', roles: ADMIN_ROLES },
+      { to: '/payroll', label: 'Payroll', icon: 'fa-solid fa-money-check-dollar', roles: ADMIN_ROLES },
       { to: '/settings', label: 'Settings', icon: 'fa-solid fa-gear' },
       { to: '/developer', label: 'Developer Panel', icon: 'fa-solid fa-code', roles: DEVELOPER_ROLES },
     ],

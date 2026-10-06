@@ -33,6 +33,7 @@ import AdminsPage from './pages/AdminsPage';
 import HiringPage from './pages/HiringPage';
 import MyReferralsPage from './pages/MyReferralsPage';
 import DeveloperPage from './pages/DeveloperPage';
+import PayrollPage from './pages/PayrollPage';
 import { ADMIN_ROLES, APPROVER_ROLES, DEVELOPER_ROLES } from './utils/roles';
 
 // A proadmin now has every permission an admin/superadmin has (see roles.js),
@@ -75,6 +76,7 @@ export default function App() {
         <Route path="leave" element={<LeavePage />} />
         <Route path="org-chart" element={<OrgChartPage />} />
         <Route path="assets" element={<ProtectedRoute roles={ADMIN_ROLES}><AssetsPage /></ProtectedRoute>} />
+        <Route path="payroll" element={<ProtectedRoute roles={ADMIN_ROLES}><PayrollPage /></ProtectedRoute>} />
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="registrations" element={<ProtectedRoute roles={APPROVER_ROLES}><RegistrationsPage /></ProtectedRoute>} />
