@@ -20,6 +20,17 @@ const MODELS = {
   events: prisma.event,
 };
 
+// How many dummy/demo rows exist, so the UI only offers "Clear" when there is something to clear.
+async function status(req, res) {
+  const counts = {};
+  let total = 0;
+  for (const [key, delegate] of Object.entries(MODELS)) {
+    counts[key] = await delegate.count({ where: { isDemo: true } });
+    total += counts[key];
+  }
+  res.json({ total, counts });
+}
+
 // Superadmin-only: wipe every record flagged isDemo (seeded sample/demo data)
 // across every table it can appear in, leaving real data untouched.
 async function clearAll(req, res) {
@@ -43,4 +54,4 @@ async function clearAll(req, res) {
   res.json({ message: `Deleted ${total} dummy record(s) across all collections.`, total, counts });
 }
 
-module.exports = { clearAll };
+module.exports = { status, clearAll };

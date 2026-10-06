@@ -32,6 +32,13 @@ export default function SettingsPage() {
   const { data } = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((r) => r.data.settings) });
   const [smtpForm, setSmtpForm] = useState(null);
   const [confirmClearDummy, setConfirmClearDummy] = useState(false);
+  // The Danger Zone is only shown while there is dummy/demo data to clear.
+  const { data: demoData } = useQuery({
+    queryKey: ['demo-data'],
+    queryFn: () => api.get('/demo-data').then((r) => r.data),
+    enabled: isSuperadmin,
+  });
+  const hasDemoData = (demoData?.total || 0) > 0;
 
   const clearDummyData = useMutation({
     mutationFn: () => api.delete('/demo-data'),
@@ -147,7 +154,7 @@ export default function SettingsPage() {
               <ToggleRow label="CSRF Protection" hint="Informational - auth uses Bearer JWT, not cookies" checked={data.security.csrfProtection} onChange={(v) => putSecurity.mutate({ csrfProtection: v })} />
               <ToggleRow label="Employee Time Tracking" hint="Log start time + IP address on every login" checked={data.timeTracking.enabled} onChange={(v) => putTimeTracking.mutate({ enabled: v })} />
             </div>
-            {isSuperadmin && (
+            {isSuperadmin && hasDemoData && (
               <div className="card" style={{ marginTop: 13, borderColor: 'var(--red, #E74C3C)' }}>
                 <div className="chd"><div className="cht" style={{ color: 'var(--red, #E74C3C)' }}><i className="fa-solid fa-triangle-exclamation" /> Danger Zone</div></div>
                 <div className="trow">
