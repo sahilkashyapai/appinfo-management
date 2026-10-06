@@ -291,15 +291,39 @@ async function basisDaysFor(period, lopBasis) {
   return period.daysInMonth;
 }
 
-async function absentDaysByEmployee(employeeIds, period) {
+const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
+
+// Days off per employee in the period, split by whether the portal has an
+// approved leave request covering that day. Salary is never cut for approved
+// leave: only `unpaid` days (marked absent/leave with no approved request)
+// become LOP. -> Map(employeeId -> { off, approved, unpaid })
+async function daysOffByEmployee(employeeIds, period) {
   if (!employeeIds.length) return new Map();
-  const rows = await prisma.attendance.groupBy({
-    by: ['employeeId'],
-    where: { employeeId: { in: employeeIds }, status: 'absent', date: { gte: period.start, lt: period.end } },
-    _count: { _all: true },
-  });
-  return new Map(rows.map((r) => [r.employeeId, r._count._all]));
+  const [offRows, approvedLeaves] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { employeeId: { in: employeeIds }, status: { in: ['absent', 'leave'] }, date: { gte: period.start, lt: period.end } },
+      select: { employeeId: true, date: true },
+    }),
+    prisma.leaveRequest.findMany({
+      where: { employeeId: { in: employeeIds }, status: 'approved', startDate: { lt: period.end }, endDate: { gte: period.start } },
+      select: { employeeId: true, startDate: true, endDate: true },
+    }),
+  ]);
+  const covered = (employeeId, date) => {
+    const k = dayKey(date);
+    return approvedLeaves.some((l) => l.employeeId === employeeId && dayKey(l.startDate) <= k && k <= dayKey(l.endDate));
+  };
+  const result = new Map(employeeIds.map((id) => [id, { off: 0, approved: 0, unpaid: 0 }]));
+  for (const row of offRows) {
+    const r = result.get(row.employeeId);
+    r.off++;
+    if (covered(row.employeeId, row.date)) r.approved++;
+    else r.unpaid++;
+  }
+  return result;
 }
+
+const NO_DAYS_OFF = { off: 0, approved: 0, unpaid: 0 };
 
 function employeeSnapshot(employee, structure) {
   return {
@@ -322,19 +346,19 @@ function employeeSnapshot(employee, structure) {
 
 // Builds the calculated part of a slip for one employee. `lopOverride` (days)
 // replaces the attendance-based count; `manualLines` are kept from a draft.
-async function calculate({ employee, structure, payroll, period, absentDays, lopOverride, manualLines }) {
+async function calculate({ employee, structure, payroll, period, daysOff = NO_DAYS_OFF, lopOverride, manualLines }) {
   const office = officeSettings(payroll, employee.location);
   const basisDays = await basisDaysFor(period, payroll.lopBasis);
-  const lopDays = lopOverride !== undefined ? Number(lopOverride) : absentDays + (await preJoinDays(employee.joined, period, payroll.lopBasis));
+  const lopDays = lopOverride !== undefined ? Number(lopOverride) : daysOff.unpaid + (await preJoinDays(employee.joined, period, payroll.lopBasis));
   const result = computeSlip({ structure, payroll, office, period, lopDays, basisDays, manualLines });
 
   // Shown on the slip: working days in the month, days actually worked
   // (working days minus absences and days before joining), and leave balances.
   const workingDays = await countWorkingDays(period.year, period.month);
   const preJoinWorking = await preJoinDays(employee.joined, period, 'working');
-  const daysWorked = Math.max(workingDays - absentDays - preJoinWorking, 0);
+  const daysWorked = Math.max(workingDays - daysOff.off - preJoinWorking, 0);
   const leaveBalances = await computeBalance(employee.id, period.year);
-  return { office, ...result, workingDays, daysWorked, leaveBalances };
+  return { office, ...result, workingDays, daysWorked, paidLeaveDays: daysOff.approved, leaveBalances };
 }
 
 function manualOnly(slip) {
@@ -352,6 +376,7 @@ function slipData({ employee, structure, period, calc, userId }) {
     daysInMonth: period.daysInMonth,
     workingDays: calc.workingDays,
     daysWorked: calc.daysWorked,
+    paidLeaveDays: calc.paidLeaveDays,
     leaveBalances: calc.leaveBalances,
     paidDays: calc.paidDays,
     lopDays: calc.lopDays,
@@ -407,7 +432,7 @@ async function generate(req, res) {
     prisma.employee.findMany({ where: empWhere, include: { salaryStructure: true, salarySlips: { where: { period: req.body.period } } }, orderBy: { name: 'asc' } }),
     getSettings().then((s) => s.payroll),
   ]);
-  const absent = await absentDaysByEmployee(employees.map((e) => e.id), period);
+  const daysOff = await daysOffByEmployee(employees.map((e) => e.id), period);
 
   const result = { created: 0, refreshed: 0, skipped: [] };
   for (const employee of employees) {
@@ -424,7 +449,7 @@ async function generate(req, res) {
       structure,
       payroll,
       period,
-      absentDays: absent.get(employee.id) || 0,
+      daysOff: daysOff.get(employee.id),
       manualLines: existing ? manualOnly(existing) : undefined,
     });
     const data = slipData({ employee, structure, period, calc, userId: String(req.user._id) });
@@ -489,9 +514,9 @@ async function recalculateSlip(req, res) {
     lopOverride = Number(req.body.lopDays);
     if (!Number.isFinite(lopOverride) || lopOverride < 0 || lopOverride > period.daysInMonth) throw badRequest(`LOP days must be between 0 and ${period.daysInMonth}.`);
   }
-  const absent = await absentDaysByEmployee([employee.id], period);
+  const daysOff = await daysOffByEmployee([employee.id], period);
   const structure = shape('SalaryStructure', employee.salaryStructure);
-  const calc = await calculate({ employee, structure, payroll, period, absentDays: absent.get(employee.id) || 0, lopOverride, manualLines: manualOnly(slip) });
+  const calc = await calculate({ employee, structure, payroll, period, daysOff: daysOff.get(employee.id), lopOverride, manualLines: manualOnly(slip) });
   const row = await prisma.salarySlip.update({ where: { id: slip.id }, data: slipData({ employee, structure, period, calc, userId: String(req.user._id) }) });
   res.json({ slip: shape('SalarySlip', row) });
 }

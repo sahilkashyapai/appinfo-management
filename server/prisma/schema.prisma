@@ -934,6 +934,7 @@ model SalarySlip {
   daysInMonth     Int
   workingDays     Int? // Mon–Fri excluding holidays
   daysWorked      Decimal?         @db.Decimal(5, 1)
+  paidLeaveDays   Decimal?         @db.Decimal(5, 1) // days off covered by approved leave — never deducted
   leaveBalances   Json? // snapshot at generation: { casual: { allocated, used, remaining }, sick, earned }
   paidDays        Decimal          @db.Decimal(5, 1)
   lopDays         Decimal          @db.Decimal(5, 1)

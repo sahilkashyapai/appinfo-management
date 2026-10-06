@@ -306,6 +306,7 @@ function renderSlipPdf(slip, { company, footerNote }) {
       ['Days in Month', slip.daysInMonth],
       ['Working Days', slip.workingDays],
       ['Days Worked', slip.daysWorked],
+      ['Paid Leave', slip.paidLeaveDays],
       ['Paid Days', slip.paidDays],
       ['LOP Days', slip.lopDays],
     ];
