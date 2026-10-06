@@ -61,7 +61,7 @@ export default function LoginPage() {
     <div id="auth">
       <div className="al">
         <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
-        <div className="al-h">Employee &amp; Events <br/> Management System</div>
+        <div className="al-h">AI Connect</div>
         <div className="al-sub">{branding.companyName}'s unified hub for birthdays, anniversaries, events, attendance, and team collaboration.</div>
         <div className="al-feat">
           <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>Automated birthday &amp; anniversary notifications</div>

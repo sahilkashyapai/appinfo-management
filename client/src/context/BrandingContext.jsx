@@ -35,7 +35,7 @@ export function BrandingProvider({ children }) {
   };
 
   useEffect(() => {
-    document.title = `${branding.companyName} – Employee Celebrations Platform`;
+    document.title = `AI Connect – ${branding.companyName}`;
     let link = document.querySelector('link[rel="icon"]');
     if (!link) {
       link = document.createElement('link');
