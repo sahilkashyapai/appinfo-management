@@ -17,6 +17,24 @@ const DEFAULTS = {
     primaryColor: '#2E86AB',
     secondaryColor: '#1E3A5F',
   },
+  // Salary slips (see services/payroll.js). Every value is editable by HR from
+  // the Payroll page. `offices` is keyed by Employee.location; an empty
+  // companyName falls back to branding.companyName on the slip. Statutory
+  // deductions (PF/ESI/PT) only apply to offices with `statutory: true`.
+  payroll: {
+    offices: {
+      'Mohali, India': { currency: 'INR', companyName: '', address: '', statutory: true },
+      'Alpharetta, United States': { currency: 'USD', companyName: '', address: '', statutory: false },
+      'Cape Town, South Africa': { currency: 'ZAR', companyName: '', address: '', statutory: false },
+    },
+    pf: { enabled: true, ratePct: 12, applyWageCeiling: true, wageCeiling: 15000 },
+    esi: { enabled: true, ratePct: 0.75, grossThreshold: 21000 },
+    pt: { enabled: true, monthlyAmount: 200, annualIncomeThreshold: 250000 },
+    lopBasis: 'calendar', // 'calendar' | 'working' | 'fixed30' — per-day pay = gross ÷ these days
+    defaultEarnings: [{ name: 'Basic', isBasic: true }, { name: 'HRA' }, { name: 'Special Allowance' }],
+    defaultDeductions: [{ name: 'TDS' }],
+    footerNote: 'This is a computer-generated salary slip and does not require a signature.',
+  },
 };
 
 const SECTIONS = Object.keys(DEFAULTS);

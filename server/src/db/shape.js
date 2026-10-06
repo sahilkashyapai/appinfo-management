@@ -8,7 +8,7 @@ const { Prisma } = require('@prisma/client');
 //    un-populated ref; an included relation comes back as the nested object,
 //    like `.populate()`
 //  - optional TEXT columns (nullable in MySQL, see schema.prisma) read as ''
-//  - BigInt columns read as Number
+//  - BigInt and Decimal columns read as Number
 //  - child/join tables that replaced Mongo arrays are folded back into arrays
 //    (see SHAPERS below)
 
@@ -90,6 +90,8 @@ function shape(modelName, row) {
       out[key] = '';
     } else if (typeof value === 'bigint') {
       out[key] = Number(value);
+    } else if (field.type === 'Decimal' && value != null) {
+      out[key] = Number(value); // money columns: Prisma's Decimal -> plain number in JSON
     } else {
       out[key] = value;
     }

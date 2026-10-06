@@ -33,6 +33,7 @@ const assetRoutes = require('./routes/assetRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const jobApplicationRoutes = require('./routes/jobApplicationRoutes');
 const demoDataRoutes = require('./routes/demoDataRoutes');
+const payrollRoutes = require('./routes/payrollRoutes');
 
 const app = express();
 
@@ -87,6 +88,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/job-applications', jobApplicationRoutes);
 app.use('/api/demo-data', demoDataRoutes);
+app.use('/api/payroll', payrollRoutes);
 
 // Production: the built React app (client/dist) is served by this same
 // process, so the UI, /api and the chat socket share one origin
