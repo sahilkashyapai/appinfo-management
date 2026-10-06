@@ -17,7 +17,10 @@ function errorHandler(err, req, res, next) {
   if (err.code === 'P2003') return res.status(400).json({ message: 'This record is linked to another record that does not exist or is still in use.' });
   if (err.name === 'PrismaClientValidationError') return res.status(400).json({ message: 'Invalid request data.' });
   const status = err.status || 500;
-  res.status(status).json({ message: err.message || 'Internal server error.' });
+  // Unexpected 500s can carry database/internal details — keep those in the
+  // server log only in production. 4xx errors keep their message.
+  const hideDetails = status >= 500 && process.env.NODE_ENV === 'production';
+  res.status(status).json({ message: hideDetails || !err.message ? 'Internal server error.' : err.message });
 }
 
 module.exports = { notFound, errorHandler };

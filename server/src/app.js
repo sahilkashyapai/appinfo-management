@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+require('./middleware/asyncErrors'); // must load before any route handles a request
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
