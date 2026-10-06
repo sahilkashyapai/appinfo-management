@@ -119,8 +119,9 @@ export default function ProfilePage() {
           <div className="pgs">Manage your account, preferences, and security</div>
         </div>
       </div>
-      <div className="g2">
-        <div>
+      {/* Equal-height columns: the last card in each stretches to the bottom. */}
+      <div className="g2" style={{ alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--bd)', borderRadius: 'var(--rl)', overflow: 'hidden', marginBottom: 13, boxShadow: 'var(--sh)' }}>
             <div className="prof-banner" style={branding.bannerUrl ? { background: `center/cover no-repeat url(${branding.bannerUrl})` } : undefined}>
               <div className="prof-banner-logo"><img src={branding.logoUrl} alt={branding.companyName} /></div>
@@ -155,7 +156,24 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-          <div className="card">
+          <div className="card mb13">
+            <div className="chd"><div className="cht"><i className="fa-solid fa-lock" /> Change Password</div></div>
+            <div className="fg"><label className="fl">Current Password</label><input type="password" className="fc" placeholder="••••••••" value={pwd.currentPassword} onChange={(e) => setPwd({ ...pwd, currentPassword: e.target.value })} /></div>
+            <div className="fg"><label className="fl">New Password</label><input type="password" className="fc" placeholder="Min. 8 characters" value={pwd.newPassword} onChange={(e) => setPwd({ ...pwd, newPassword: e.target.value })} /></div>
+            <div className="fg"><label className="fl">Confirm New Password</label><input type="password" className="fc" placeholder="••••••••" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} /></div>
+            <div style={{ display: 'flex', gap: 7 }}>
+              <button
+                className="btn brd bsm"
+                disabled={!pwd.currentPassword || pwd.newPassword.length < 8 || pwd.newPassword !== pwd.confirm || changePassword.isPending}
+                onClick={() => changePassword.mutate()}
+              >
+                <i className="fa-solid fa-key" /> Change Password
+              </button>
+              <button className="btn bs bsm" onClick={logout}><i className="fa-solid fa-right-from-bracket" /> Sign Out</button>
+            </div>
+          </div>
+
+          <div className="card" style={{ flex: 1 }}>
             <div className="chd"><div className="cht"><i className="fa-solid fa-chart-line" /> Recent Activity</div></div>
             {data.activity.map((a) => (
               <div className="tl-item" key={a._id}>
@@ -169,7 +187,7 @@ export default function ProfilePage() {
             {data.activity.length === 0 && <div style={{ fontSize: 12, color: 'var(--t3)' }}>No recent activity.</div>}
           </div>
         </div>
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="card mb13">
             <div className="chd"><div className="cht"><i className="fa-solid fa-user-pen" /> Edit Profile</div></div>
             <div className="fg2">
@@ -212,24 +230,7 @@ export default function ProfilePage() {
 
           <BankDetailsCard />
 
-          <div className="card mb13">
-            <div className="chd"><div className="cht"><i className="fa-solid fa-lock" /> Change Password</div></div>
-            <div className="fg"><label className="fl">Current Password</label><input type="password" className="fc" placeholder="••••••••" value={pwd.currentPassword} onChange={(e) => setPwd({ ...pwd, currentPassword: e.target.value })} /></div>
-            <div className="fg"><label className="fl">New Password</label><input type="password" className="fc" placeholder="Min. 8 characters" value={pwd.newPassword} onChange={(e) => setPwd({ ...pwd, newPassword: e.target.value })} /></div>
-            <div className="fg"><label className="fl">Confirm New Password</label><input type="password" className="fc" placeholder="••••••••" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} /></div>
-            <div style={{ display: 'flex', gap: 7 }}>
-              <button
-                className="btn brd bsm"
-                disabled={!pwd.currentPassword || pwd.newPassword.length < 8 || pwd.newPassword !== pwd.confirm || changePassword.isPending}
-                onClick={() => changePassword.mutate()}
-              >
-                <i className="fa-solid fa-key" /> Change Password
-              </button>
-              <button className="btn bs bsm" onClick={logout}><i className="fa-solid fa-right-from-bracket" /> Sign Out</button>
-            </div>
-          </div>
-
-          <div className="card">
+          <div className="card" style={{ flex: 1 }}>
             <div className="chd"><div className="cht"><i className="fa-solid fa-shield" /> Two-Factor Authentication</div></div>
             {!user.totpEnabled && !twofa && (
               <>
