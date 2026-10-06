@@ -7,6 +7,7 @@ import EmployeeDrawer from './EmployeeDrawer';
 import RsvpModal from './RsvpModal';
 import EmployeeFormModal from './EmployeeFormModal';
 import ErrorBoundary from './ErrorBoundary';
+import BankDetailsReminder from './BankDetailsReminder';
 import { useDrawers } from '../context/DrawerContext';
 
 export default function Layout() {
@@ -42,6 +43,7 @@ export default function Layout() {
       <NotificationPanel open={npOpen} onClose={() => setNpOpen(false)} />
       <EmployeeDrawer onEdit={setEditEmployee} />
       <RsvpModal />
+      <BankDetailsReminder />
       {editEmployee !== undefined && <EmployeeFormModal employee={editEmployee} onClose={() => setEditEmployee(undefined)} />}
 
       <div id="overlay" className={overlayOn ? 'show' : ''} onClick={closeAll} />

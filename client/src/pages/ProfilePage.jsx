@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
 import Avatar from '../components/Avatar';
+import BankDetailsCard from '../components/BankDetailsCard';
 import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -208,6 +209,8 @@ export default function ProfilePage() {
             </div>
             <button className="btn bp bsm" onClick={() => saveProfile.mutate()} disabled={saveProfile.isPending}><i className="fa-solid fa-check" /> Save Changes</button>
           </div>
+
+          <BankDetailsCard />
 
           <div className="card mb13">
             <div className="chd"><div className="cht"><i className="fa-solid fa-lock" /> Change Password</div></div>

@@ -4,22 +4,22 @@ import api from '../../api/client';
 import ConfirmModal from '../ConfirmModal';
 import { useToast } from '../../context/ToastContext';
 import { ModalShell, ToggleRow, errMessage, formatMoney, sumLines } from './payrollUtils';
+import { BANK_FIELDS, BankDetailsFields, BankValue, bankErrors, pickBank } from '../BankDetailsFields';
 
-function toForm(s) {
+// PAN/bank fields come from the employee's bank details (response.bankDetails),
+// not the structure; UAN/EPF/ESI/address stay on the structure.
+function toForm(s, bank) {
   return {
     earnings: (s.earnings || []).map((l) => ({ name: l.name, amount: l.amount, isBasic: !!l.isBasic })),
     deductions: (s.deductions || []).map((l) => ({ name: l.name, amount: l.amount })),
     pfApplicable: !!s.pfApplicable,
     esiApplicable: !!s.esiApplicable,
     ptApplicable: !!s.ptApplicable,
-    pan: s.pan || '',
     uan: s.uan || '',
     epfNumber: s.epfNumber || '',
     esiNumber: s.esiNumber || '',
     address: s.address || '',
-    bankName: s.bankName || '',
-    bankAccount: s.bankAccount || '',
-    ifsc: s.ifsc || '',
+    ...pickBank(bank),
   };
 }
 
@@ -37,19 +37,22 @@ export default function StructureEditorModal({ employeeId, onClose }) {
   });
 
   useEffect(() => {
-    if (data) setForm(toForm(data.structure || {}));
+    if (data) setForm(toForm(data.structure || {}, data.bankDetails));
   }, [data]);
 
   const save = useMutation({
     mutationFn: () =>
       api.put(`/payroll/structures/${employeeId}`, {
         ...form,
+        // Confirmed by the employee: send them back exactly as loaded (the API rejects changes).
+        ...(data.bankLocked ? pickBank(data.bankDetails) : pickBank(form)),
         earnings: form.earnings.map((l) => ({ name: l.name, amount: Number(l.amount) || 0, ...(l.isBasic ? { isBasic: true } : {}) })),
         deductions: form.deductions.map((l) => ({ name: l.name, amount: Number(l.amount) || 0 })),
       }),
     onSuccess: () => {
       toast(`Salary structure saved for ${data.employee?.name}`, 'success');
       qc.invalidateQueries({ queryKey: ['payroll-structures'] });
+      qc.invalidateQueries({ queryKey: ['payroll-structure', employeeId] });
       onClose();
     },
     onError: (err) => toast(errMessage(err, 'Could not save the salary structure.'), 'error'),
@@ -80,7 +83,8 @@ export default function StructureEditorModal({ employeeId, onClose }) {
     );
   }
 
-  const { employee, office, isNew } = data;
+  const { employee, office, isNew, bankLocked } = data;
+  const bankInvalid = !bankLocked && Object.keys(bankErrors(form, { withConfirm: false })).length > 0;
   const cur = office?.currency;
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const setLine = (kind, i, patch) => setForm((f) => ({ ...f, [kind]: f[kind].map((l, idx) => (idx === i ? { ...l, ...patch } : l)) }));
@@ -162,14 +166,36 @@ export default function StructureEditorModal({ employeeId, onClose }) {
         <ToggleRow label="Professional Tax applies" hint="Only when annual gross is above the PT limit" checked={form.ptApplicable} onChange={(v) => set('ptApplicable', v)} />
       </div>
 
+      <div className="fg">
+        <label className="fl">
+          PAN &amp; Salary Account
+          {bankLocked && <span className="badge b-gy" style={{ marginLeft: 6 }}><i className="fa-solid fa-lock" /> Locked</span>}
+        </label>
+        {bankLocked ? (
+          <>
+            <div style={{ fontSize: 11.5, color: 'var(--t3)', background: 'var(--bg3)', borderRadius: 'var(--r)', padding: '8px 11px', marginBottom: 8 }}>
+              <i className="fa-solid fa-circle-info" /> Confirmed by the employee — they can request changes from their profile.
+            </div>
+            <div className="fg2">
+              {BANK_FIELDS.map(({ key, label }) => (
+                <div className="fg" key={key}>
+                  <label className="fl">{label}</label>
+                  <div className="fc" style={{ display: 'flex', alignItems: 'center', background: 'var(--bg3)', color: 'var(--t1)' }}>
+                    <BankValue field={key} value={data.bankDetails?.[key]} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <BankDetailsFields value={form} onChange={set} withConfirm={false} />
+        )}
+      </div>
+
       <div className="fg2">
-        <div className="fg"><label className="fl">PAN</label><input className="fc" placeholder="ABCDE1234F" value={form.pan} onChange={(e) => set('pan', e.target.value.toUpperCase())} /></div>
         <div className="fg"><label className="fl">UAN</label><input className="fc" value={form.uan} onChange={(e) => set('uan', e.target.value)} /></div>
         <div className="fg"><label className="fl">EPF Number</label><input className="fc" placeholder="PB/MOH/0012345/000/0101" value={form.epfNumber} onChange={(e) => set('epfNumber', e.target.value.toUpperCase())} /></div>
         <div className="fg"><label className="fl">ESI Number</label><input className="fc" placeholder="Leave empty if not covered" value={form.esiNumber} onChange={(e) => set('esiNumber', e.target.value)} /></div>
-        <div className="fg"><label className="fl">Bank Name</label><input className="fc" value={form.bankName} onChange={(e) => set('bankName', e.target.value)} /></div>
-        <div className="fg"><label className="fl">Account Number</label><input className="fc" value={form.bankAccount} onChange={(e) => set('bankAccount', e.target.value)} /></div>
-        <div className="fg"><label className="fl">IFSC</label><input className="fc" placeholder="SBIN0001234" value={form.ifsc} onChange={(e) => set('ifsc', e.target.value.toUpperCase())} /></div>
       </div>
       <div className="fg">
         <label className="fl">Employee Address</label>
@@ -181,7 +207,7 @@ export default function StructureEditorModal({ employeeId, onClose }) {
           <button className="btn brd bsm" style={{ marginRight: 'auto' }} onClick={() => setConfirmRemove(true)}><i className="fa-solid fa-trash" /> Remove structure</button>
         )}
         <button className="btn bs bsm" onClick={onClose}>Cancel</button>
-        <button className="btn bp bsm" disabled={save.isPending} onClick={() => save.mutate()}><i className="fa-solid fa-check" /> Save</button>
+        <button className="btn bp bsm" disabled={save.isPending || bankInvalid} onClick={() => save.mutate()}><i className="fa-solid fa-check" /> Save</button>
       </div>
 
       {confirmRemove && (

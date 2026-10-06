@@ -80,12 +80,12 @@ export default function SignupPage() {
       <div className="al">
         <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
         <div className="al-h">AI Connect</div>
-        <div className="al-sub">Create your employee account to see birthdays, anniversaries, events, and announcements from {branding.companyName}.</div>
+        <div className="al-sub">Join your colleagues on {branding.companyName}'s employee portal — your attendance, leave, payslips and team updates in one place.</div>
         <div className="al-feat">
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>See today's birthdays &amp; anniversaries</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-days" /></div>RSVP to company events</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-heart" /></div>Post on the Celebration Wall</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-bullhorn" /></div>Stay on top of announcements</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-check" /></div>Mark attendance &amp; apply for leave</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-file-invoice" /></div>Download payslips &amp; documents</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>Celebrate birthdays &amp; join events</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-bullhorn" /></div>Get team messages &amp; announcements</div>
         </div>
       </div>
       <div className="ar">
