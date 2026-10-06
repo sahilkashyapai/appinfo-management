@@ -126,9 +126,11 @@ async function update(req, res) {
   const doc = await prisma.document.findUnique({
     where: { id: String(req.params.id) },
     omit: OMIT_FILE,
-    include: { employeeRef: { select: sel('Employee', 'name location') } },
+    include: { employeeRef: { select: sel('Employee', 'name location') }, salarySlip: { select: { id: true } } },
   });
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
+  // A published salary slip is owned by Payroll: change it there (Revert to draft).
+  if (doc.salarySlip) return res.status(409).json({ message: 'This is a published salary slip. HR can change it from Payroll by reverting it to draft.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
   const isOwner = req.user.employeeRef && String(doc.employeeId) === String(req.user.employeeRef);
@@ -171,9 +173,11 @@ async function remove(req, res) {
   const doc = await prisma.document.findUnique({
     where: { id: String(req.params.id) },
     omit: OMIT_FILE,
-    include: { employeeRef: { select: sel('Employee', 'name location') } },
+    include: { employeeRef: { select: sel('Employee', 'name location') }, salarySlip: { select: { id: true } } },
   });
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
+  // A published salary slip is owned by Payroll: change it there (Revert to draft).
+  if (doc.salarySlip) return res.status(409).json({ message: 'This is a published salary slip. HR can change it from Payroll by reverting it to draft.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
   const isOwner = req.user.employeeRef && String(doc.employeeId) === String(req.user.employeeRef);

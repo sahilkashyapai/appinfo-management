@@ -104,6 +104,8 @@ model User {
   salaryStructuresUpdated    SalaryStructure[]             @relation("SalaryStructureUpdatedBy")
   salarySlipsGenerated       SalarySlip[]                  @relation("SalarySlipGeneratedBy")
   salarySlipsPublished       SalarySlip[]                  @relation("SalarySlipPublishedBy")
+  salaryQueriesRaised        SalaryQuery[]                 @relation("SalaryQueryRaisedBy")
+  salaryQueriesAnswered      SalaryQuery[]                 @relation("SalaryQueryRespondedBy")
 
   @@index([employeeId])
   @@index([role])
@@ -154,6 +156,7 @@ model Employee {
   notificationsAbout     Notification[]
   salaryStructure        SalaryStructure?
   salarySlips            SalarySlip[]
+  salaryQueries          SalaryQuery[]
 
   @@index([deptId])
   @@index([managerId])
@@ -956,7 +959,40 @@ model SalarySlip {
   generatedByRef User?     @relation("SalarySlipGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
   publishedByRef User?     @relation("SalarySlipPublishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
 
+  queries         SalaryQuery[]
+
   @@unique([employeeId, period])
   @@index([period, status])
   @@map("salary_slips")
+}
+
+enum SalaryQueryStatus {
+  open
+  resolved
+  rejected
+}
+
+// An employee's question about a published slip (e.g. a deduction they
+// disagree with); HR answers and resolves or rejects it.
+model SalaryQuery {
+  id            String            @id @default(cuid()) @db.VarChar(32)
+  slipId        String            @db.VarChar(32)
+  employeeId    String            @db.VarChar(32)
+  raisedById    String?           @db.VarChar(32)
+  message       String            @db.Text
+  status        SalaryQueryStatus @default(open)
+  response      String?           @db.Text
+  respondedById String?           @db.VarChar(32)
+  respondedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  slip           SalarySlip @relation(fields: [slipId], references: [id], onDelete: Cascade)
+  employeeRef    Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  raisedByRef    User?      @relation("SalaryQueryRaisedBy", fields: [raisedById], references: [id], onDelete: SetNull)
+  respondedByRef User?      @relation("SalaryQueryRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([employeeId])
+  @@map("salary_queries")
 }
