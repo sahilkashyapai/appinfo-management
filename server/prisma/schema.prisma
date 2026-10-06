@@ -106,6 +106,9 @@ model User {
   salarySlipsPublished       SalarySlip[]                  @relation("SalarySlipPublishedBy")
   salaryQueriesRaised        SalaryQuery[]                 @relation("SalaryQueryRaisedBy")
   salaryQueriesAnswered      SalaryQuery[]                 @relation("SalaryQueryRespondedBy")
+  bankDetails                BankDetails?
+  bankDetailRequests         BankDetailRequest[]           @relation("BankDetailRequestUser")
+  bankDetailDecisions        BankDetailRequest[]           @relation("BankDetailRequestDecidedBy")
 
   @@index([employeeId])
   @@index([role])
@@ -157,6 +160,8 @@ model Employee {
   salaryStructure        SalaryStructure?
   salarySlips            SalarySlip[]
   salaryQueries          SalaryQuery[]
+  bankDetails            BankDetails?
+  bankDetailRequests     BankDetailRequest[]
 
   @@index([deptId])
   @@index([managerId])
@@ -995,4 +1000,63 @@ model SalaryQuery {
   @@index([status, createdAt])
   @@index([employeeId])
   @@map("salary_queries")
+}
+
+// An employee's PAN and salary bank account. Entered by the employee (at
+// sign-up or on their profile) or by HR while the employee hasn't. Once the
+// employee saves them they're locked for the employee: changes go through a
+// BankDetailRequest that HR approves. Kept out of users/employees so it never
+// rides along with directory or admin listings.
+// Linked to the login (userId: sign-up, before an employee record exists) and
+// to the employee (employeeId: set on approval, or by HR for staff without a login).
+model BankDetails {
+  id            String    @id @default(cuid()) @db.VarChar(32)
+  userId        String?   @unique @db.VarChar(32)
+  employeeId    String?   @unique @db.VarChar(32)
+  pan           String    @default("") @db.VarChar(20)
+  accountHolder String    @default("") @db.VarChar(191)
+  bankName      String    @default("") @db.VarChar(191)
+  bankAccount   String    @default("") @db.VarChar(50)
+  ifsc          String    @default("") @db.VarChar(20)
+  lockedAt      DateTime? // set when the employee saves their own details
+  updatedById   String?   @db.VarChar(32)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeRef Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("bank_details")
+}
+
+enum BankDetailRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+// An employee asking HR to change their locked bank/PAN details.
+model BankDetailRequest {
+  id            String                  @id @default(cuid()) @db.VarChar(32)
+  userId        String                  @db.VarChar(32)
+  employeeId    String?                 @db.VarChar(32)
+  pan           String                  @default("") @db.VarChar(20)
+  accountHolder String                  @default("") @db.VarChar(191)
+  bankName      String                  @default("") @db.VarChar(191)
+  bankAccount   String                  @default("") @db.VarChar(50)
+  ifsc          String                  @default("") @db.VarChar(20)
+  reason        String                  @db.Text
+  status        BankDetailRequestStatus @default(pending)
+  decidedById   String?                 @db.VarChar(32)
+  decisionNote  String?                 @db.Text
+  decidedAt     DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  user         User      @relation("BankDetailRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  employeeRef  Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  decidedByRef User?     @relation("BankDetailRequestDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("bank_detail_requests")
 }

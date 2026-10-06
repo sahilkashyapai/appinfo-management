@@ -61,6 +61,8 @@ async function approve(req, res) {
       where: { id: user.id },
       data: { approvalStatus: 'approved', isActive: true, employeeId: emp.id },
     });
+    // Bank/PAN details given at sign-up now belong to the new employee record too.
+    await tx.bankDetails.updateMany({ where: { userId: user.id, employeeId: null }, data: { employeeId: emp.id } });
     return [emp, u];
   });
 

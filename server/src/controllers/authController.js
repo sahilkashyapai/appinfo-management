@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { cleanBankDetails, hasAny } = require('../utils/bankDetails');
 const crypto = require('crypto');
 const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
@@ -50,6 +51,8 @@ async function register(req, res) {
     return res.status(409).json({ message: 'This mobile number is already on file. Please contact HR instead of registering again.' });
   }
 
+  const bank = cleanBankDetails(req.body); // throws 400 on a malformed PAN/IFSC/account
+
   let user;
   try {
     const passwordHash = await bcrypt.hash(password, 10);
@@ -65,6 +68,8 @@ async function register(req, res) {
         joined: new Date(joined),
         department: dept.name,
         approvalStatus: 'pending',
+        // Saved by the employee themselves, so locked from now on (see bankDetailsController).
+        ...(hasAny(bank) ? { bankDetails: { create: { ...bank, lockedAt: new Date() } } } : {}),
       },
     });
   } catch (err) {

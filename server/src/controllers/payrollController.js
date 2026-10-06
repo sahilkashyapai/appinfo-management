@@ -8,6 +8,8 @@ const { scopeEmployeeLocationFilter, isOutsideScope, resolveScopeLocation } = re
 const { countWorkingDays } = require('../utils/workingDays');
 const { LOP_BASES, parsePeriod, officeSettings, computeSlip, withTotals, renderSlipPdf, round2 } = require('../services/payroll');
 const { computeBalance } = require('./leaveController');
+const { findBankDetails, userIdForEmployee, saveBankDetails } = require('../services/bankDetails');
+const { cleanBankDetails, toBankDetails } = require('../utils/bankDetails');
 
 // HR payroll: per-employee salary structures, monthly salary slips (draft ->
 // published), and the payroll rules in Settings.payroll. Everything is limited
@@ -16,8 +18,6 @@ const { computeBalance } = require('./leaveController');
 // employees see it (My Documents). Audit entries never include amounts.
 
 const PAYROLL_EMPLOYEE_STATUSES = ['active', 'leave'];
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 function badRequest(message) {
   return Object.assign(new Error(message), { status: 400 });
@@ -205,7 +205,10 @@ async function getStructure(req, res) {
     getSettings().then((s) => s.payroll),
   ]);
   const office = officeSettings(payroll, employee.location);
-  // No structure yet: start from the default component names with zero amounts.
+  const bankRow = await findBankDetails({ employeeId: employee.id, userId: await userIdForEmployee(employee) });
+  const own = bankRow || {};
+  // No structure yet: start from the default component names with zero amounts,
+  // and the PAN/bank details the employee entered themselves.
   const structure = row
     ? shape('SalaryStructure', row)
     : {
@@ -215,18 +218,21 @@ async function getStructure(req, res) {
         pfApplicable: true,
         esiApplicable: true,
         ptApplicable: true,
-        pan: '',
+        pan: own.pan || '',
         uan: '',
         epfNumber: '',
         esiNumber: '',
         address: '',
-        bankName: '',
-        bankAccount: '',
-        ifsc: '',
+        bankName: own.bankName || '',
+        bankAccount: own.bankAccount || '',
+        ifsc: own.ifsc || '',
       };
   res.json({
     employee: shape('Employee', employee),
     structure,
+    // Shown and edited in the structure editor; read-only once the employee confirmed them.
+    bankDetails: toBankDetails({ ...structure, ...bankRow, accountHolder: bankRow?.accountHolder || '' }),
+    bankLocked: !!bankRow?.lockedAt,
     isNew: !row,
     office: { name: office.name, currency: office.currency, statutory: office.statutory },
   });
@@ -239,27 +245,33 @@ async function saveStructure(req, res) {
   const earnings = cleanLines(b.earnings || [], 'Earnings', { allowBasic: true });
   if (!earnings.length) throw badRequest('Add at least one earning.');
   const deductions = cleanLines(b.deductions || [], 'Deductions');
-  const pan = String(b.pan || '').trim().toUpperCase();
-  const ifsc = String(b.ifsc || '').trim().toUpperCase();
-  if (pan && !PAN_REGEX.test(pan)) throw badRequest('PAN should look like ABCDE1234F.');
-  if (ifsc && !IFSC_REGEX.test(ifsc)) throw badRequest('IFSC should look like HDFC0001234.');
+  // PAN/bank live in BankDetails. HR may set them only until the employee has
+  // confirmed their own; after that, changes come through the employee's request.
+  const bank = cleanBankDetails(b);
+  const userIdForBank = await userIdForEmployee(employee);
+  const bankRow = await findBankDetails({ employeeId: employee.id, userId: userIdForBank });
+  if (bankRow?.lockedAt) {
+    const current = toBankDetails(bankRow);
+    if (Object.keys(bank).some((k) => bank[k] !== current[k])) {
+      return res.status(409).json({ message: `${employee.name} has confirmed their own bank and PAN details. They can request a change from their profile.` });
+    }
+  }
   const data = {
     earnings,
     deductions,
     pfApplicable: b.pfApplicable !== false,
     esiApplicable: b.esiApplicable !== false,
     ptApplicable: b.ptApplicable !== false,
-    pan,
     uan: String(b.uan || '').trim().slice(0, 20),
     epfNumber: String(b.epfNumber || '').trim().toUpperCase().slice(0, 30),
     esiNumber: String(b.esiNumber || '').trim().slice(0, 30),
     address: String(b.address || '').trim().slice(0, 500) || null,
-    bankName: String(b.bankName || '').trim().slice(0, 191),
-    bankAccount: String(b.bankAccount || '').replace(/\s+/g, '').slice(0, 50),
-    ifsc,
     updatedById: String(req.user._id),
   };
   const row = await prisma.salaryStructure.upsert({ where: { employeeId: employee.id }, update: data, create: { ...data, employeeId: employee.id } });
+  if (!bankRow?.lockedAt && Object.keys(bank).length) {
+    await saveBankDetails({ userId: userIdForBank, employeeId: employee.id, data: { ...bank, updatedById: String(req.user._id) } });
+  }
   await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'payroll', recordId: employee.id, detail: `Saved salary structure for ${employee.name} (${employee.empId})` });
   res.json({ structure: shape('SalaryStructure', row) });
 }
@@ -325,21 +337,28 @@ async function daysOffByEmployee(employeeIds, period) {
 
 const NO_DAYS_OFF = { off: 0, approved: 0, unpaid: 0 };
 
-function employeeSnapshot(employee, structure) {
+// The employee's PAN/bank details (BankDetails), via their record or login.
+async function ownBankDetails(employee) {
+  return (await findBankDetails({ employeeId: employee.id, userId: await userIdForEmployee(employee) })) || {};
+}
+
+// BankDetails (employee-confirmed or HR-entered) win; the structure's own
+// PAN/bank columns are only a fallback for structures saved before BankDetails.
+function employeeSnapshot(employee, structure, own = {}) {
   return {
     name: employee.name,
     empId: employee.empId,
     desig: employee.desig,
     dept: employee.dept,
     joined: employee.joined,
-    pan: structure.pan || '',
+    pan: own.pan || structure.pan || '',
     uan: structure.uan || '',
     epfNumber: structure.epfNumber || '',
     esiNumber: structure.esiNumber || '',
     address: structure.address || '',
-    bankName: structure.bankName || '',
-    bankAccount: structure.bankAccount || '',
-    ifsc: structure.ifsc || '',
+    bankName: own.bankName || structure.bankName || '',
+    bankAccount: own.bankAccount || structure.bankAccount || '',
+    ifsc: own.ifsc || structure.ifsc || '',
     monthlyCtc: monthlyGross(structure),
   };
 }
@@ -368,11 +387,11 @@ function manualOnly(slip) {
   };
 }
 
-function slipData({ employee, structure, period, calc, userId }) {
+function slipData({ employee, structure, period, calc, userId, own }) {
   return {
     currency: calc.office.currency,
     office: calc.office.name,
-    employeeInfo: employeeSnapshot(employee, structure),
+    employeeInfo: employeeSnapshot(employee, structure, own),
     daysInMonth: period.daysInMonth,
     workingDays: calc.workingDays,
     daysWorked: calc.daysWorked,
@@ -452,7 +471,7 @@ async function generate(req, res) {
       daysOff: daysOff.get(employee.id),
       manualLines: existing ? manualOnly(existing) : undefined,
     });
-    const data = slipData({ employee, structure, period, calc, userId: String(req.user._id) });
+    const data = slipData({ employee, structure, period, calc, userId: String(req.user._id), own: await ownBankDetails(employee) });
     if (existing) {
       await prisma.salarySlip.update({ where: { id: existing.id }, data });
       result.refreshed++;
@@ -517,7 +536,7 @@ async function recalculateSlip(req, res) {
   const daysOff = await daysOffByEmployee([employee.id], period);
   const structure = shape('SalaryStructure', employee.salaryStructure);
   const calc = await calculate({ employee, structure, payroll, period, daysOff: daysOff.get(employee.id), lopOverride, manualLines: manualOnly(slip) });
-  const row = await prisma.salarySlip.update({ where: { id: slip.id }, data: slipData({ employee, structure, period, calc, userId: String(req.user._id) }) });
+  const row = await prisma.salarySlip.update({ where: { id: slip.id }, data: slipData({ employee, structure, period, calc, userId: String(req.user._id), own: await ownBankDetails(employee) }) });
   res.json({ slip: shape('SalarySlip', row) });
 }
 
