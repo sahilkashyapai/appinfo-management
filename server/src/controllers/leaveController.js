@@ -1,7 +1,5 @@
-const LeaveRequest = require('../models/LeaveRequest');
-const Employee = require('../models/Employee');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { prisma, shape, shapeMany, sel, INCLUDE } = require('../db');
+const { createNotification } = require('../services/notify');
 const getSettings = require('../utils/getSettings');
 const writeAudit = require('../utils/audit');
 const { sendPushToUser, sendPushToUsers } = require('../services/pushService');
@@ -10,10 +8,25 @@ const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 const { resolveScopeLocation, scopeEmployeeLocationFilter, scopeByEmployeeRef } = require('../utils/officeScope');
 
 const LEAVE_TYPES = ['casual', 'sick', 'earned'];
+const LEAVE_STATUSES = ['pending', 'on_hold', 'approved', 'rejected', 'cancelled'];
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+// The employee fields the decide/hold/comment handlers need (the old
+// `.populate('employeeRef', 'name managerRef userRef location')`), plus the
+// comments[] array every leave-request response carries.
+const WITH_EMPLOYEE = {
+  ...INCLUDE.LeaveRequest,
+  employeeRef: { select: sel('Employee', 'name managerRef userRef location') },
+};
 
 function daysBetweenInclusive(start, end) {
   return Math.round((end - start) / ONE_DAY_MS) + 1;
+}
+
+// An unknown status/type simply matched nothing on Mongo; Prisma rejects an
+// invalid enum value outright, so turn it into an always-empty filter.
+function enumFilter(value, allowed) {
+  return allowed.includes(value) ? value : { in: [] };
 }
 
 async function computeBalance(employeeId, year) {
@@ -21,11 +34,12 @@ async function computeBalance(employeeId, year) {
   const yearStart = new Date(year, 0, 1);
   const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
 
-  const used = await LeaveRequest.aggregate([
-    { $match: { employeeRef: employeeId, status: 'approved', startDate: { $gte: yearStart, $lte: yearEnd } } },
-    { $group: { _id: '$type', used: { $sum: '$days' } } },
-  ]);
-  const usedMap = Object.fromEntries(used.map((u) => [u._id, u.used]));
+  const used = await prisma.leaveRequest.groupBy({
+    by: ['type'],
+    where: { employeeId: String(employeeId), status: 'approved', startDate: { gte: yearStart, lte: yearEnd } },
+    _sum: { days: true },
+  });
+  const usedMap = Object.fromEntries(used.map((u) => [u.type, u._sum.days || 0]));
 
   const allocations = settings.leavePolicy.allocations;
   return Object.fromEntries(
@@ -41,7 +55,7 @@ async function notifyLeaveEvent({ recipientIds, icon, title, body, link = '/leav
   const ids = recipientIds.filter(Boolean).map(String);
   if (!ids.length) return;
   try {
-    await Promise.all(ids.map((id) => Notification.create({ recipientRef: id, icon, type: 'leave', title, body, link })));
+    await Promise.all(ids.map((id) => createNotification({ recipientId: id, icon, type: 'leave', title, body, link })));
   } catch (err) {
     console.error('[leave] failed to create notification:', err.message);
   }
@@ -54,50 +68,54 @@ async function notifyLeaveEvent({ recipientIds, icon, title, body, link = '/leav
 async function report(req, res) {
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
+  const employeeSelect = sel('Employee', 'name dept desig avatarIndex');
 
   let employees;
   if (isAdmin) {
     const filter = { status: 'active' };
-    await excludeSuperadminEmployees(filter, req.user.role, '_id');
+    await excludeSuperadminEmployees(filter);
     await scopeEmployeeLocationFilter(filter, req.user);
-    employees = await Employee.find(filter).select('name dept desig avatarIndex');
+    // Insertion order, as Mongo's natural order returned them.
+    employees = await prisma.employee.findMany({ where: filter, select: employeeSelect, orderBy: { createdAt: 'asc' } });
   } else {
     if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
-    employees = await Employee.find({ _id: req.user.employeeRef }).select('name dept desig avatarIndex');
+    employees = await prisma.employee.findMany({ where: { id: String(req.user.employeeRef) }, select: employeeSelect });
   }
 
   const settings = await getSettings();
   const allocations = settings.leavePolicy.allocations;
   const yearStart = new Date(year, 0, 1);
   const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-  const employeeIds = employees.map((e) => e._id);
+  const employeeIds = employees.map((e) => e.id);
 
   const [usedAgg, statusAgg] = await Promise.all([
-    LeaveRequest.aggregate([
-      { $match: { employeeRef: { $in: employeeIds }, status: 'approved', startDate: { $gte: yearStart, $lte: yearEnd } } },
-      { $group: { _id: { employeeRef: '$employeeRef', type: '$type' }, used: { $sum: '$days' } } },
-    ]),
-    LeaveRequest.aggregate([
-      { $match: { employeeRef: { $in: employeeIds }, startDate: { $gte: yearStart, $lte: yearEnd } } },
-      { $group: { _id: { employeeRef: '$employeeRef', status: '$status' }, count: { $sum: 1 } } },
-    ]),
+    prisma.leaveRequest.groupBy({
+      by: ['employeeId', 'type'],
+      where: { employeeId: { in: employeeIds }, status: 'approved', startDate: { gte: yearStart, lte: yearEnd } },
+      _sum: { days: true },
+    }),
+    prisma.leaveRequest.groupBy({
+      by: ['employeeId', 'status'],
+      where: { employeeId: { in: employeeIds }, startDate: { gte: yearStart, lte: yearEnd } },
+      _count: { _all: true },
+    }),
   ]);
 
   const usedMap = {};
   usedAgg.forEach((a) => {
-    const id = String(a._id.employeeRef);
+    const id = String(a.employeeId);
     usedMap[id] = usedMap[id] || {};
-    usedMap[id][a._id.type] = a.used;
+    usedMap[id][a.type] = a._sum.days || 0;
   });
   const statusMap = {};
   statusAgg.forEach((a) => {
-    const id = String(a._id.employeeRef);
+    const id = String(a.employeeId);
     statusMap[id] = statusMap[id] || {};
-    statusMap[id][a._id.status] = a.count;
+    statusMap[id][a.status] = a._count._all;
   });
 
   const items = employees.map((e) => {
-    const id = String(e._id);
+    const id = String(e.id);
     const used = usedMap[id] || {};
     const statuses = statusMap[id] || {};
     const byType = Object.fromEntries(
@@ -108,7 +126,7 @@ async function report(req, res) {
       })
     );
     return {
-      employeeId: e._id,
+      employeeId: e.id,
       name: e.name,
       dept: e.dept,
       desig: e.desig,
@@ -131,7 +149,7 @@ async function balance(req, res) {
   if (req.query.employeeId && APPROVER_ROLES.includes(req.user.role)) {
     const scopeLoc = await resolveScopeLocation(req.user);
     if (scopeLoc) {
-      const target = await Employee.findById(req.query.employeeId, 'location');
+      const target = await prisma.employee.findUnique({ where: { id: String(req.query.employeeId) }, select: { location: true } });
       if (target && target.location === scopeLoc) employeeRef = req.query.employeeId;
     } else {
       employeeRef = req.query.employeeId;
@@ -149,15 +167,18 @@ async function mine(req, res) {
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
 
-  const filter = { employeeRef: req.user.employeeRef };
+  const filter = { employeeId: String(req.user.employeeRef) };
   const [items, total] = await Promise.all([
-    LeaveRequest.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((pg - 1) * lim)
-      .limit(lim),
-    LeaveRequest.countDocuments(filter),
+    prisma.leaveRequest.findMany({
+      where: filter,
+      include: INCLUDE.LeaveRequest,
+      orderBy: { createdAt: 'desc' },
+      skip: (pg - 1) * lim,
+      take: lim,
+    }),
+    prisma.leaveRequest.count({ where: filter }),
   ]);
-  res.json({ items, total, page: pg, pages: Math.ceil(total / lim) || 1 });
+  res.json({ items: shapeMany('LeaveRequest', items), total, page: pg, pages: Math.ceil(total / lim) || 1 });
 }
 
 async function list(req, res) {
@@ -165,10 +186,10 @@ async function list(req, res) {
   const filter = {};
   // "pending" from the Approvals tab means "still needs a decision" — on-hold
   // requests are shown there too since they haven't been finally decided yet.
-  if (status === 'pending') filter.status = { $in: ['pending', 'on_hold'] };
-  else if (status && status !== 'all') filter.status = status;
-  if (type && type !== 'all') filter.type = type;
-  if (employeeRef) filter.employeeRef = employeeRef;
+  if (status === 'pending') filter.status = { in: ['pending', 'on_hold'] };
+  else if (status && status !== 'all') filter.status = enumFilter(status, LEAVE_STATUSES);
+  if (type && type !== 'all') filter.type = enumFilter(type, LEAVE_TYPES);
+  if (employeeRef) filter.employeeId = String(employeeRef);
 
   await excludeSuperadminEmployees(filter, req.user.role);
   await scopeByEmployeeRef(filter, req.user);
@@ -177,19 +198,25 @@ async function list(req, res) {
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
 
   const [items, total] = await Promise.all([
-    LeaveRequest.find(filter)
-      .populate('employeeRef', 'name avatarIndex dept desig managerRef userRef')
-      .sort({ createdAt: -1 })
-      .skip((pg - 1) * lim)
-      .limit(lim),
-    LeaveRequest.countDocuments(filter),
+    prisma.leaveRequest.findMany({
+      where: filter,
+      include: { ...INCLUDE.LeaveRequest, employeeRef: { select: sel('Employee', 'name avatarIndex dept desig managerRef userRef') } },
+      orderBy: { createdAt: 'desc' },
+      skip: (pg - 1) * lim,
+      take: lim,
+    }),
+    prisma.leaveRequest.count({ where: filter }),
   ]);
-  res.json({ items, total, page: pg, pages: Math.ceil(total / lim) || 1 });
+  res.json({ items: shapeMany('LeaveRequest', items), total, page: pg, pages: Math.ceil(total / lim) || 1 });
 }
 
 async function getOne(req, res) {
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name avatarIndex dept desig managerRef userRef location');
-  if (!request) return res.status(404).json({ message: 'Leave request not found.' });
+  const row = await prisma.leaveRequest.findUnique({
+    where: { id: String(req.params.id) },
+    include: { ...INCLUDE.LeaveRequest, employeeRef: { select: sel('Employee', 'name avatarIndex dept desig managerRef userRef location') } },
+  });
+  if (!row) return res.status(404).json({ message: 'Leave request not found.' });
+  const request = shape('LeaveRequest', row);
 
   const isOwner = String(request.employeeRef._id) === String(req.user.employeeRef);
   const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
@@ -215,44 +242,50 @@ async function create(req, res) {
   }
   const days = daysBetweenInclusive(start, end);
 
-  const employee = await Employee.findById(req.user.employeeRef);
+  const employee = await prisma.employee.findUnique({ where: { id: String(req.user.employeeRef) } });
   if (!employee) return res.status(404).json({ message: 'Employee record not found.' });
 
   const settings = await getSettings();
   if (settings.leavePolicy.blockOverlapping) {
-    const overlapping = await LeaveRequest.findOne({
-      employeeRef: employee._id,
-      status: { $in: ['pending', 'approved'] },
-      startDate: { $lte: end },
-      endDate: { $gte: start },
+    const overlapping = await prisma.leaveRequest.findFirst({
+      where: {
+        employeeId: employee.id,
+        status: { in: ['pending', 'approved'] },
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+      select: { id: true },
     });
     if (overlapping) return res.status(400).json({ message: 'This overlaps an existing pending or approved leave request.' });
   }
 
-  const bal = await computeBalance(employee._id, start.getFullYear());
+  const bal = await computeBalance(employee.id, start.getFullYear());
   if (days > bal[type].remaining) {
     return res.status(400).json({ message: `Only ${bal[type].remaining} day(s) of ${type} leave remaining.` });
   }
 
-  const request = await LeaveRequest.create({ employeeRef: employee._id, type, startDate: start, endDate: end, days, reason: reason.trim() });
+  const request = await prisma.leaveRequest.create({
+    data: { employeeId: employee.id, type, startDate: start, endDate: end, days, reason: reason.trim() },
+    include: INCLUDE.LeaveRequest,
+  });
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'CREATE',
     entity: 'leave_requests',
-    recordId: request._id,
+    recordId: request.id,
     detail: `Requested ${type} leave: ${start.toDateString()} – ${end.toDateString()}`,
   });
 
   // A superadmin scoped to another office shouldn't be pinged about this
   // employee's request — only unscoped approvers and this employee's own office.
-  const approverUsers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id managedLocation');
+  const approverUsers = await prisma.user.findMany({ where: { role: { in: APPROVER_ROLES } }, select: { id: true, managedLocation: true } });
   const recipientIds = approverUsers
     .filter((u) => !u.managedLocation || u.managedLocation === employee.location)
-    .map((u) => u._id);
-  if (employee.managerRef) {
-    const manager = await Employee.findById(employee.managerRef, 'userRef');
-    if (manager?.userRef) recipientIds.push(manager.userRef);
+    .map((u) => u.id);
+  if (employee.managerId) {
+    const manager = await prisma.employee.findUnique({ where: { id: employee.managerId }, select: { userId: true } });
+    if (manager?.userId) recipientIds.push(manager.userId);
   }
   notifyLeaveEvent({
     recipientIds,
@@ -262,131 +295,137 @@ async function create(req, res) {
     link: '/leave?tab=approvals',
   });
 
-  res.status(201).json({ item: request });
+  res.status(201).json({ item: shape('LeaveRequest', request) });
 }
 
 function decide(status) {
   return async function handler(req, res) {
     const { note } = req.body;
-    const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
+    const request = await prisma.leaveRequest.findUnique({ where: { id: String(req.params.id) }, include: WITH_EMPLOYEE });
     if (!request) return res.status(404).json({ message: 'Leave request not found.' });
     if (!['pending', 'on_hold'].includes(request.status)) return res.status(400).json({ message: 'This request has already been decided.' });
 
-    const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
+    const isManager = request.employeeRef.managerId && String(request.employeeRef.managerId) === String(req.user.employeeRef);
     const scopeLoc = await resolveScopeLocation(req.user);
     const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
     if (!isApprover && !isManager) {
       return res.status(403).json({ message: 'You do not have permission to decide this request.' });
     }
 
-    request.status = status;
-    request.approverRef = req.user._id;
-    request.approverNote = note || '';
-    request.decidedAt = new Date();
-    await request.save();
+    const updated = await prisma.leaveRequest.update({
+      where: { id: request.id },
+      data: { status, approverId: String(req.user._id), approverNote: note || '', decidedAt: new Date() },
+      include: WITH_EMPLOYEE,
+    });
 
     await writeAudit({
       ip: req.ip,
       user: req.user,
       action: 'UPDATE',
       entity: 'leave_requests',
-      recordId: request._id,
+      recordId: request.id,
       detail: `${status === 'approved' ? 'Approved' : 'Rejected'} ${request.type} leave for ${request.employeeRef.name} (${request.startDate.toDateString()} – ${request.endDate.toDateString()})`,
     });
 
-    if (request.employeeRef.userRef) {
+    if (request.employeeRef.userId) {
       notifyLeaveEvent({
-        recipientIds: [request.employeeRef.userRef],
+        recipientIds: [request.employeeRef.userId],
         icon: status === 'approved' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark',
         title: `Leave request ${status}`,
         body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) was ${status}.${note ? ` Note: ${note}` : ''}`,
       });
     }
 
-    res.json({ item: request });
+    res.json({ item: shape('LeaveRequest', updated) });
   };
 }
 
 async function hold(req, res) {
   const { note } = req.body;
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
+  const request = await prisma.leaveRequest.findUnique({ where: { id: String(req.params.id) }, include: WITH_EMPLOYEE });
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
   if (request.status !== 'pending') return res.status(400).json({ message: 'Only pending requests can be put on hold.' });
 
-  const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
+  const isManager = request.employeeRef.managerId && String(request.employeeRef.managerId) === String(req.user.employeeRef);
   const scopeLoc = await resolveScopeLocation(req.user);
   const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
   if (!isApprover && !isManager) {
     return res.status(403).json({ message: 'You do not have permission to update this request.' });
   }
 
-  request.status = 'on_hold';
-  request.approverNote = note || '';
-  await request.save();
+  const updated = await prisma.leaveRequest.update({
+    where: { id: request.id },
+    data: { status: 'on_hold', approverNote: note || '' },
+    include: WITH_EMPLOYEE,
+  });
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'leave_requests',
-    recordId: request._id,
+    recordId: request.id,
     detail: `Put ${request.type} leave for ${request.employeeRef.name} on hold`,
   });
 
-  if (request.employeeRef.userRef) {
+  if (request.employeeRef.userId) {
     notifyLeaveEvent({
-      recipientIds: [request.employeeRef.userRef],
+      recipientIds: [request.employeeRef.userId],
       icon: 'fa-solid fa-pause',
       title: 'Leave request on hold',
       body: `Your ${request.type} leave request (${request.startDate.toDateString()} – ${request.endDate.toDateString()}) is on hold.${note ? ` Note: ${note}` : ''}`,
     });
   }
 
-  res.json({ item: request });
+  res.json({ item: shape('LeaveRequest', updated) });
 }
 
 async function addComment(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text is required.' });
 
-  const request = await LeaveRequest.findById(req.params.id).populate('employeeRef', 'name managerRef userRef location');
+  const request = await prisma.leaveRequest.findUnique({ where: { id: String(req.params.id) }, include: WITH_EMPLOYEE });
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
 
-  const isOwner = String(request.employeeRef._id) === String(req.user.employeeRef);
-  const isManager = request.employeeRef.managerRef && String(request.employeeRef.managerRef) === String(req.user.employeeRef);
+  const isOwner = String(request.employeeRef.id) === String(req.user.employeeRef);
+  const isManager = request.employeeRef.managerId && String(request.employeeRef.managerId) === String(req.user.employeeRef);
   const scopeLoc = await resolveScopeLocation(req.user);
   const isApprover = APPROVER_ROLES.includes(req.user.role) && (!scopeLoc || request.employeeRef.location === scopeLoc);
   if (!isOwner && !isManager && !isApprover) {
     return res.status(403).json({ message: 'You do not have permission to comment on this request.' });
   }
 
-  request.comments.push({ authorRef: req.user._id, text: text.trim() });
-  await request.save();
+  // Comments live in leave_comments now; bump the request's updatedAt too, as
+  // saving the parent document did when comments were embedded.
+  const updated = await prisma.leaveRequest.update({
+    where: { id: request.id },
+    data: { updatedAt: new Date(), comments: { create: { authorId: String(req.user._id), text: text.trim() } } },
+    include: WITH_EMPLOYEE,
+  });
 
-  if (!isOwner && request.employeeRef.userRef) {
+  if (!isOwner && request.employeeRef.userId) {
     notifyLeaveEvent({
-      recipientIds: [request.employeeRef.userRef],
+      recipientIds: [request.employeeRef.userId],
       icon: 'fa-solid fa-comment-dots',
       title: 'New comment on your leave request',
       body: `${req.user.name}: ${text.trim()}`,
     });
   }
 
-  res.status(201).json({ item: request });
+  res.status(201).json({ item: shape('LeaveRequest', updated) });
 }
 
 async function cancel(req, res) {
-  const request = await LeaveRequest.findById(req.params.id);
+  const request = await prisma.leaveRequest.findUnique({ where: { id: String(req.params.id) }, select: { id: true, employeeId: true, status: true } });
   if (!request) return res.status(404).json({ message: 'Leave request not found.' });
-  if (String(request.employeeRef) !== String(req.user.employeeRef)) {
+  if (String(request.employeeId) !== String(req.user.employeeRef)) {
     return res.status(403).json({ message: 'You can only cancel your own requests.' });
   }
   if (request.status !== 'pending') return res.status(400).json({ message: 'Only pending requests can be cancelled.' });
 
-  request.status = 'cancelled';
-  await request.save();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'leave_requests', recordId: request._id, detail: 'Cancelled leave request' });
-  res.json({ item: request });
+  const updated = await prisma.leaveRequest.update({ where: { id: request.id }, data: { status: 'cancelled' }, include: INCLUDE.LeaveRequest });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'leave_requests', recordId: request.id, detail: 'Cancelled leave request' });
+  res.json({ item: shape('LeaveRequest', updated) });
 }
 
 module.exports = { balance, mine, list, getOne, create, approve: decide('approved'), reject: decide('rejected'), hold, addComment, cancel, report };

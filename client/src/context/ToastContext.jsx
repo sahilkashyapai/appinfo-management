@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
+import { warnMissingProvider } from '../utils/missingProvider';
 
 const ToastContext = createContext(null);
 
@@ -42,6 +43,13 @@ export function ToastProvider({ children }) {
   );
 }
 
+function noToast() {}
+
 export function useToast() {
-  return useContext(ToastContext);
+  const toast = useContext(ToastContext);
+  if (!toast) {
+    warnMissingProvider('useToast');
+    return noToast;
+  }
+  return toast;
 }

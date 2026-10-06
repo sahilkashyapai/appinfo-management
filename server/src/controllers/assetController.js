@@ -1,30 +1,40 @@
-const Asset = require('../models/Asset');
-const Employee = require('../models/Employee');
+const { AssetStatus, AssetCategory } = require('@prisma/client');
+const { prisma, shape, shapeMany, sel, andWhere } = require('../db');
 const writeAudit = require('../utils/audit');
 const { ADMIN_ROLES } = require('../utils/roles');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 const { resolveScopeLocation, isOutsideScope, scopedEmployeeIds } = require('../utils/officeScope');
 
+const NO_MATCH = { id: { in: [] } };
+
 async function list(req, res) {
   const { status, category, employeeRef, page = 1, limit = 25 } = req.query;
-  const filter = {};
-  if (status && status !== 'all') filter.status = status;
-  if (category && category !== 'all') filter.category = category;
+  const where = {};
+  // An unknown status/category simply matched nothing on MongoDB; Prisma would
+  // reject it as an invalid enum value, so filter to zero results instead.
+  if (status && status !== 'all') {
+    if (Object.values(AssetStatus).includes(status)) where.status = status;
+    else andWhere(where, NO_MATCH);
+  }
+  if (category && category !== 'all') {
+    if (Object.values(AssetCategory).includes(category)) where.category = category;
+    else andWhere(where, NO_MATCH);
+  }
 
   if (!ADMIN_ROLES.includes(req.user.role)) {
     if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
-    filter.employeeRef = req.user.employeeRef;
+    where.employeeId = String(req.user.employeeRef);
   } else {
-    if (employeeRef) filter.employeeRef = employeeRef;
-    await excludeSuperadminEmployees(filter, req.user.role);
+    if (employeeRef) where.employeeId = String(employeeRef);
+    await excludeSuperadminEmployees(where, req.user.role);
 
     // Assets aren't tied to an office themselves — a scoped superadmin sees
     // unassigned inventory plus anything assigned to their own office's employees.
     const scopedIds = await scopedEmployeeIds(req.user);
     if (scopedIds && !employeeRef) {
-      filter.$or = [{ employeeRef: null }, { employeeRef: { $in: scopedIds } }];
+      andWhere(where, { OR: [{ employeeId: null }, { employeeId: { in: scopedIds } }] });
     } else if (scopedIds && employeeRef && !scopedIds.some((id) => String(id) === String(employeeRef))) {
-      filter._id = { $in: [] }; // that employee isn't in this office — zero results
+      andWhere(where, NO_MATCH); // that employee isn't in this office — zero results
     }
   }
 
@@ -32,69 +42,72 @@ async function list(req, res) {
   const lim = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
 
   const [items, total] = await Promise.all([
-    Asset.find(filter)
-      .populate('employeeRef', 'name avatarIndex dept')
-      .sort({ createdAt: -1 })
-      .skip((pg - 1) * lim)
-      .limit(lim),
-    Asset.countDocuments(filter),
+    prisma.asset.findMany({
+      where,
+      include: { employeeRef: { select: sel('Employee', 'name avatarIndex dept') } },
+      orderBy: { createdAt: 'desc' },
+      skip: (pg - 1) * lim,
+      take: lim,
+    }),
+    prisma.asset.count({ where }),
   ]);
-  res.json({ items, total, page: pg, pages: Math.ceil(total / lim) || 1 });
+  res.json({ items: shapeMany('Asset', items), total, page: pg, pages: Math.ceil(total / lim) || 1 });
 }
 
 async function create(req, res) {
   const { name, category, serialNumber, notes, employeeRef } = req.body;
-  if (!name || !name.trim()) return res.status(400).json({ message: 'name is required.' });
+  if (!name || !String(name).trim()) return res.status(400).json({ message: 'name is required.' });
 
   let employee = null;
   if (employeeRef) {
-    employee = await Employee.findById(employeeRef);
+    employee = await prisma.employee.findUnique({ where: { id: String(employeeRef) } });
     if (!employee) return res.status(404).json({ message: 'Employee not found.' });
     if (await isOutsideScope(req.user, employee.location)) {
       return res.status(404).json({ message: 'Employee not found.' });
     }
   }
 
-  const asset = await Asset.create({
-    name: name.trim(),
-    category: category || 'other',
-    serialNumber: serialNumber || '',
-    notes: notes || '',
-    employeeRef: employee?._id || null,
-    status: employee ? 'assigned' : 'unassigned',
-    assignedAt: employee ? new Date() : null,
+  const asset = await prisma.asset.create({
+    data: {
+      name: String(name).trim(),
+      category: category || 'other',
+      serialNumber: String(serialNumber || '').trim(),
+      notes: notes ? String(notes) : '',
+      employeeId: employee?.id || null,
+      status: employee ? 'assigned' : 'unassigned',
+      assignedAt: employee ? new Date() : null,
+    },
   });
-  await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'assets', recordId: asset._id, detail: `Added asset: ${asset.name}` });
-  res.status(201).json({ item: asset });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'assets', recordId: asset.id, detail: `Added asset: ${asset.name}` });
+  res.status(201).json({ item: shape('Asset', asset) });
 }
 
 async function assign(req, res) {
   const { employeeRef } = req.body;
   if (!employeeRef) return res.status(400).json({ message: 'employeeRef is required.' });
-  const employee = await Employee.findById(employeeRef);
+  const employee = await prisma.employee.findUnique({ where: { id: String(employeeRef) } });
   if (!employee) return res.status(404).json({ message: 'Employee not found.' });
   if (await isOutsideScope(req.user, employee.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
-  const asset = await Asset.findById(req.params.id);
-  if (!asset) return res.status(404).json({ message: 'Asset not found.' });
+  const existing = await prisma.asset.findUnique({ where: { id: String(req.params.id) }, select: { id: true } });
+  if (!existing) return res.status(404).json({ message: 'Asset not found.' });
 
-  asset.employeeRef = employee._id;
-  asset.status = 'assigned';
-  asset.assignedAt = new Date();
-  asset.returnedAt = null;
-  await asset.save();
+  const asset = await prisma.asset.update({
+    where: { id: existing.id },
+    data: { employeeId: employee.id, status: 'assigned', assignedAt: new Date(), returnedAt: null },
+  });
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'assets',
-    recordId: asset._id,
+    recordId: asset.id,
     detail: `Assigned asset "${asset.name}" to ${employee.name}`,
   });
-  res.json({ item: asset });
+  res.json({ item: shape('Asset', asset) });
 }
 
 async function updateStatus(req, res) {
@@ -102,39 +115,41 @@ async function updateStatus(req, res) {
   if (!['returned', 'damaged', 'lost'].includes(status)) {
     return res.status(400).json({ message: 'status must be one of returned, damaged, lost.' });
   }
-  const asset = await Asset.findById(req.params.id).populate('employeeRef', 'location');
-  if (!asset) return res.status(404).json({ message: 'Asset not found.' });
-  if (asset.employeeRef && (await isOutsideScope(req.user, asset.employeeRef.location))) {
+  const withLocation = { employeeRef: { select: sel('Employee', 'location') } };
+  const existing = await prisma.asset.findUnique({ where: { id: String(req.params.id) }, include: withLocation });
+  if (!existing) return res.status(404).json({ message: 'Asset not found.' });
+  if (existing.employeeRef && (await isOutsideScope(req.user, existing.employeeRef.location))) {
     return res.status(404).json({ message: 'Asset not found.' });
   }
 
-  asset.status = status;
-  if (status === 'returned') asset.returnedAt = new Date();
-  if (notes !== undefined) asset.notes = notes;
-  await asset.save();
+  const data = { status };
+  if (status === 'returned') data.returnedAt = new Date();
+  if (notes !== undefined) data.notes = notes == null ? null : String(notes);
+  const asset = await prisma.asset.update({ where: { id: existing.id }, data, include: withLocation });
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'assets',
-    recordId: asset._id,
+    recordId: asset.id,
     detail: `Marked asset "${asset.name}" as ${status}`,
   });
-  res.json({ item: asset });
+  res.json({ item: shape('Asset', asset) });
 }
 
 async function remove(req, res) {
+  const existing = await prisma.asset.findUnique({
+    where: { id: String(req.params.id) },
+    include: { employeeRef: { select: sel('Employee', 'location') } },
+  });
   const scopeLoc = await resolveScopeLocation(req.user);
-  if (scopeLoc) {
-    const existing = await Asset.findById(req.params.id).populate('employeeRef', 'location');
-    if (existing?.employeeRef && existing.employeeRef.location !== scopeLoc) {
-      return res.status(404).json({ message: 'Asset not found.' });
-    }
+  if (scopeLoc && existing?.employeeRef && existing.employeeRef.location !== scopeLoc) {
+    return res.status(404).json({ message: 'Asset not found.' });
   }
-  const asset = await Asset.findByIdAndDelete(req.params.id);
-  if (!asset) return res.status(404).json({ message: 'Asset not found.' });
-  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'assets', recordId: asset._id, detail: `Deleted asset: ${asset.name}` });
+  if (!existing) return res.status(404).json({ message: 'Asset not found.' });
+  await prisma.asset.deleteMany({ where: { id: existing.id } });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'assets', recordId: existing.id, detail: `Deleted asset: ${existing.name}` });
   res.json({ message: 'Asset deleted.' });
 }
 

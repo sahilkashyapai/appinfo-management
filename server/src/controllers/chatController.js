@@ -1,7 +1,5 @@
-const Conversation = require('../models/Conversation');
-const Message = require('../models/Message');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { prisma, shape, shapeMany, sel, INCLUDE, andWhere } = require('../db');
+const { createNotification } = require('../services/notify');
 const { emitToUsers, isUserOnline } = require('../realtime/io');
 const { sendPushToUser } = require('../services/pushService');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
@@ -11,8 +9,18 @@ const MEMBER_SELECT = 'name avatarIndex avatarUrl role';
 const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_CHARS = 4 * 1024 * 1024; // ~3MB decoded
 
+// Members populated as user objects (was `.populate('members', MEMBER_SELECT)`).
+const CONVERSATION_POPULATED = { members: { select: { user: { select: sel('User', MEMBER_SELECT) } } } };
+const MESSAGE_POPULATED = { ...INCLUDE.Message, senderRef: { select: sel('User', MEMBER_SELECT) } };
+
+// Loads a conversation with `members` as a plain array of user ids.
+async function findConversation(id) {
+  const row = await prisma.conversation.findUnique({ where: { id: String(id) }, include: INCLUDE.Conversation });
+  return row ? shape('Conversation', row) : null;
+}
+
 function isMember(conversation, userId) {
-  return conversation.members.some((m) => String(m) === String(userId));
+  return conversation.members.some((m) => String(m?._id ?? m) === String(userId));
 }
 
 function validateAttachments(attachments) {
@@ -27,37 +35,41 @@ function validateAttachments(attachments) {
 }
 
 async function listUsers(req, res) {
-  const filter = { isActive: true, approvalStatus: 'approved', _id: { $ne: req.user._id } };
-  await excludeSuperadminUsers(filter, req.user.role, '_id');
+  const where = { isActive: true, approvalStatus: 'approved', id: { not: String(req.user._id) } };
+  await excludeSuperadminUsers(where, req.user.role, 'id');
 
   // Office isolation only limits contact with other office-bound people —
   // company-wide admin/unscoped-superadmin contacts stay reachable from any office.
   const scopedIds = await scopedUserIds(req.user);
   if (scopedIds) {
-    filter.$or = [
-      { role: 'admin' },
-      { role: 'superadmin', managedLocation: { $in: [null, ''] } },
-      { _id: { $in: scopedIds } },
-    ];
+    andWhere(where, {
+      OR: [{ role: 'admin' }, { role: 'superadmin', managedLocation: '' }, { id: { in: scopedIds } }],
+    });
   }
 
-  const users = await User.find(filter, MEMBER_SELECT).sort({ name: 1 });
-  res.json({ items: users });
+  const users = await prisma.user.findMany({ where, select: sel('User', MEMBER_SELECT), orderBy: { name: 'asc' } });
+  res.json({ items: shapeMany('User', users) });
 }
 
 async function listConversations(req, res) {
-  const conversations = await Conversation.find({ members: req.user._id })
-    .sort({ lastMessageAt: -1 })
-    .populate('members', MEMBER_SELECT);
+  const uid = String(req.user._id);
+  const conversations = await prisma.conversation.findMany({
+    where: { members: { some: { userId: uid } } },
+    orderBy: { lastMessageAt: 'desc' },
+    include: CONVERSATION_POPULATED,
+  });
 
   const items = await Promise.all(
     conversations.map(async (c) => {
-      const unreadCount = await Message.countDocuments({
-        conversationRef: c._id,
-        senderRef: { $ne: req.user._id },
-        readBy: { $ne: req.user._id },
+      const unreadCount = await prisma.message.count({
+        where: {
+          conversationId: c.id,
+          // Mongo's $ne also matched a missing sender, so a deleted user's messages still count.
+          OR: [{ senderId: null }, { senderId: { not: uid } }],
+          readBy: { none: { userId: uid } },
+        },
       });
-      return { ...c.toObject(), unreadCount };
+      return { ...shape('Conversation', c), unreadCount };
     })
   );
 
@@ -73,7 +85,7 @@ async function createConversation(req, res) {
   const otherIds = [...new Set(memberIds.map(String))].filter((id) => id !== String(req.user._id));
   if (otherIds.length === 0) return res.status(400).json({ message: 'Pick at least one other person to message.' });
 
-  const others = await User.find({ _id: { $in: otherIds } }, '_id');
+  const others = await prisma.user.findMany({ where: { id: { in: otherIds } }, select: { id: true } });
   if (others.length !== otherIds.length) return res.status(400).json({ message: 'One or more selected users were not found.' });
 
   const group = !!isGroup || otherIds.length > 1;
@@ -85,67 +97,80 @@ async function createConversation(req, res) {
   const allMemberIds = [String(req.user._id), ...otherIds];
 
   if (!group) {
-    const existing = await Conversation.findOne({
-      isGroup: false,
-      members: { $size: 2, $all: allMemberIds },
-    }).populate('members', MEMBER_SELECT);
-    if (existing) return res.json({ conversation: existing });
+    // Exactly these two members: every member is one of them, and both are present.
+    const existing = await prisma.conversation.findFirst({
+      where: {
+        isGroup: false,
+        members: { every: { userId: { in: allMemberIds } } },
+        AND: allMemberIds.map((userId) => ({ members: { some: { userId } } })),
+      },
+      include: CONVERSATION_POPULATED,
+    });
+    if (existing) return res.json({ conversation: shape('Conversation', existing) });
   }
 
-  const conversation = await Conversation.create({
-    isGroup: group,
-    name: group ? name.trim() : '',
-    members: allMemberIds,
-    createdBy: req.user._id,
+  const row = await prisma.conversation.create({
+    data: {
+      isGroup: group,
+      name: group ? name.trim() : '',
+      createdById: String(req.user._id),
+      members: { create: allMemberIds.map((userId) => ({ userId })) },
+    },
+    include: CONVERSATION_POPULATED,
   });
-  await conversation.populate('members', MEMBER_SELECT);
+  const conversation = shape('Conversation', row);
 
   emitToUsers(otherIds, 'conversation:new', { conversation });
   res.status(201).json({ conversation });
 }
 
 async function updateConversation(req, res) {
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await findConversation(req.params.id);
   if (!conversation) return res.status(404).json({ message: 'Conversation not found.' });
   if (!isMember(conversation, req.user._id)) return res.status(403).json({ message: 'You are not part of this conversation.' });
   if (!conversation.isGroup) return res.status(400).json({ message: 'Only group conversations can be edited.' });
 
   const { name, addMemberIds } = req.body;
+  const data = {};
   if (name !== undefined) {
     if (String(conversation.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Only the group creator can rename it.' });
     }
     if (!name.trim()) return res.status(400).json({ message: 'Group name cannot be empty.' });
-    conversation.name = name.trim();
+    data.name = name.trim();
   }
   if (Array.isArray(addMemberIds) && addMemberIds.length) {
     const toAdd = addMemberIds.map(String).filter((id) => !isMember(conversation, id));
-    const found = await User.find({ _id: { $in: toAdd } }, '_id');
-    conversation.members.push(...found.map((u) => u._id));
+    const found = await prisma.user.findMany({ where: { id: { in: toAdd } }, select: { id: true } });
+    if (found.length) {
+      data.members = { createMany: { data: found.map((u) => ({ userId: u.id })), skipDuplicates: true } };
+    }
   }
 
-  await conversation.save();
-  await conversation.populate('members', MEMBER_SELECT);
-  emitToUsers(conversation.members.map((m) => m._id), 'conversation:updated', { conversation });
-  res.json({ conversation });
+  const row = await prisma.conversation.update({ where: { id: conversation.id }, data, include: CONVERSATION_POPULATED });
+  const updated = shape('Conversation', row);
+  emitToUsers(updated.members.map((m) => m._id), 'conversation:updated', { conversation: updated });
+  res.json({ conversation: updated });
 }
 
 async function getMessages(req, res) {
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await findConversation(req.params.id);
   if (!conversation) return res.status(404).json({ message: 'Conversation not found.' });
   if (!isMember(conversation, req.user._id)) return res.status(403).json({ message: 'You are not part of this conversation.' });
 
   const { before, limit = 30 } = req.query;
-  const filter = { conversationRef: conversation._id };
-  if (before) filter.createdAt = { $lt: new Date(before) };
+  const where = { conversationId: conversation.id };
+  if (before) where.createdAt = { lt: new Date(before) };
 
   const lim = Math.min(Math.max(parseInt(limit, 10) || 30, 1), 100);
-  const messages = await Message.find(filter)
-    .sort({ createdAt: -1 })
-    .limit(lim)
-    .populate('senderRef', MEMBER_SELECT);
+  const messages = await prisma.message.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: lim,
+    include: MESSAGE_POPULATED,
+  });
 
-  res.json({ items: messages.reverse() });
+  res.json({ items: shapeMany('Message', messages).reverse() });
 }
 
 async function sendMessage(req, res) {
@@ -156,22 +181,36 @@ async function sendMessage(req, res) {
   const attachmentError = validateAttachments(attachments);
   if (attachmentError) return res.status(400).json({ message: attachmentError });
 
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await findConversation(req.params.id);
   if (!conversation) return res.status(404).json({ message: 'Conversation not found.' });
   if (!isMember(conversation, req.user._id)) return res.status(403).json({ message: 'You are not part of this conversation.' });
 
-  const message = await Message.create({
-    conversationRef: conversation._id,
-    senderRef: req.user._id,
-    text: text?.trim() || '',
-    attachments: attachments || [],
-    readBy: [req.user._id],
+  const row = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId: String(req.user._id),
+      text: text?.trim() || '',
+      attachments: {
+        create: (attachments || []).map((a, position) => ({
+          position,
+          name: String(a.name || '').slice(0, 255),
+          type: String(a.type || '').slice(0, 100),
+          url: a.url,
+        })),
+      },
+      readBy: { create: [{ userId: String(req.user._id) }] },
+    },
+    include: MESSAGE_POPULATED,
   });
-  await message.populate('senderRef', MEMBER_SELECT);
+  const message = shape('Message', row);
 
-  conversation.lastMessageAt = message.createdAt;
-  conversation.lastMessageText = message.text || (message.attachments.length ? 'Attachment' : '');
-  await conversation.save();
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: {
+      lastMessageAt: message.createdAt,
+      lastMessageText: message.text || (message.attachments.length ? 'Attachment' : ''),
+    },
+  });
 
   emitToUsers(conversation.members, 'message:new', { conversationId: String(conversation._id), message });
 
@@ -183,7 +222,7 @@ async function sendMessage(req, res) {
   conversation.members
     .filter((id) => String(id) !== String(req.user._id) && !isUserOnline(id))
     .forEach((id) => {
-      Notification.create({ recipientRef: id, icon: 'fa-solid fa-comment-dots', type: 'chat', title: notifyTitle, body: notifyBody, link: notifyLink }).catch((e) =>
+      createNotification({ recipientId: id, icon: 'fa-solid fa-comment-dots', type: 'chat', title: notifyTitle, body: notifyBody, link: notifyLink }).catch((e) =>
         console.error('[chat] failed to create notification:', e.message)
       );
       sendPushToUser(id, { title: notifyTitle, body: notifyBody, url: notifyLink }).catch((e) => console.error('[push] chat message failed:', e.message));
@@ -193,14 +232,18 @@ async function sendMessage(req, res) {
 }
 
 async function markRead(req, res) {
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await findConversation(req.params.id);
   if (!conversation) return res.status(404).json({ message: 'Conversation not found.' });
   if (!isMember(conversation, req.user._id)) return res.status(403).json({ message: 'You are not part of this conversation.' });
 
-  await Message.updateMany(
-    { conversationRef: conversation._id, readBy: { $ne: req.user._id } },
-    { $addToSet: { readBy: req.user._id } }
-  );
+  const uid = String(req.user._id);
+  const unread = await prisma.message.findMany({
+    where: { conversationId: conversation.id, readBy: { none: { userId: uid } } },
+    select: { id: true },
+  });
+  if (unread.length) {
+    await prisma.messageRead.createMany({ data: unread.map((m) => ({ messageId: m.id, userId: uid })), skipDuplicates: true });
+  }
   res.json({ message: 'Marked as read.' });
 }
 

@@ -1,15 +1,14 @@
-const User = require('../models/User');
-const Employee = require('../models/Employee');
+const prisma = require('../db/prisma');
 const getSettings = require('../utils/getSettings');
 const { sendMail } = require('./emailService');
 
-// Every in-app notification is mirrored to email automatically (see the
-// post-save hook in models/Notification.js) — no controller has to remember to
+// Every in-app notification is mirrored to email automatically (see
+// services/notify.js) — no controller has to remember to
 // send one. Chat is skipped: a mail per message would flood inboxes.
 const SKIP_TYPES = ['chat'];
 
-// Broadcasts (recipientRef: null) go to everyone, so only company-wide news is
-// emailed. For birthday/anniversary the celebrant (aboutEmployeeRef) is left
+// Broadcasts (recipientId: null) go to everyone, so only company-wide news is
+// emailed. For birthday/anniversary the celebrant (aboutEmployeeId) is left
 // out — they already get their own personal wish mail from cronJobs.js.
 const BROADCAST_EMAIL_TYPES = ['announcement', 'hiring', 'event', 'birthday', 'anniversary'];
 
@@ -48,8 +47,8 @@ async function emailForNotification(notification) {
   const settings = await getSettings();
   if (!settings.notifications.emailDelivery) return;
 
-  if (notification.recipientRef) {
-    const user = await User.findById(notification.recipientRef, 'name email isActive');
+  if (notification.recipientId) {
+    const user = await prisma.user.findUnique({ where: { id: notification.recipientId }, select: { name: true, email: true, isActive: true } });
     if (!user || !user.isActive || !user.email) return;
     const { subject, html } = renderEmail(notification, user.name);
     await sendMail({ to: user.email, subject, html });
@@ -57,10 +56,10 @@ async function emailForNotification(notification) {
   }
 
   if (!BROADCAST_EMAIL_TYPES.includes(notification.type)) return;
-  const users = await User.find({ isActive: true, email: { $ne: '' } }, 'email');
+  const users = await prisma.user.findMany({ where: { isActive: true, email: { not: '' } }, select: { email: true } });
   let excluded = '';
-  if (notification.aboutEmployeeRef) {
-    const about = await Employee.findById(notification.aboutEmployeeRef, 'email');
+  if (notification.aboutEmployeeId) {
+    const about = await prisma.employee.findUnique({ where: { id: notification.aboutEmployeeId }, select: { email: true } });
     excluded = String(about?.email || '').toLowerCase();
   }
   const emails = [...new Set(users.map((u) => u.email).filter((e) => e && e.toLowerCase() !== excluded))];

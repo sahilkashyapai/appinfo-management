@@ -1,72 +1,64 @@
-const User = require('../models/User');
+const prisma = require('../db/prisma');
+const { andWhere } = require('../db');
 const { ADMIN_ROLES } = require('./roles');
+
+// All helpers here take and return a Prisma `where` object, adding a
+// `{ [field]: { notIn: ids } }` condition. `field` is the Prisma column name
+// (e.g. 'id', 'employeeId', 'userId'), not the old Mongo ref name.
 
 // A proadmin has no Employee record and is hidden from absolutely everyone,
 // including superadmins — the only account type still hidden by design.
 // Superadmin accounts are fully visible to everyone now, just like any other
 // employee/role.
 async function proadminUserIds() {
-  const proadmins = await User.find({ role: 'proadmin' }, '_id');
-  return proadmins.map((u) => u._id);
+  const proadmins = await prisma.user.findMany({ where: { role: 'proadmin' }, select: { id: true } });
+  return proadmins.map((u) => u.id);
 }
 
-// Employee _ids linked to an admin or superadmin login — used to keep daily
+// Employee ids linked to an admin or superadmin login — used to keep daily
 // attendance/leave status private from plain employees even though the
 // employee directory itself shows admins/superadmins like anyone else.
 async function adminEmployeeIds() {
-  const admins = await User.find({ role: { $in: ADMIN_ROLES } }, 'employeeRef');
-  return admins.map((u) => u.employeeRef).filter(Boolean);
+  const admins = await prisma.user.findMany({ where: { role: { in: ADMIN_ROLES } }, select: { employeeId: true } });
+  return admins.map((u) => u.employeeId).filter(Boolean);
 }
 
-function mergeExclusion(filter, field, ids) {
-  const existing = filter[field];
-  if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
-    filter[field] = { ...existing, $nin: ids };
-  } else if (existing !== undefined) {
-    filter[field] = { $eq: existing, $nin: ids };
-  } else {
-    filter[field] = { $nin: ids };
-  }
-  return filter;
+function exclude(where, field, ids) {
+  if (!ids.length) return where;
+  return andWhere(where, { [field]: { notIn: ids } });
 }
 
 // No-op, kept so existing call sites don't need to change — proadmin never has
 // an Employee record, so there's nothing to exclude here anymore.
-async function excludeSuperadminEmployees(filter) {
-  return filter;
+async function excludeSuperadminEmployees(where) {
+  return where;
 }
 
 // Strips out proadmin accounts, regardless of viewer.
-async function excludeSuperadminUsers(filter, viewerRole, field) {
-  const ids = await proadminUserIds();
-  if (!ids.length) return filter;
-  return mergeExclusion(filter, field, ids);
+async function excludeSuperadminUsers(where, viewerRole, field = 'id') {
+  return exclude(where, field, await proadminUserIds());
 }
 
 // A plain employee can't see an admin/superadmin's attendance or leave status —
 // it stays private to admin-tier viewers, who see it same as before. Only
 // applies to the specific attendance endpoints that show everyone's status
 // (see attendanceController.js); the general employee directory is untouched.
-async function excludeAdminAttendanceForEmployee(filter, viewerRole, field = 'employeeRef') {
-  if (viewerRole !== 'employee') return filter;
-  const ids = await adminEmployeeIds();
-  if (!ids.length) return filter;
-  return mergeExclusion(filter, field, ids);
+async function excludeAdminAttendanceForEmployee(where, viewerRole, field = 'employeeId') {
+  if (viewerRole !== 'employee') return where;
+  return exclude(where, field, await adminEmployeeIds());
 }
 
 async function superadminEmployeeIds() {
-  const supers = await User.find({ role: 'superadmin' }, 'employeeRef');
-  return supers.map((u) => u.employeeRef).filter(Boolean);
+  const supers = await prisma.user.findMany({ where: { role: 'superadmin' }, select: { employeeId: true } });
+  return supers.map((u) => u.employeeId).filter(Boolean);
 }
 
 // Superadmin accounts never need daily attendance tracked — excluded from
 // every attendance list/status/breakdown endpoint for every viewer, admins
 // included, unlike excludeAdminAttendanceForEmployee above which only hides
 // from plain employees.
-async function excludeSuperadminAttendance(filter, field = 'employeeRef') {
-  const ids = await superadminEmployeeIds();
-  if (!ids.length) return filter;
-  return mergeExclusion(filter, field, ids);
+async function excludeSuperadminAttendance(where, field = 'employeeId') {
+  return exclude(where, field, await superadminEmployeeIds());
 }
 
 module.exports = { proadminUserIds, excludeSuperadminEmployees, excludeSuperadminUsers, excludeAdminAttendanceForEmployee, excludeSuperadminAttendance, superadminEmployeeIds };

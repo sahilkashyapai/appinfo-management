@@ -39,9 +39,9 @@ export default function Header({ onToggleSidebar, onOpenNotifications }) {
         <i className="fa-solid fa-bars" />
       </div>
       <div className="hbc">
-        <span className="hr">AII</span>
+        <span className="hr">AI Connect</span>
         <i className="fa-solid fa-chevron-right" />
-        <span className="hcur">{TITLES[pathname] || 'AII Celebrations'}</span>
+        <span className="hcur">{TITLES[pathname] || 'AI Connect'}</span>
       </div>
       <GlobalSearch mobileOpen={mobileSearchOpen} onMobileClose={() => setMobileSearchOpen(false)} />
       <div className="hbtn hbtn-search-toggle" onClick={() => setMobileSearchOpen((o) => !o)}>

@@ -5,20 +5,9 @@
 // superadmin can wipe it cleanly later from Settings > Danger Zone.
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
-
-const Department = require('../models/Department');
-const Employee = require('../models/Employee');
-const User = require('../models/User');
-const Attendance = require('../models/Attendance');
-const LeaveRequest = require('../models/LeaveRequest');
-const Asset = require('../models/Asset');
-const Event = require('../models/Event');
-const Rsvp = require('../models/Rsvp');
-const WallPost = require('../models/WallPost');
-const Notification = require('../models/Notification');
-const Announcement = require('../models/Announcement');
+const { disconnectDB } = require('../config/db');
+const { prisma } = require('../db');
 const { startOfDayUTC } = require('../utils/attendanceDate');
 
 function today() {
@@ -51,14 +40,18 @@ const EMPLOYEE_SEEDS = [
   { name: 'Tanvi Deshpande', gender: 'regular', desig: 'Database Administrator' },
 ];
 
-async function main() {
-  await connectDB();
+// `db` is the PrismaClient by default; pass an interactive-transaction client
+// to run the whole seed atomically.
+async function seedDashboardData(db = prisma) {
   const { y, m, day } = today();
 
-  const superadmin = await User.findOne({ role: 'superadmin' });
+  const superadmin = await db.user.findFirst({ where: { role: 'superadmin' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
   if (!superadmin) throw new Error('No superadmin user found — cannot attribute seeded actions.');
 
-  const depts = await Department.find({ name: { $not: /Leadership/i } });
+  const depts = await db.department.findMany({
+    where: { NOT: { name: { contains: 'Leadership' } } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
   if (!depts.length) throw new Error('No departments found — seed departments first.');
   const deptNames = depts.map((d) => d.name);
   function deptFor(i) {
@@ -84,7 +77,7 @@ async function main() {
       empId: `DEMO${String(i + 1).padStart(4, '0')}`,
       name: e.name,
       dept: dept.name,
-      deptRef: dept._id,
+      deptId: dept.id,
       desig: e.desig,
       roleLabel: 'Employee',
       joined,
@@ -108,7 +101,9 @@ async function main() {
     return min + Math.floor(Math.random() * (max - min + 1));
   }
 
-  const employees = await Employee.insertMany(empDocs);
+  // One create per row (createMany doesn't return the new ids on MySQL).
+  const employees = [];
+  for (const doc of empDocs) employees.push(await db.employee.create({ data: doc }));
   console.log(`[seed] inserted ${employees.length} demo employees`);
 
   // --- Linked users (for leaderboard authorship + a couple of pending signups) ---
@@ -116,156 +111,177 @@ async function main() {
   const linkedUsers = [];
   for (let i = 0; i < 3; i++) {
     const emp = employees[i];
-    const u = await User.create({
-      name: emp.name,
-      email: emp.email,
-      passwordHash: linkHash,
-      role: 'employee',
-      employeeRef: emp._id,
-      department: emp.dept,
-      location: emp.location,
-      isDemo: true,
+    const u = await db.user.create({
+      data: {
+        name: emp.name,
+        email: emp.email,
+        passwordHash: linkHash,
+        role: 'employee',
+        employeeId: emp.id,
+        department: emp.dept,
+        location: emp.location,
+        isDemo: true,
+      },
     });
-    await Employee.updateOne({ _id: emp._id }, { userRef: u._id });
+    await db.employee.update({ where: { id: emp.id }, data: { userId: u.id } });
     linkedUsers.push(u);
   }
 
   const pendingHash = await bcrypt.hash('DemoPending@123', 10);
-  await User.insertMany([
-    {
-      name: 'Nikhil Bhatt',
-      email: 'nikhil.bhatt@demo.aii.in',
-      passwordHash: pendingHash,
-      role: 'employee',
-      empId: 'DEMO9001',
-      dob: dateYMD(y - 27, 4, 12),
-      joined: new Date(),
-      department: deptNames[0],
-      phone: '+91 9811100011',
-      approvalStatus: 'pending',
-      isDemo: true,
-    },
-    {
-      name: 'Sara Fernandes',
-      email: 'sara.fernandes@demo.aii.in',
-      passwordHash: pendingHash,
-      role: 'employee',
-      empId: 'DEMO9002',
-      dob: dateYMD(y - 24, 8, 3),
-      joined: new Date(),
-      department: deptNames[1 % deptNames.length],
-      phone: '+91 9811100022',
-      approvalStatus: 'pending',
-      isDemo: true,
-    },
-  ]);
+  await db.user.createMany({
+    data: [
+      {
+        name: 'Nikhil Bhatt',
+        email: 'nikhil.bhatt@demo.aii.in',
+        passwordHash: pendingHash,
+        role: 'employee',
+        empId: 'DEMO9001',
+        dob: dateYMD(y - 27, 4, 12),
+        joined: new Date(),
+        department: deptNames[0],
+        phone: '+91 9811100011',
+        approvalStatus: 'pending',
+        isDemo: true,
+      },
+      {
+        name: 'Sara Fernandes',
+        email: 'sara.fernandes@demo.aii.in',
+        passwordHash: pendingHash,
+        role: 'employee',
+        empId: 'DEMO9002',
+        dob: dateYMD(y - 24, 8, 3),
+        joined: new Date(),
+        department: deptNames[1 % deptNames.length],
+        phone: '+91 9811100022',
+        approvalStatus: 'pending',
+        isDemo: true,
+      },
+    ],
+  });
   console.log('[seed] inserted 3 linked demo users + 2 pending registrations');
 
   // --- Attendance today -----------------------------------------------------
   const todayUTC = startOfDayUTC(new Date());
   const statuses = ['office', 'office', 'wfh', 'wfh', 'leave', 'absent', 'office'];
   const attendanceDocs = employees.slice(0, 7).map((emp, i) => ({
-    employeeRef: emp._id,
+    employeeId: emp.id,
     date: todayUTC,
     status: statuses[i],
-    markedBy: superadmin._id,
+    markedById: superadmin.id,
     isDemo: true,
   }));
-  await Attendance.insertMany(attendanceDocs);
+  await db.attendance.createMany({ data: attendanceDocs });
   console.log(`[seed] marked attendance for ${attendanceDocs.length} demo employees today (1 left unmarked)`);
 
   // --- Leave requests (pending) ----------------------------------------------
-  await LeaveRequest.insertMany([
-    {
-      employeeRef: employees[4]._id,
-      type: 'casual',
-      startDate: daysFromNow(5),
-      endDate: daysFromNow(6),
-      days: 2,
-      reason: 'Family function out of town.',
-      status: 'pending',
-      isDemo: true,
-    },
-    {
-      employeeRef: employees[5]._id,
-      type: 'sick',
-      startDate: daysFromNow(1),
-      endDate: daysFromNow(1),
-      days: 1,
-      reason: 'Doctor appointment.',
-      status: 'pending',
-      isDemo: true,
-    },
-    {
-      employeeRef: employees[6]._id,
-      type: 'earned',
-      startDate: daysFromNow(10),
-      endDate: daysFromNow(14),
-      days: 5,
-      reason: 'Planned vacation.',
-      status: 'on_hold',
-      isDemo: true,
-    },
-  ]);
+  await db.leaveRequest.createMany({
+    data: [
+      {
+        employeeId: employees[4].id,
+        type: 'casual',
+        startDate: daysFromNow(5),
+        endDate: daysFromNow(6),
+        days: 2,
+        reason: 'Family function out of town.',
+        status: 'pending',
+        isDemo: true,
+      },
+      {
+        employeeId: employees[5].id,
+        type: 'sick',
+        startDate: daysFromNow(1),
+        endDate: daysFromNow(1),
+        days: 1,
+        reason: 'Doctor appointment.',
+        status: 'pending',
+        isDemo: true,
+      },
+      {
+        employeeId: employees[6].id,
+        type: 'earned',
+        startDate: daysFromNow(10),
+        endDate: daysFromNow(14),
+        days: 5,
+        reason: 'Planned vacation.',
+        status: 'on_hold',
+        isDemo: true,
+      },
+    ],
+  });
   console.log('[seed] inserted 3 pending/on-hold leave requests');
 
   // --- Assets ------------------------------------------------------------
-  await Asset.insertMany([
-    { name: 'Dell Latitude 5420', category: 'laptop', serialNumber: 'DEMO-LT-001', status: 'assigned', employeeRef: employees[0]._id, assignedAt: new Date(), isDemo: true },
-    { name: 'iPhone 13', category: 'mobile', serialNumber: 'DEMO-MB-002', status: 'assigned', employeeRef: employees[1]._id, assignedAt: new Date(), isDemo: true },
-    { name: 'MacBook Air M2', category: 'laptop', serialNumber: 'DEMO-LT-003', status: 'assigned', employeeRef: employees[2]._id, assignedAt: new Date(), isDemo: true },
-    { name: 'HP LaserJet Access Card', category: 'access_card', serialNumber: 'DEMO-AC-004', status: 'unassigned', isDemo: true },
-    { name: 'Lenovo ThinkPad E14', category: 'laptop', serialNumber: 'DEMO-LT-005', status: 'damaged', notes: 'Screen cracked in transit.', isDemo: true },
-    { name: 'Samsung Galaxy Tab', category: 'mobile', serialNumber: 'DEMO-MB-006', status: 'lost', notes: 'Reported lost by previous holder.', isDemo: true },
-  ]);
+  await db.asset.createMany({
+    data: [
+      { name: 'Dell Latitude 5420', category: 'laptop', serialNumber: 'DEMO-LT-001', status: 'assigned', employeeId: employees[0].id, assignedAt: new Date(), isDemo: true },
+      { name: 'iPhone 13', category: 'mobile', serialNumber: 'DEMO-MB-002', status: 'assigned', employeeId: employees[1].id, assignedAt: new Date(), isDemo: true },
+      { name: 'MacBook Air M2', category: 'laptop', serialNumber: 'DEMO-LT-003', status: 'assigned', employeeId: employees[2].id, assignedAt: new Date(), isDemo: true },
+      { name: 'HP LaserJet Access Card', category: 'access_card', serialNumber: 'DEMO-AC-004', status: 'unassigned', isDemo: true },
+      { name: 'Lenovo ThinkPad E14', category: 'laptop', serialNumber: 'DEMO-LT-005', status: 'damaged', notes: 'Screen cracked in transit.', isDemo: true },
+      { name: 'Samsung Galaxy Tab', category: 'mobile', serialNumber: 'DEMO-MB-006', status: 'lost', notes: 'Reported lost by previous holder.', isDemo: true },
+    ],
+  });
   console.log('[seed] inserted 6 demo assets (3 assigned, 1 unassigned, 1 damaged, 1 lost)');
 
   // --- Events + RSVPs -----------------------------------------------------
-  const events = await Event.insertMany([
-    { title: 'Quarterly Town Hall', type: 'town_hall', date: daysFromNow(6), venue: 'Main Auditorium, Mohali', status: 'published', emoji: 'fa-solid fa-building-columns', color: '#8E44AD', capacity: 150, createdByRef: superadmin._id, isDemo: true },
-    { title: 'Monsoon Team Outing', type: 'team_outing', date: daysFromNow(14), venue: 'Sukhna Lake, Chandigarh', status: 'published', emoji: 'fa-solid fa-cloud-rain', color: '#2E86AB', capacity: 80, createdByRef: superadmin._id, isDemo: true },
-    { title: 'Cricket Tournament', type: 'sports', date: daysFromNow(21), venue: 'AII Sports Ground', status: 'published', emoji: 'fa-solid fa-trophy', color: '#27AE60', capacity: 60, createdByRef: superadmin._id, isDemo: true },
-  ]);
+  const events = [];
+  for (const data of [
+    { title: 'Quarterly Town Hall', type: 'town_hall', date: daysFromNow(6), venue: 'Main Auditorium, Mohali', status: 'published', emoji: 'fa-solid fa-building-columns', color: '#8E44AD', capacity: 150, createdById: superadmin.id, isDemo: true },
+    { title: 'Monsoon Team Outing', type: 'team_outing', date: daysFromNow(14), venue: 'Sukhna Lake, Chandigarh', status: 'published', emoji: 'fa-solid fa-cloud-rain', color: '#2E86AB', capacity: 80, createdById: superadmin.id, isDemo: true },
+    { title: 'Cricket Tournament', type: 'sports', date: daysFromNow(21), venue: 'AII Sports Ground', status: 'published', emoji: 'fa-solid fa-trophy', color: '#27AE60', capacity: 60, createdById: superadmin.id, isDemo: true },
+  ]) {
+    events.push(await db.event.create({ data }));
+  }
   const rsvpDocs = [];
   events.forEach((ev) => {
     employees.forEach((emp, i) => {
       if (Math.random() < 0.6) {
         const roll = Math.random();
-        rsvpDocs.push({ eventRef: ev._id, employeeRef: emp._id, status: roll < 0.7 ? 'yes' : roll < 0.9 ? 'maybe' : 'no', isDemo: true });
+        rsvpDocs.push({ eventId: ev.id, employeeId: emp.id, status: roll < 0.7 ? 'yes' : roll < 0.9 ? 'maybe' : 'no', isDemo: true });
       }
     });
   });
-  await Rsvp.insertMany(rsvpDocs, { ordered: false }).catch(() => {});
+  await db.rsvp.createMany({ data: rsvpDocs, skipDuplicates: true }).catch(() => {});
   console.log(`[seed] inserted ${events.length} demo events + ${rsvpDocs.length} RSVPs`);
 
   // --- Wall posts (drives the Celebration Leaderboard) -----------------------
   const [u1, u2, u3] = linkedUsers;
-  await WallPost.insertMany([
+  const wallPosts = [
     {
-      authorRef: u1._id,
+      authorId: u1.id,
       tag: 'birthday',
       text: 'Happy Birthday Meera! Wishing you a fantastic year ahead full of great designs and good vibes!',
-      reactions: { like: [u2._id, u3._id], love: [superadmin._id], celebrate: [] },
-      comments: [{ authorRef: u2._id, text: 'Happy birthday!' }],
+      reactions: { like: [u2.id, u3.id], love: [superadmin.id], celebrate: [] },
+      comments: [{ authorId: u2.id, text: 'Happy birthday!' }],
       isDemo: true,
     },
     {
-      authorRef: u2._id,
+      authorId: u2.id,
       tag: 'anniversary',
       text: '3 years at Applied Information India today — grateful for this journey and this team!',
-      reactions: { like: [u1._id], love: [u3._id, superadmin._id], celebrate: [] },
+      reactions: { like: [u1.id], love: [u3.id, superadmin.id], celebrate: [] },
       comments: [],
       isDemo: true,
     },
     {
-      authorRef: u3._id,
+      authorId: u3.id,
       tag: 'general',
       text: 'Excited for the upcoming Monsoon Team Outing! Who else is going?',
-      reactions: { like: [u1._id, u2._id], love: [], celebrate: [superadmin._id] },
-      comments: [{ authorRef: u1._id, text: "Count me in! Can't wait" }],
+      reactions: { like: [u1.id, u2.id], love: [], celebrate: [superadmin.id] },
+      comments: [{ authorId: u1.id, text: "Count me in! Can't wait" }],
       isDemo: true,
     },
-  ]);
+  ];
+  // reactions/comments were embedded arrays in Mongo; they're child rows now.
+  for (const { reactions, comments, ...post } of wallPosts) {
+    await db.wallPost.create({
+      data: {
+        ...post,
+        reactions: { create: Object.entries(reactions).flatMap(([type, ids]) => ids.map((userId) => ({ userId, type }))) },
+        comments: { create: comments },
+      },
+    });
+  }
   console.log('[seed] inserted 3 demo wall posts with reactions/comments');
 
   // --- Notifications (drives the Monthly Engagement sparkline) ---------------
@@ -284,38 +300,50 @@ async function main() {
       });
     }
   }
-  await Notification.insertMany(notifDocs);
+  await db.notification.createMany({ data: notifDocs });
   console.log(`[seed] inserted ${notifDocs.length} demo notifications across the last 12 months`);
 
   // --- Announcements (Hiring Alerts card + general announcements) -----------
-  await Announcement.insertMany([
-    {
-      title: "We're Hiring: Senior React Developer",
-      body: 'Join our Engineering team! Looking for 3+ years of React experience. Apply via the careers form.',
-      type: 'hiring',
-      priority: 'high',
-      icon: 'fa-solid fa-briefcase',
-      pinned: true,
-      postedByRef: superadmin._id,
-      isDemo: true,
-    },
-    {
-      title: 'Office WiFi Maintenance This Weekend',
-      body: 'IT will be upgrading office WiFi infrastructure this Saturday 10 PM–2 AM. Expect brief connectivity drops if working remotely during this window.',
-      type: 'general',
-      priority: 'medium',
-      icon: 'fa-solid fa-bullhorn',
-      postedByRef: superadmin._id,
-      isDemo: true,
-    },
-  ]);
+  await db.announcement.createMany({
+    data: [
+      {
+        title: "We're Hiring: Senior React Developer",
+        body: 'Join our Engineering team! Looking for 3+ years of React experience. Apply via the careers form.',
+        type: 'hiring',
+        priority: 'high',
+        icon: 'fa-solid fa-briefcase',
+        pinned: true,
+        postedById: superadmin.id,
+        isDemo: true,
+      },
+      {
+        title: 'Office WiFi Maintenance This Weekend',
+        body: 'IT will be upgrading office WiFi infrastructure this Saturday 10 PM–2 AM. Expect brief connectivity drops if working remotely during this window.',
+        type: 'general',
+        priority: 'medium',
+        icon: 'fa-solid fa-bullhorn',
+        postedById: superadmin.id,
+        isDemo: true,
+      },
+    ],
+  });
   console.log('[seed] inserted 2 demo announcements (1 hiring alert, 1 general)');
 
   console.log('\n[seed] done — all demo records flagged isDemo: true, safe to clear from Settings > Danger Zone.');
-  await mongoose.disconnect();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+async function main() {
+  await connectDB();
+  await seedDashboardData();
+  await disconnectDB();
+}
+
+// Only when run directly (`node src/seed/seedDummyDashboardData.js`), never as a side effect of require().
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[seed] failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedDashboardData };

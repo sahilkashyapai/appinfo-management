@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { warnMissingProvider } from '../utils/missingProvider';
 
 const ThemeContext = createContext(null);
 
@@ -13,6 +14,13 @@ export function ThemeProvider({ children }) {
   return <ThemeContext.Provider value={{ dark, toggleDark: () => setDark((d) => !d) }}>{children}</ThemeContext.Provider>;
 }
 
+const NO_PROVIDER = Object.freeze({ dark: false, toggleDark: () => {} });
+
 export function useTheme() {
-  return useContext(ThemeContext);
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    warnMissingProvider('useTheme');
+    return NO_PROVIDER;
+  }
+  return ctx;
 }

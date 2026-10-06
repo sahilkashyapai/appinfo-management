@@ -1,6 +1,6 @@
 // One-off, idempotent script — creates (or fixes up) the single 'developer'
 // account used to log into the Developer Panel. Safe to re-run: it only
-// touches the one user document matched by email, never wipes/reseeds
+// touches the one user row matched by email, never wipes/reseeds
 // anything else (unlike seed.js's seedAll, which is destructive).
 //
 // Usage: node src/seed/createDeveloperUser.js
@@ -8,9 +8,8 @@
 
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
-const User = require('../models/User');
+const prisma = require('../db/prisma');
 
 async function main() {
   const email = (process.env.DEV_USER_EMAIL || 'dev@skmail.com').toLowerCase().trim();
@@ -20,32 +19,37 @@ async function main() {
   await connectDB();
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const existing = await User.findOne({ email });
+  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
 
   if (existing) {
-    existing.passwordHash = passwordHash;
-    existing.role = 'developer';
-    existing.isActive = true;
-    existing.approvalStatus = 'approved';
-    await existing.save();
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { passwordHash, role: 'developer', isActive: true, approvalStatus: 'approved' },
+    });
     console.log(`[seed] updated existing user to developer role: ${email}`);
   } else {
-    await User.create({
-      name,
-      email,
-      passwordHash,
-      role: 'developer',
-      department: 'Engineering',
-      branch: 'Headquarters',
+    await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role: 'developer',
+        department: 'Engineering',
+        branch: 'Headquarters',
+      },
     });
     console.log(`[seed] created developer user: ${email}`);
   }
 
   console.log(`[seed]   login: ${email} / ${password}`);
-  await mongoose.disconnect();
+  await prisma.$disconnect();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+// Runs only when executed directly (node <file>), never when required.
+if (require.main === module) {
+  main().catch(async (err) => {
+    console.error('[seed] failed:', err);
+    await prisma.$disconnect().catch(() => {});
+    process.exit(1);
+  });
+}

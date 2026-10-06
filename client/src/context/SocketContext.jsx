@@ -1,13 +1,16 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { warnMissingProvider } from '../utils/missingProvider';
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
+// The socket server lives on the same host as the API. With no VITE_API_URL
+// (production, same origin) io() connects to the page's own origin.
 function socketBaseUrl() {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace(/\/api\/?$/, '');
+  const apiUrl = import.meta.env.VITE_API_URL;
+  return apiUrl ? apiUrl.replace(/\/api\/?$/, '') : undefined;
 }
 
 export function SocketProvider({ children }) {
@@ -47,6 +50,13 @@ export function SocketProvider({ children }) {
   return <SocketContext.Provider value={{ socket: socketRef.current, connected }}>{children}</SocketContext.Provider>;
 }
 
+const NO_PROVIDER = Object.freeze({ socket: null, connected: false });
+
 export function useSocket() {
-  return useContext(SocketContext);
+  const ctx = useContext(SocketContext);
+  if (!ctx) {
+    warnMissingProvider('useSocket');
+    return NO_PROVIDER;
+  }
+  return ctx;
 }

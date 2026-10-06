@@ -1,15 +1,16 @@
-const Document = require('../models/Document');
-const DocumentRequest = require('../models/DocumentRequest');
-const Employee = require('../models/Employee');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { prisma, shape, shapeMany, sel } = require('../db');
 const writeAudit = require('../utils/audit');
+const { createNotifications } = require('../services/notify');
 const { sendPushToUsers } = require('../services/pushService');
 const { ADMIN_ROLES, APPROVER_ROLES } = require('../utils/roles');
 const { excludeSuperadminEmployees } = require('../utils/hideSuperadmin');
 const { isOutsideScope, scopeByEmployeeRef } = require('../utils/officeScope');
 
 const MAX_DOCUMENT_CHARS = 6 * 1024 * 1024; // ~4.5MB decoded
+
+// Same values as the DocumentRequestType enum in schema.prisma.
+const DOCUMENT_REQUEST_TYPES = ['salary_slip', 'experience_letter', 'relieving_letter', 'salary_certificate', 'form16', 'other'];
+const DOCUMENT_REQUEST_STATUSES = ['pending', 'fulfilled', 'rejected'];
 
 const REQUEST_TYPE_LABEL = {
   salary_slip: 'Salary Slip',
@@ -20,8 +21,12 @@ const REQUEST_TYPE_LABEL = {
   other: 'Document',
 };
 
+// The base64 payload is only ever sent by getOne — everything else omits it.
+const OMIT_FILE = { fileUrl: true };
+const DOC_SUMMARY = sel('Document', 'name fileName fileType');
+
 function validateFile(fileUrl) {
-  if (!fileUrl || !fileUrl.startsWith('data:')) return 'A valid file is required.';
+  if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('data:')) return 'A valid file is required.';
   if (fileUrl.length > MAX_DOCUMENT_CHARS) return 'File must be under ~4.5MB.';
   return null;
 }
@@ -30,7 +35,7 @@ async function notifyDocumentEvent({ recipientIds, icon, title, body, link = '/d
   const ids = recipientIds.filter(Boolean).map(String);
   if (!ids.length) return;
   try {
-    await Promise.all(ids.map((id) => Notification.create({ recipientRef: id, icon, type: 'document', title, body, link })));
+    await createNotifications(ids, { icon, type: 'document', title, body, link });
   } catch (err) {
     console.error('[documents] failed to create notification:', err.message);
   }
@@ -46,34 +51,39 @@ async function list(req, res) {
     return res.status(400).json({ message: 'employeeRef is required.' });
   }
 
-  const target = await Employee.findById(employeeRef, 'location');
+  const target = await prisma.employee.findUnique({ where: { id: String(employeeRef) }, select: { location: true } });
   if (await isOutsideScope(req.user, target?.location)) {
     return res.json({ items: [] });
   }
 
-  const items = await Document.find({ employeeRef })
-    .select('-fileUrl')
-    .populate('uploadedByRef', 'name')
-    .sort({ createdAt: -1 });
-  res.json({ items });
+  const items = await prisma.document.findMany({
+    where: { employeeId: String(employeeRef) },
+    omit: OMIT_FILE,
+    include: { uploadedByRef: { select: sel('User', 'name') } },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ items: shapeMany('Document', items) });
 }
 
 async function getOne(req, res) {
-  const doc = await Document.findById(req.params.id).populate('employeeRef', 'location');
+  const doc = await prisma.document.findUnique({
+    where: { id: String(req.params.id) },
+    include: { employeeRef: { select: sel('Employee', 'location') } },
+  });
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
-  const isOwner = String(doc.employeeRef._id) === String(req.user.employeeRef);
+  const isOwner = String(doc.employeeId) === String(req.user.employeeRef);
   if (!isOwner && !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({ message: 'You do not have permission to view this document.' });
   }
   if (!isOwner && (await isOutsideScope(req.user, doc.employeeRef.location))) {
     return res.status(404).json({ message: 'Document not found.' });
   }
-  res.json({ item: doc });
+  res.json({ item: shape('Document', doc) });
 }
 
 async function upload(req, res) {
   const { employeeRef, name, category, fileName, fileType, fileUrl } = req.body;
-  if (!employeeRef || !name || !name.trim()) return res.status(400).json({ message: 'employeeRef and name are required.' });
+  if (!employeeRef || !name || !String(name).trim()) return res.status(400).json({ message: 'employeeRef and name are required.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
   const isSelf = req.user.employeeRef && String(req.user.employeeRef) === String(employeeRef);
@@ -82,87 +92,103 @@ async function upload(req, res) {
   const fileError = validateFile(fileUrl);
   if (fileError) return res.status(400).json({ message: fileError });
 
-  const employee = await Employee.findById(employeeRef);
+  const employee = await prisma.employee.findUnique({ where: { id: String(employeeRef) } });
   if (!employee) return res.status(404).json({ message: 'Employee not found.' });
   if (await isOutsideScope(req.user, employee.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
 
-  const doc = await Document.create({
-    employeeRef,
-    name: name.trim(),
-    category: category || 'other',
-    fileName: fileName || '',
-    fileType: fileType || '',
-    fileUrl,
-    uploadedByRef: req.user._id,
+  const doc = await prisma.document.create({
+    data: {
+      employeeId: employee.id,
+      name: String(name).trim(),
+      category: category || 'other',
+      fileName: fileName || '',
+      fileType: fileType || '',
+      fileUrl,
+      uploadedById: String(req.user._id),
+    },
+    omit: OMIT_FILE,
   });
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'CREATE',
     entity: 'documents',
-    recordId: doc._id,
+    recordId: doc.id,
     detail: `Uploaded document "${doc.name}" for ${employee.name}`,
   });
-  const { fileUrl: _omit, ...rest } = doc.toObject();
-  res.status(201).json({ item: rest });
+  res.status(201).json({ item: shape('Document', doc) });
 }
 
 async function update(req, res) {
   const { name, category, fileName, fileType, fileUrl } = req.body;
-  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name location');
+  const doc = await prisma.document.findUnique({
+    where: { id: String(req.params.id) },
+    omit: OMIT_FILE,
+    include: { employeeRef: { select: sel('Employee', 'name location') } },
+  });
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
-  const isOwner = req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef);
+  const isOwner = req.user.employeeRef && String(doc.employeeId) === String(req.user.employeeRef);
   if (!isAdmin && !isOwner) return res.status(403).json({ message: 'You do not have permission to edit this document.' });
   if (isAdmin && (await isOutsideScope(req.user, doc.employeeRef.location))) {
     return res.status(404).json({ message: 'Document not found.' });
   }
 
+  const data = {};
   if (fileUrl) {
     const fileError = validateFile(fileUrl);
     if (fileError) return res.status(400).json({ message: fileError });
-    doc.fileUrl = fileUrl;
-    doc.fileName = fileName || '';
-    doc.fileType = fileType || '';
+    data.fileUrl = fileUrl;
+    data.fileName = fileName || '';
+    data.fileType = fileType || '';
   }
-  if (name && name.trim()) doc.name = name.trim();
-  if (category) doc.category = category;
-  await doc.save();
+  if (name && String(name).trim()) data.name = String(name).trim();
+  if (category) data.category = category;
+
+  const updated = await prisma.document.update({
+    where: { id: doc.id },
+    data,
+    omit: OMIT_FILE,
+    include: { employeeRef: { select: sel('Employee', 'name location') } },
+  });
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'documents',
-    recordId: doc._id,
-    detail: `Updated document "${doc.name}" for ${doc.employeeRef?.name || 'unknown employee'}`,
+    recordId: updated.id,
+    detail: `Updated document "${updated.name}" for ${updated.employeeRef?.name || 'unknown employee'}`,
   });
 
-  const { fileUrl: _omit, ...rest } = doc.toObject();
-  res.json({ item: rest });
+  res.json({ item: shape('Document', updated) });
 }
 
 async function remove(req, res) {
-  const doc = await Document.findById(req.params.id).populate('employeeRef', 'name location');
+  const doc = await prisma.document.findUnique({
+    where: { id: String(req.params.id) },
+    omit: OMIT_FILE,
+    include: { employeeRef: { select: sel('Employee', 'name location') } },
+  });
   if (!doc) return res.status(404).json({ message: 'Document not found.' });
 
   const isAdmin = ADMIN_ROLES.includes(req.user.role);
-  const isOwner = req.user.employeeRef && String(doc.employeeRef._id) === String(req.user.employeeRef);
+  const isOwner = req.user.employeeRef && String(doc.employeeId) === String(req.user.employeeRef);
   if (!isAdmin && !isOwner) return res.status(403).json({ message: 'You do not have permission to delete this document.' });
   if (isAdmin && (await isOutsideScope(req.user, doc.employeeRef.location))) {
     return res.status(404).json({ message: 'Document not found.' });
   }
 
-  await doc.deleteOne();
+  await prisma.document.deleteMany({ where: { id: doc.id } });
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'DELETE',
     entity: 'documents',
-    recordId: doc._id,
+    recordId: doc.id,
     detail: `Deleted document "${doc.name}" for ${doc.employeeRef?.name || 'unknown employee'}`,
   });
   res.json({ message: 'Document deleted.' });
@@ -172,154 +198,172 @@ async function remove(req, res) {
 
 async function createRequest(req, res) {
   const { type, period, note } = req.body;
-  if (!DocumentRequest.DOCUMENT_REQUEST_TYPES.includes(type)) {
-    return res.status(400).json({ message: `type must be one of ${DocumentRequest.DOCUMENT_REQUEST_TYPES.join(', ')}` });
+  if (!DOCUMENT_REQUEST_TYPES.includes(type)) {
+    return res.status(400).json({ message: `type must be one of ${DOCUMENT_REQUEST_TYPES.join(', ')}` });
   }
   if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
 
-  const employee = await Employee.findById(req.user.employeeRef);
+  const employee = await prisma.employee.findUnique({ where: { id: String(req.user.employeeRef) } });
   if (!employee) return res.status(404).json({ message: 'Employee record not found.' });
 
-  const request = await DocumentRequest.create({ employeeRef: employee._id, type, period: period || '', note: note || '' });
+  const request = await prisma.documentRequest.create({
+    data: { employeeId: employee.id, type, period: String(period || '').trim(), note: String(note || '').trim() },
+  });
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'CREATE',
     entity: 'document_requests',
-    recordId: request._id,
+    recordId: request.id,
     detail: `Requested ${REQUEST_TYPE_LABEL[type]}${period ? ` (${period})` : ''}`,
   });
 
-  const approvers = await User.find({ role: { $in: APPROVER_ROLES } }, '_id managedLocation');
+  const approvers = await prisma.user.findMany({ where: { role: { in: APPROVER_ROLES } }, select: sel('User', 'managedLocation') });
   notifyDocumentEvent({
-    recipientIds: approvers.filter((u) => !u.managedLocation || u.managedLocation === employee.location).map((u) => u._id),
+    recipientIds: approvers.filter((u) => !u.managedLocation || u.managedLocation === employee.location).map((u) => u.id),
     icon: 'fa-solid fa-file',
     title: 'New document request',
     body: `${employee.name} requested a ${REQUEST_TYPE_LABEL[type]}${period ? ` for ${period}` : ''}.`,
     link: '/documents?tab=requests',
   });
 
-  res.status(201).json({ item: request });
+  res.status(201).json({ item: shape('DocumentRequest', request) });
 }
 
 async function myRequests(req, res) {
   if (!req.user.employeeRef) return res.status(400).json({ message: 'No employee record linked to this account.' });
-  const items = await DocumentRequest.find({ employeeRef: req.user.employeeRef })
-    .populate('documentRef', 'name fileName fileType')
-    .sort({ createdAt: -1 });
-  res.json({ items });
+  const items = await prisma.documentRequest.findMany({
+    where: { employeeId: String(req.user.employeeRef) },
+    include: { documentRef: { select: DOC_SUMMARY } },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ items: shapeMany('DocumentRequest', items) });
 }
 
 async function listRequests(req, res) {
   const { status } = req.query;
-  const filter = {};
-  if (status && status !== 'all') filter.status = status;
-  await excludeSuperadminEmployees(filter, req.user.role);
-  await scopeByEmployeeRef(filter, req.user);
-  const items = await DocumentRequest.find(filter)
-    .populate('employeeRef', 'name avatarIndex dept desig')
-    .populate('documentRef', 'name fileName fileType')
-    .sort({ createdAt: -1 });
-  res.json({ items });
+  const where = {};
+  if (status && status !== 'all') {
+    // An unknown status simply matched nothing on MongoDB; Prisma would reject it.
+    if (!DOCUMENT_REQUEST_STATUSES.includes(status)) return res.json({ items: [] });
+    where.status = status;
+  }
+  await excludeSuperadminEmployees(where, req.user.role);
+  await scopeByEmployeeRef(where, req.user);
+  const items = await prisma.documentRequest.findMany({
+    where,
+    include: {
+      employeeRef: { select: sel('Employee', 'name avatarIndex dept desig') },
+      documentRef: { select: DOC_SUMMARY },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ items: shapeMany('DocumentRequest', items) });
 }
+
+const REQUEST_EMPLOYEE = { employeeRef: { select: sel('Employee', 'name userRef location') } };
 
 async function fulfillRequest(req, res) {
   const { fileName, fileType, fileUrl } = req.body;
   const fileError = validateFile(fileUrl);
   if (fileError) return res.status(400).json({ message: fileError });
 
-  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
+  const request = await prisma.documentRequest.findUnique({ where: { id: String(req.params.id) }, include: REQUEST_EMPLOYEE });
   if (!request) return res.status(404).json({ message: 'Document request not found.' });
   if (await isOutsideScope(req.user, request.employeeRef.location)) {
     return res.status(404).json({ message: 'Document request not found.' });
   }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
-  const doc = await Document.create({
-    employeeRef: request.employeeRef._id,
-    name: `${REQUEST_TYPE_LABEL[request.type]}${request.period ? ` — ${request.period}` : ''}`,
-    category: request.type === 'other' ? 'other' : request.type,
-    fileName: fileName || '',
-    fileType: fileType || '',
-    fileUrl,
-    uploadedByRef: req.user._id,
+  const updated = await prisma.$transaction(async (tx) => {
+    const doc = await tx.document.create({
+      data: {
+        employeeId: request.employeeId,
+        name: `${REQUEST_TYPE_LABEL[request.type]}${request.period ? ` — ${request.period}` : ''}`,
+        category: request.type === 'other' ? 'other' : request.type,
+        fileName: fileName || '',
+        fileType: fileType || '',
+        fileUrl,
+        uploadedById: String(req.user._id),
+      },
+      select: { id: true },
+    });
+    return tx.documentRequest.update({
+      where: { id: request.id },
+      data: { status: 'fulfilled', documentId: doc.id, decidedById: String(req.user._id), decidedAt: new Date() },
+      include: REQUEST_EMPLOYEE,
+    });
   });
-
-  request.status = 'fulfilled';
-  request.documentRef = doc._id;
-  request.decidedByRef = req.user._id;
-  request.decidedAt = new Date();
-  await request.save();
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'document_requests',
-    recordId: request._id,
-    detail: `Fulfilled ${REQUEST_TYPE_LABEL[request.type]} request for ${request.employeeRef.name}`,
+    recordId: updated.id,
+    detail: `Fulfilled ${REQUEST_TYPE_LABEL[updated.type]} request for ${updated.employeeRef.name}`,
   });
 
-  if (request.employeeRef.userRef) {
+  if (updated.employeeRef.userId) {
     notifyDocumentEvent({
-      recipientIds: [request.employeeRef.userRef],
+      recipientIds: [updated.employeeRef.userId],
       icon: 'fa-solid fa-circle-check',
       title: 'Document ready',
-      body: `Your ${REQUEST_TYPE_LABEL[request.type]} request${request.period ? ` for ${request.period}` : ''} is ready to download.`,
+      body: `Your ${REQUEST_TYPE_LABEL[updated.type]} request${updated.period ? ` for ${updated.period}` : ''} is ready to download.`,
       link: '/documents',
     });
   }
 
-  res.json({ item: request });
+  res.json({ item: shape('DocumentRequest', updated) });
 }
 
 async function rejectRequest(req, res) {
   const { note } = req.body;
-  const request = await DocumentRequest.findById(req.params.id).populate('employeeRef', 'name userRef location');
+  const request = await prisma.documentRequest.findUnique({ where: { id: String(req.params.id) }, include: REQUEST_EMPLOYEE });
   if (!request) return res.status(404).json({ message: 'Document request not found.' });
   if (await isOutsideScope(req.user, request.employeeRef.location)) {
     return res.status(404).json({ message: 'Document request not found.' });
   }
   if (request.status !== 'pending') return res.status(400).json({ message: 'This request has already been decided.' });
 
-  request.status = 'rejected';
-  request.decidedByRef = req.user._id;
-  request.decisionNote = note || '';
-  request.decidedAt = new Date();
-  await request.save();
+  const updated = await prisma.documentRequest.update({
+    where: { id: request.id },
+    data: { status: 'rejected', decidedById: String(req.user._id), decisionNote: note ? String(note) : '', decidedAt: new Date() },
+    include: REQUEST_EMPLOYEE,
+  });
 
   await writeAudit({
     ip: req.ip,
     user: req.user,
     action: 'UPDATE',
     entity: 'document_requests',
-    recordId: request._id,
-    detail: `Rejected ${REQUEST_TYPE_LABEL[request.type]} request for ${request.employeeRef.name}`,
+    recordId: updated.id,
+    detail: `Rejected ${REQUEST_TYPE_LABEL[updated.type]} request for ${updated.employeeRef.name}`,
   });
 
-  if (request.employeeRef.userRef) {
+  if (updated.employeeRef.userId) {
     notifyDocumentEvent({
-      recipientIds: [request.employeeRef.userRef],
+      recipientIds: [updated.employeeRef.userId],
       icon: 'fa-solid fa-circle-xmark',
       title: 'Document request rejected',
-      body: `Your ${REQUEST_TYPE_LABEL[request.type]} request was rejected.${note ? ` Note: ${note}` : ''}`,
+      body: `Your ${REQUEST_TYPE_LABEL[updated.type]} request was rejected.${note ? ` Note: ${note}` : ''}`,
       link: '/documents',
     });
   }
 
-  res.json({ item: request });
+  res.json({ item: shape('DocumentRequest', updated) });
 }
 
 async function cancelRequest(req, res) {
-  const request = await DocumentRequest.findById(req.params.id);
+  const request = await prisma.documentRequest.findUnique({ where: { id: String(req.params.id) } });
   if (!request) return res.status(404).json({ message: 'Document request not found.' });
-  if (String(request.employeeRef) !== String(req.user.employeeRef)) {
+  if (String(request.employeeId) !== String(req.user.employeeRef)) {
     return res.status(403).json({ message: 'You can only cancel your own requests.' });
   }
   if (request.status !== 'pending') return res.status(400).json({ message: 'Only pending requests can be cancelled.' });
 
-  await request.deleteOne();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'document_requests', recordId: request._id, detail: 'Cancelled document request' });
+  await prisma.documentRequest.deleteMany({ where: { id: request.id } });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'document_requests', recordId: request.id, detail: 'Cancelled document request' });
   res.json({ message: 'Document request cancelled.' });
 }
 

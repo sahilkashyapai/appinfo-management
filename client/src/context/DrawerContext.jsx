@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react';
+import { warnMissingProvider } from '../utils/missingProvider';
 
 const DrawerContext = createContext(null);
 
@@ -20,6 +21,20 @@ export function DrawerProvider({ children }) {
   );
 }
 
+const NO_PROVIDER = Object.freeze({
+  employeeId: null,
+  openEmployee: () => {},
+  closeEmployee: () => {},
+  rsvpEventId: null,
+  openRsvp: () => {},
+  closeRsvp: () => {},
+});
+
 export function useDrawers() {
-  return useContext(DrawerContext);
+  const ctx = useContext(DrawerContext);
+  if (!ctx) {
+    warnMissingProvider('useDrawers');
+    return NO_PROVIDER;
+  }
+  return ctx;
 }

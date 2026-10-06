@@ -1,36 +1,32 @@
-const User = require('../models/User');
-const AuditLog = require('../models/AuditLog');
-const Employee = require('../models/Employee');
-const Event = require('../models/Event');
-const Notification = require('../models/Notification');
-const WallPost = require('../models/WallPost');
+const { prisma, shapeMany } = require('../db');
+const { toSafeUser } = require('../db/users');
 const writeAudit = require('../utils/audit');
 const { BRANCH_LOCATIONS } = require('../utils/offices');
 const { BRANCH_EDITOR_ROLES } = require('../utils/roles');
 
 async function getProfile(req, res) {
   const [employees, events, notifications, wallPosts, activity] = await Promise.all([
-    Employee.countDocuments({}),
-    Event.countDocuments({}),
-    Notification.countDocuments({}),
-    WallPost.countDocuments({}),
-    AuditLog.find({ actorRef: req.user._id }).sort({ createdAt: -1 }).limit(10),
+    prisma.employee.count(),
+    prisma.event.count(),
+    prisma.notification.count(),
+    prisma.wallPost.count(),
+    prisma.auditLog.findMany({ where: { actorId: String(req.user._id) }, orderBy: { createdAt: 'desc' }, take: 10 }),
   ]);
   res.json({
-    user: req.user.toSafeJSON(),
+    user: toSafeUser(req.user),
     platformStats: { employees, events, notifications, wallPosts },
-    activity,
+    activity: shapeMany('AuditLog', activity),
   });
 }
 
 async function updateProfile(req, res) {
   const { name, email, phone, department, location, branch, avatarUrl } = req.body;
   const updates = {};
-  if (name) updates.name = name;
+  if (name) updates.name = String(name).trim();
   if (email) updates.email = String(email).toLowerCase().trim();
-  if (phone !== undefined) updates.phone = phone;
-  if (department !== undefined) updates.department = department;
-  if (location !== undefined) updates.location = location;
+  if (phone !== undefined) updates.phone = String(phone ?? '');
+  if (department !== undefined) updates.department = String(department ?? '');
+  if (location !== undefined) updates.location = String(location ?? '');
   // Branch determines office scoping downstream (see managedBranch/managedLocation
   // in adminController), so only a superadmin or proadmin may change their own
   // branch — anyone else's request to change it is silently ignored rather than accepted.
@@ -38,7 +34,7 @@ async function updateProfile(req, res) {
     if (branch && !BRANCH_LOCATIONS[branch]) {
       return res.status(400).json({ message: `Unknown branch: ${branch}` });
     }
-    updates.branch = branch;
+    updates.branch = String(branch ?? '');
     if (branch) updates.location = BRANCH_LOCATIONS[branch];
   }
   if (avatarUrl !== undefined) {
@@ -46,11 +42,11 @@ async function updateProfile(req, res) {
     updates.avatarUrl = avatarUrl;
   }
 
-  const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
+  const user = await prisma.user.update({ where: { id: String(req.user._id) }, data: updates });
 
   // Keep the linked Employee directory record in sync so admins see the same
   // name/email/phone/location the user just set on their own profile.
-  if (user.employeeRef) {
+  if (user.employeeId) {
     const empUpdates = {};
     if (updates.name !== undefined) empUpdates.name = updates.name;
     if (updates.email !== undefined) empUpdates.email = updates.email;
@@ -58,15 +54,15 @@ async function updateProfile(req, res) {
     if (updates.location !== undefined) empUpdates.location = updates.location;
     if (Object.keys(empUpdates).length) {
       try {
-        await Employee.findByIdAndUpdate(user.employeeRef, empUpdates, { runValidators: true });
+        await prisma.employee.update({ where: { id: user.employeeId }, data: empUpdates });
       } catch (err) {
         console.error('[profile] could not sync Employee record:', err.message);
       }
     }
   }
 
-  await writeAudit({ ip: req.ip, user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: 'Updated profile' });
-  res.json({ user: user.toSafeJSON() });
+  await writeAudit({ ip: req.ip, user, action: 'UPDATE', entity: 'users', recordId: user.id, detail: 'Updated profile' });
+  res.json({ user: toSafeUser(user) });
 }
 
 module.exports = { getProfile, updateProfile };

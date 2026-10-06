@@ -1,5 +1,5 @@
-const WallPost = require('../models/WallPost');
-const Notification = require('../models/Notification');
+const { prisma, shape, sel, INCLUDE, andWhere } = require('../db');
+const { createNotification } = require('../services/notify');
 const writeAudit = require('../utils/audit');
 const { sendPushToUser } = require('../services/pushService');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
@@ -9,18 +9,31 @@ const { isOfficeScoped, scopedUserIds } = require('../utils/officeScope');
 const REACTION_TYPES = ['like', 'love', 'celebrate'];
 const REACTION_ICON = { like: 'fa-solid fa-thumbs-up', love: 'fa-solid fa-heart', celebrate: 'fa-solid fa-champagne-glasses' };
 const REACTION_LABEL = { like: 'liked', love: 'loved', celebrate: 'celebrated' };
+const WALL_TAGS = ['birthday', 'anniversary', 'event', 'general', 'poll'];
+
+// Author (and comment authors) populated with 'name avatarIndex avatarUrl'.
+const AUTHOR_SELECT = sel('User', 'name avatarIndex avatarUrl');
+const POST_INCLUDE = {
+  ...INCLUDE.WallPost,
+  authorRef: { select: AUTHOR_SELECT },
+  comments: { ...INCLUDE.WallPost.comments, include: { authorRef: { select: AUTHOR_SELECT } } },
+};
 
 async function notifyPostAuthor(authorId, { icon, title, body, link = '/wall' }) {
   try {
-    await Notification.create({ recipientRef: authorId, icon, type: 'wall', title, body, link });
+    await createNotification({ recipientId: authorId, icon, type: 'wall', title, body, link });
   } catch (err) {
     console.error('[wall] failed to create notification:', err.message);
   }
   sendPushToUser(authorId, { title, body, url: link }).catch((e) => console.error('[push] wall notify failed:', e.message));
 }
 
+async function loadPost(id) {
+  return prisma.wallPost.findUnique({ where: { id: String(id) }, include: POST_INCLUDE });
+}
+
 function shapePost(post, userId) {
-  const obj = post.toObject();
+  const obj = shape('WallPost', post);
   const uid = String(userId);
   obj.counts = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].length]));
   obj.myReactions = Object.fromEntries(REACTION_TYPES.map((t) => [t, obj.reactions[t].some((id) => String(id) === uid)]));
@@ -37,22 +50,27 @@ function shapePost(post, userId) {
 
 async function list(req, res) {
   const { tag, page = 1, limit = 20 } = req.query;
-  const filter = {};
-  if (tag && tag !== 'all') filter.tag = tag;
-  await excludeSuperadminUsers(filter, req.user.role, 'authorRef');
+  const where = {};
+  if (tag && tag !== 'all') {
+    // An unknown tag matched nothing on Mongo; Prisma would reject it outright.
+    if (!WALL_TAGS.includes(tag)) return res.json({ items: [], total: 0, page: Math.max(parseInt(page, 10) || 1, 1), pages: 1 });
+    where.tag = tag;
+  }
+  await excludeSuperadminUsers(where, req.user.role, 'authorId');
   const scopedIds = await scopedUserIds(req.user);
-  if (scopedIds) filter.authorRef = { $in: scopedIds };
+  if (scopedIds) andWhere(where, { authorId: { in: scopedIds } });
   const pg = Math.max(parseInt(page, 10) || 1, 1);
   const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
 
   const [posts, total] = await Promise.all([
-    WallPost.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((pg - 1) * lim)
-      .limit(lim)
-      .populate('authorRef', 'name avatarIndex avatarUrl')
-      .populate('comments.authorRef', 'name avatarIndex avatarUrl'),
-    WallPost.countDocuments(filter),
+    prisma.wallPost.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (pg - 1) * lim,
+      take: lim,
+      include: POST_INCLUDE,
+    }),
+    prisma.wallPost.count({ where }),
   ]);
 
   res.json({ items: posts.map((p) => shapePost(p, req.user._id)), total, page: pg, pages: Math.ceil(total / lim) || 1 });
@@ -62,7 +80,7 @@ async function create(req, res) {
   const { text, tag, poll } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Post text is required.' });
 
-  const postData = { authorRef: req.user._id, text: text.trim(), tag: tag || 'general' };
+  const postData = { authorId: String(req.user._id), text: text.trim(), tag: tag || 'general' };
 
   if (tag === 'poll') {
     if (!poll?.question?.trim()) return res.status(400).json({ message: 'A poll question is required.' });
@@ -75,29 +93,27 @@ async function create(req, res) {
         return res.status(400).json({ message: 'closesAt must be a valid future date.' });
       }
     }
-    postData.poll = { question: poll.question.trim(), options: options.map((t) => ({ text: t, votes: [] })), closesAt };
+    postData.pollQuestion = poll.question.trim();
+    postData.pollClosesAt = closesAt;
+    postData.pollOptions = { create: options.map((t, position) => ({ text: t, position })) };
   }
 
-  const post = await WallPost.create(postData);
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post._id, detail: 'Posted on Celebration Wall' });
+  const post = await prisma.wallPost.create({ data: postData, include: POST_INCLUDE });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'wall_posts', recordId: post.id, detail: 'Posted on Celebration Wall' });
   res.status(201).json({ post: shapePost(post, req.user._id) });
 }
 
 async function update(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Post text is required.' });
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
-  if (String(post.authorRef) !== String(req.user._id)) {
+  const existing = await prisma.wallPost.findUnique({ where: { id: String(req.params.id) }, select: { id: true, authorId: true } });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
+  if (String(existing.authorId) !== String(req.user._id)) {
     return res.status(403).json({ message: 'You can only edit your own posts.' });
   }
 
-  post.text = text.trim();
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'wall_posts', recordId: post._id, detail: 'Edited wall post' });
+  const post = await prisma.wallPost.update({ where: { id: existing.id }, data: { text: text.trim() }, include: POST_INCLUDE });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'wall_posts', recordId: post.id, detail: 'Edited wall post' });
   res.json({ post: shapePost(post, req.user._id) });
 }
 
@@ -105,23 +121,23 @@ async function react(req, res) {
   const { type } = req.body;
   if (!REACTION_TYPES.includes(type)) return res.status(400).json({ message: `type must be one of ${REACTION_TYPES.join(', ')}` });
 
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  const uid = String(req.user._id);
+  const existing = await prisma.wallPost.findUnique({
+    where: { id: String(req.params.id) },
+    select: { id: true, authorId: true, reactions: { where: { userId: uid, type }, select: { type: true } } },
+  });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
 
   // A user may only have one active reaction per post — drop it from every
   // type first, then re-add to the requested type unless that's what was toggled off.
-  const uid = String(req.user._id);
-  const wasActive = post.reactions[type].some((id) => String(id) === uid);
-  const authorId = post.authorRef;
-  REACTION_TYPES.forEach((t) => {
-    post.reactions[t] = post.reactions[t].filter((id) => String(id) !== uid);
-  });
+  const wasActive = existing.reactions.length > 0;
+  const authorId = existing.authorId;
   const becameActive = !wasActive;
-  if (becameActive) post.reactions[type].push(req.user._id);
-
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  await prisma.$transaction([
+    prisma.wallReaction.deleteMany({ where: { postId: existing.id, userId: uid } }),
+    ...(becameActive ? [prisma.wallReaction.create({ data: { postId: existing.id, userId: uid, type } })] : []),
+  ]);
+  const post = await loadPost(existing.id);
 
   if (becameActive && String(authorId) !== uid) {
     notifyPostAuthor(authorId, {
@@ -136,40 +152,45 @@ async function react(req, res) {
 
 async function votePoll(req, res) {
   const { optionIndex } = req.body;
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
-  if (!post.poll) return res.status(400).json({ message: 'This post is not a poll.' });
-  if (post.poll.closesAt && post.poll.closesAt < new Date()) return res.status(400).json({ message: 'This poll is closed.' });
-  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= post.poll.options.length) {
+  const uid = String(req.user._id);
+  const existing = await prisma.wallPost.findUnique({
+    where: { id: String(req.params.id) },
+    select: {
+      id: true,
+      pollQuestion: true,
+      pollClosesAt: true,
+      pollOptions: { orderBy: { position: 'asc' }, select: { id: true, votes: { where: { userId: uid }, select: { userId: true } } } },
+    },
+  });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
+  if (!existing.pollQuestion) return res.status(400).json({ message: 'This post is not a poll.' });
+  if (existing.pollClosesAt && existing.pollClosesAt < new Date()) return res.status(400).json({ message: 'This poll is closed.' });
+  const options = existing.pollOptions;
+  if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length) {
     return res.status(400).json({ message: 'Invalid option.' });
   }
 
   // One active vote per user across all options — clicking your current choice
   // again retracts it, clicking a different option switches your vote.
-  const uid = String(req.user._id);
-  const wasVotedIdx = post.poll.options.findIndex((o) => o.votes.some((id) => String(id) === uid));
-  post.poll.options.forEach((o) => {
-    o.votes = o.votes.filter((id) => String(id) !== uid);
-  });
-  if (wasVotedIdx !== optionIndex) post.poll.options[optionIndex].votes.push(req.user._id);
+  const wasVotedIdx = options.findIndex((o) => o.votes.length > 0);
+  await prisma.$transaction([
+    prisma.wallPollVote.deleteMany({ where: { userId: uid, option: { postId: existing.id } } }),
+    ...(wasVotedIdx !== optionIndex ? [prisma.wallPollVote.create({ data: { optionId: options[optionIndex].id, userId: uid } })] : []),
+  ]);
 
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  const post = await loadPost(existing.id);
   res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function addComment(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text is required.' });
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
+  const existing = await prisma.wallPost.findUnique({ where: { id: String(req.params.id) }, select: { id: true, authorId: true } });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
 
-  const authorId = post.authorRef;
-  post.comments.push({ authorRef: req.user._id, text: text.trim() });
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  const authorId = existing.authorId;
+  await prisma.wallComment.create({ data: { postId: existing.id, authorId: String(req.user._id), text: text.trim() } });
+  const post = await loadPost(existing.id);
 
   if (String(authorId) !== String(req.user._id)) {
     notifyPostAuthor(authorId, {
@@ -182,66 +203,67 @@ async function addComment(req, res) {
   res.status(201).json({ post: shapePost(post, req.user._id) });
 }
 
+async function findComment(postId, commentId) {
+  return prisma.wallComment.findFirst({ where: { id: String(commentId), postId } });
+}
+
 async function editComment(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text is required.' });
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
-  const comment = post.comments.id(req.params.commentId);
+  const existing = await prisma.wallPost.findUnique({ where: { id: String(req.params.id) }, select: { id: true } });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
+  const comment = await findComment(existing.id, req.params.commentId);
   if (!comment) return res.status(404).json({ message: 'Comment not found.' });
-  if (String(comment.authorRef) !== String(req.user._id)) {
+  if (String(comment.authorId) !== String(req.user._id)) {
     return res.status(403).json({ message: 'You can only edit your own comments.' });
   }
 
-  comment.text = text.trim();
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  await prisma.wallComment.update({ where: { id: comment.id }, data: { text: text.trim() } });
+  const post = await loadPost(existing.id);
   res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function deleteComment(req, res) {
-  const post = await WallPost.findById(req.params.id);
-  if (!post) return res.status(404).json({ message: 'Post not found.' });
-  const comment = post.comments.id(req.params.commentId);
+  const existing = await prisma.wallPost.findUnique({ where: { id: String(req.params.id) }, select: { id: true } });
+  if (!existing) return res.status(404).json({ message: 'Post not found.' });
+  const comment = await findComment(existing.id, req.params.commentId);
   if (!comment) return res.status(404).json({ message: 'Comment not found.' });
-  const isOwnComment = String(comment.authorRef) === String(req.user._id);
+  const isOwnComment = String(comment.authorId) === String(req.user._id);
   if (!isOwnComment) {
     if (!APPROVER_ROLES.includes(req.user.role)) {
       return res.status(403).json({ message: 'You can only delete your own comments.' });
     }
     if (await isOfficeScoped(req.user)) {
       const scopedIds = await scopedUserIds(req.user);
-      if (!scopedIds.some((id) => String(id) === String(comment.authorRef))) {
+      if (!scopedIds.some((id) => String(id) === String(comment.authorId))) {
         return res.status(403).json({ message: 'You can only moderate content from your own office.' });
       }
     }
   }
 
-  comment.deleteOne();
-  await post.save();
-  await post.populate('authorRef', 'name avatarIndex avatarUrl');
-  await post.populate('comments.authorRef', 'name avatarIndex avatarUrl');
+  await prisma.wallComment.delete({ where: { id: comment.id } });
+  const post = await loadPost(existing.id);
   res.json({ post: shapePost(post, req.user._id) });
 }
 
 async function remove(req, res) {
-  const post = await WallPost.findById(req.params.id);
+  const post = await prisma.wallPost.findUnique({ where: { id: String(req.params.id) }, select: { id: true, authorId: true } });
   if (!post) return res.status(404).json({ message: 'Post not found.' });
-  const isOwnPost = String(post.authorRef) === String(req.user._id);
+  const isOwnPost = String(post.authorId) === String(req.user._id);
   if (!isOwnPost) {
     if (!APPROVER_ROLES.includes(req.user.role)) {
       return res.status(403).json({ message: 'You can only delete your own posts.' });
     }
     if (await isOfficeScoped(req.user)) {
       const scopedIds = await scopedUserIds(req.user);
-      if (!scopedIds.some((id) => String(id) === String(post.authorRef))) {
+      if (!scopedIds.some((id) => String(id) === String(post.authorId))) {
         return res.status(403).json({ message: 'You can only moderate content from your own office.' });
       }
     }
   }
-  await post.deleteOne();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'wall_posts', recordId: post._id, detail: 'Deleted wall post' });
+  // Comments, reactions and poll options/votes go with it (ON DELETE CASCADE).
+  await prisma.wallPost.delete({ where: { id: post.id } });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'DELETE', entity: 'wall_posts', recordId: post.id, detail: 'Deleted wall post' });
   res.json({ message: 'Post deleted.' });
 }
 

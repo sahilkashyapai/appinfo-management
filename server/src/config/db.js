@@ -1,40 +1,20 @@
-const mongoose = require('mongoose');
+const prisma = require('../db/prisma');
 
-let memoryServer = null;
-
-// Uses MONGODB_URI when set (e.g. a real MongoDB Atlas cluster). If it's not
-// set, falls back to a throwaway in-memory MongoDB (mongodb-memory-server) so
-// the app can still boot for local development/demos with zero setup. Data in
-// that fallback mode lives only as long as this process keeps running.
+// Connects to MySQL via DATABASE_URL (see server/.env and prisma/schema.prisma).
+// Tables are created and upgraded by Prisma migrations (`npx prisma migrate dev`
+// locally, `npx prisma migrate deploy` in staging/production), not at startup.
 async function connectDB() {
-  let uri = process.env.MONGODB_URI;
-
-  if (!uri) {
-    const { MongoMemoryServer } = require('mongodb-memory-server');
-    console.log('[db] MONGODB_URI not set — starting a temporary in-memory MongoDB for local development...');
-    memoryServer = await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } });
-    uri = memoryServer.getUri();
-    console.log('[db] in-memory MongoDB ready. This data resets whenever the server restarts.');
-    console.log('[db] set MONGODB_URI in server/.env to use a real (persistent) database instead.');
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set. Add it to server/.env, e.g. mysql://user:pass@localhost:3306/appinfo');
   }
-
-  mongoose.set('strictQuery', true);
-  await mongoose.connect(uri);
-  console.log(`[db] connected to MongoDB (${mongoose.connection.name})`);
-}
-
-function isUsingMemoryServer() {
-  return !!memoryServer;
+  await prisma.$connect();
+  const host = new URL(process.env.DATABASE_URL).host;
+  console.log(`[db] connected to MySQL (${host})`);
 }
 
 async function disconnectDB() {
-  await mongoose.disconnect();
-  if (memoryServer) {
-    await memoryServer.stop();
-    memoryServer = null;
-  }
+  await prisma.$disconnect();
 }
 
 module.exports = connectDB;
-module.exports.isUsingMemoryServer = isUsingMemoryServer;
 module.exports.disconnectDB = disconnectDB;

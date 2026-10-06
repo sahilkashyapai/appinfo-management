@@ -54,13 +54,15 @@ export default function AttendancePage() {
   });
 
   const mark = useMutation({
-    mutationFn: ({ employeeRef, status }) => api.post('/attendance', { employeeRef, date: markDate, status }),
-    onSuccess: () => {
+    mutationFn: ({ employeeRef, status, date }) => api.post('/attendance', { employeeRef, date, status }),
+    onSuccess: (_res, { name, status, date }) => {
+      const day = date === todayInputDate() ? 'today' : `on ${new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      toast(`${name} marked ${STATUS_LABEL[status]} ${day}`, 'success');
       qc.invalidateQueries({ queryKey: ['attendance-day', markDate] });
       qc.invalidateQueries({ queryKey: ['attendance-today'] });
       qc.invalidateQueries({ queryKey: ['attendance-history'] });
     },
-    onError: (err) => toast(err.response?.data?.message || 'Could not save attendance.', 'error'),
+    onError: (err, { name }) => toast(`Attendance for ${name} wasn't saved: ${err.response?.data?.message || 'please try again.'}`, 'error'),
   });
 
   const historyTargetId = canViewTeam ? historyEmployeeId : user?.employeeRef;
@@ -166,7 +168,7 @@ export default function AttendancePage() {
                           style={{ width: 150 }}
                           value={dayStatuses[e._id] || ''}
                           disabled={mark.isPending}
-                          onChange={(ev) => mark.mutate({ employeeRef: e._id, status: ev.target.value })}
+                          onChange={(ev) => mark.mutate({ employeeRef: e._id, status: ev.target.value, name: e.name, date: markDate })}
                         >
                           <option value="" disabled>Select…</option>
                           {STATUSES.map((s) => (

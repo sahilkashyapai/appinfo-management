@@ -1,5 +1,5 @@
 const { verifyToken } = require('../utils/token');
-const User = require('../models/User');
+const { loadUser } = require('../db/users');
 
 async function requireAuth(req, res, next) {
   try {
@@ -12,7 +12,7 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ message: 'Two-factor verification required.' });
     }
 
-    const user = await User.findById(payload.sub);
+    const user = await loadUser(payload.sub);
     if (!user || !user.isActive) return res.status(401).json({ message: 'Not authenticated.' });
 
     req.user = user;

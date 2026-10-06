@@ -3,9 +3,8 @@ const crypto = require('crypto');
 const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
 
-const User = require('../models/User');
-const Employee = require('../models/Employee');
-const Department = require('../models/Department');
+const { prisma } = require('../db');
+const { loadUser, toSafeUser } = require('../db/users');
 const getSettings = require('../utils/getSettings');
 const writeAudit = require('../utils/audit');
 const { EMP_ID_PREFIX, EMP_ID_REGEX } = require('../utils/empId');
@@ -31,15 +30,17 @@ async function register(req, res) {
     return res.status(400).json({ message: `Employee ID must look like ${EMP_ID_PREFIX}000071 (as given to you by HR).` });
   }
 
-  const dept = await Department.findOne({ name: new RegExp(`^${department}$`, 'i') });
+  // Exact name match — the MySQL collation makes it case-insensitive, like the old /^name$/i.
+  const dept = await prisma.department.findFirst({ where: { name: { equals: String(department) } } });
   if (!dept) return res.status(400).json({ message: `Unknown department: ${department}` });
 
+  const idOnly = { select: { id: true } };
   const [existingUser, existingEmployeeByEmail, existingEmployeeByEmpId, existingUserByPhone, existingEmployeeByPhone] = await Promise.all([
-    User.findOne({ email: normalizedEmail }),
-    Employee.findOne({ email: normalizedEmail }),
-    Employee.findOne({ empId: trimmedEmpId }),
-    User.findOne({ phone: trimmedPhone }),
-    Employee.findOne({ phone: trimmedPhone }),
+    prisma.user.findFirst({ where: { email: normalizedEmail }, ...idOnly }),
+    prisma.employee.findFirst({ where: { email: normalizedEmail }, ...idOnly }),
+    prisma.employee.findFirst({ where: { empId: trimmedEmpId }, ...idOnly }),
+    prisma.user.findFirst({ where: { phone: trimmedPhone }, ...idOnly }),
+    prisma.employee.findFirst({ where: { phone: trimmedPhone }, ...idOnly }),
   ]);
   if (existingUser) return res.status(409).json({ message: 'An account with this email already exists.' });
   if (existingEmployeeByEmail || existingEmployeeByEmpId) {
@@ -52,26 +53,28 @@ async function register(req, res) {
   let user;
   try {
     const passwordHash = await bcrypt.hash(password, 10);
-    user = await User.create({
-      name,
-      email: normalizedEmail,
-      passwordHash,
-      role: 'employee',
-      empId: trimmedEmpId,
-      phone: trimmedPhone,
-      dob: new Date(dob),
-      joined: new Date(joined),
-      department: dept.name,
-      approvalStatus: 'pending',
+    user = await prisma.user.create({
+      data: {
+        name: String(name).trim(),
+        email: normalizedEmail,
+        passwordHash,
+        role: 'employee',
+        empId: trimmedEmpId,
+        phone: trimmedPhone,
+        dob: new Date(dob),
+        joined: new Date(joined),
+        department: dept.name,
+        approvalStatus: 'pending',
+      },
     });
   } catch (err) {
-    if (err.code === 11000) {
+    if (err.code === 'P2002') {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
     throw err;
   }
 
-  await writeAudit({ ip: req.ip, user, action: 'CREATE', entity: 'users', recordId: user._id, detail: `Self-registration submitted by ${user.name}, awaiting approval` });
+  await writeAudit({ ip: req.ip, user, action: 'CREATE', entity: 'users', recordId: user.id, detail: `Self-registration submitted by ${user.name}, awaiting approval` });
   res.status(201).json({ message: 'Registration submitted. An admin will review your details and activate your account.' });
 }
 
@@ -80,7 +83,8 @@ async function login(req, res) {
   if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
 
   const settings = await getSettings();
-  const user = await User.findOne({ email: String(email).toLowerCase().trim() });
+  const found = await prisma.user.findUnique({ where: { email: String(email).toLowerCase().trim() }, select: { id: true } });
+  const user = found ? await loadUser(found.id) : null;
 
   if (!user || !user.isActive) {
     await writeAudit({ ip: req.ip, action: 'LOGIN_FAILED', entity: 'users', recordId: email, detail: 'Unknown or inactive account' });
@@ -95,12 +99,12 @@ async function login(req, res) {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
     if (settings.security.accountLockout) {
-      user.failedAttempts += 1;
-      if (user.failedAttempts >= LOCK_ATTEMPTS) {
-        user.lockUntil = new Date(Date.now() + LOCK_MINUTES * 60 * 1000);
-        user.failedAttempts = 0;
-      }
-      await user.save();
+      const failedAttempts = user.failedAttempts + 1;
+      const data =
+        failedAttempts >= LOCK_ATTEMPTS
+          ? { failedAttempts: 0, lockUntil: new Date(Date.now() + LOCK_MINUTES * 60 * 1000) }
+          : { failedAttempts };
+      await prisma.user.update({ where: { id: user.id }, data });
     }
     await writeAudit({ ip: req.ip, user, action: 'LOGIN_FAILED', entity: 'users', recordId: user._id, detail: 'Wrong password' });
     return res.status(401).json({ message: 'Invalid email or password.' });
@@ -113,19 +117,18 @@ async function login(req, res) {
     return res.status(403).json({ message: user.rejectionReason ? `Registration rejected: ${user.rejectionReason}` : 'Your registration was rejected. Please contact HR.' });
   }
 
-  user.failedAttempts = 0;
-  user.lockUntil = null;
-
   if (user.totpEnabled) {
-    await user.save();
+    await prisma.user.update({ where: { id: user.id }, data: { failedAttempts: 0, lockUntil: null } });
     return res.json({ requires2fa: true, tempToken: signTwoFactorChallengeToken(user) });
   }
 
-  user.lastLogin = new Date();
-  await user.save();
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { failedAttempts: 0, lockUntil: null, lastLogin: new Date() },
+  });
   const token = signAuthToken(user, settings.security.sessionTimeoutMins);
   await writeAudit({ ip: req.ip, user, action: 'LOGIN', entity: 'users', recordId: user._id, detail: 'Signed in' });
-  res.json({ token, user: user.toSafeJSON() });
+  res.json({ token, user: toSafeUser(updated) });
 }
 
 async function verify2fa(req, res) {
@@ -140,22 +143,21 @@ async function verify2fa(req, res) {
   }
   if (payload.stage !== '2fa_pending') return res.status(401).json({ message: 'Invalid session.' });
 
-  const user = await User.findById(payload.sub);
+  const user = await loadUser(payload.sub);
   if (!user || !user.totpEnabled) return res.status(401).json({ message: 'Invalid session.' });
 
   const valid = authenticator.check(code, user.totpSecret);
   if (!valid) return res.status(401).json({ message: 'Incorrect authentication code.' });
 
-  user.lastLogin = new Date();
-  await user.save();
+  const updated = await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
   const settings = await getSettings();
   const token = signAuthToken(user, settings.security.sessionTimeoutMins);
   await writeAudit({ ip: req.ip, user, action: 'LOGIN', entity: 'users', recordId: user._id, detail: 'Signed in (2FA)' });
-  res.json({ token, user: user.toSafeJSON() });
+  res.json({ token, user: toSafeUser(updated) });
 }
 
 async function me(req, res) {
-  res.json({ user: req.user.toSafeJSON() });
+  res.json({ user: toSafeUser(req.user) });
 }
 
 async function logout(req, res) {
@@ -168,25 +170,31 @@ async function changePassword(req, res) {
   if (!currentPassword || !newPassword || newPassword.length < 8) {
     return res.status(400).json({ message: 'Provide current password and a new password of at least 8 characters.' });
   }
-  const user = await User.findById(req.user._id);
+  const user = await prisma.user.findUnique({ where: { id: String(req.user._id) }, select: { id: true, passwordHash: true } });
   const ok = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!ok) return res.status(401).json({ message: 'Current password is incorrect.' });
 
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  await user.save();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: 'Changed password' });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(newPassword, 10) } });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user.id, detail: 'Changed password' });
   res.json({ message: 'Password changed. Please sign in again.' });
 }
 
 async function forgotPassword(req, res) {
   const { email } = req.body;
-  const user = await User.findOne({ email: String(email || '').toLowerCase().trim() });
+  const user = await prisma.user.findUnique({
+    where: { email: String(email || '').toLowerCase().trim() },
+    select: { id: true, email: true },
+  });
   // Always respond success to avoid leaking which emails are registered.
   if (user) {
     const resetToken = crypto.randomBytes(32).toString('hex');
-    user.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
-    await user.save();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: crypto.createHash('sha256').update(resetToken).digest('hex'),
+        passwordResetExpires: new Date(Date.now() + 30 * 60 * 1000),
+      },
+    });
     const { subject, html } = templates.generic(
       'Reset your AII Celebrations password',
       `Use this token within 30 minutes to reset your password: <code>${resetToken}</code>`
@@ -201,18 +209,21 @@ async function resetPassword(req, res) {
   if (!email || !resetToken || !newPassword || newPassword.length < 8) {
     return res.status(400).json({ message: 'Email, resetToken and a new password of at least 8 characters are required.' });
   }
-  const hashed = crypto.createHash('sha256').update(resetToken).digest('hex');
-  const user = await User.findOne({
-    email: String(email).toLowerCase().trim(),
-    passwordResetToken: hashed,
-    passwordResetExpires: { $gt: new Date() },
+  const hashed = crypto.createHash('sha256').update(String(resetToken)).digest('hex');
+  const user = await prisma.user.findFirst({
+    where: {
+      email: String(email).toLowerCase().trim(),
+      passwordResetToken: hashed,
+      passwordResetExpires: { gt: new Date() },
+    },
+    select: { id: true },
   });
   if (!user) return res.status(400).json({ message: 'Reset token is invalid or has expired.' });
 
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  user.passwordResetToken = null;
-  user.passwordResetExpires = null;
-  await user.save();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await bcrypt.hash(newPassword, 10), passwordResetToken: null, passwordResetExpires: null },
+  });
   res.json({ message: 'Password reset. Please sign in with your new password.' });
 }
 
@@ -221,29 +232,28 @@ async function setup2fa(req, res) {
   const uri = authenticator.keyuri(req.user.email, 'AII Celebrations', secret);
   const qrDataUrl = await qrcode.toDataURL(uri);
   // Stored but not enabled until verified via enable2fa.
-  req.user.totpSecret = secret;
-  await req.user.save();
+  await prisma.user.update({ where: { id: String(req.user._id) }, data: { totpSecret: secret } });
   res.json({ secret, qrDataUrl });
 }
 
 async function enable2fa(req, res) {
   const { code } = req.body;
-  const user = await User.findById(req.user._id);
+  const user = await prisma.user.findUnique({ where: { id: String(req.user._id) }, select: { id: true, totpSecret: true } });
   if (!user.totpSecret) return res.status(400).json({ message: 'Call setup first.' });
   const valid = authenticator.check(code, user.totpSecret);
   if (!valid) return res.status(400).json({ message: 'Incorrect code. Scan the QR again and retry.' });
-  user.totpEnabled = true;
-  await user.save();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: 'Enabled 2FA' });
+  await prisma.user.update({ where: { id: user.id }, data: { totpEnabled: true } });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user.id, detail: 'Enabled 2FA' });
   res.json({ message: 'Two-factor authentication enabled.' });
 }
 
 async function disable2fa(req, res) {
-  const user = await User.findById(req.user._id);
-  user.totpEnabled = false;
-  user.totpSecret = null;
-  await user.save();
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: 'Disabled 2FA' });
+  const user = await prisma.user.update({
+    where: { id: String(req.user._id) },
+    data: { totpEnabled: false, totpSecret: null },
+    select: { id: true },
+  });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user.id, detail: 'Disabled 2FA' });
   res.json({ message: 'Two-factor authentication disabled.' });
 }
 

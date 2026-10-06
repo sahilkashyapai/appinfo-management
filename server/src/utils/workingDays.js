@@ -1,4 +1,4 @@
-const Holiday = require('../models/Holiday');
+const prisma = require('../db/prisma');
 
 // Counts working days (Mon-Fri, excluding declared holidays) in the given
 // 'YYYY-MM' month, from day 1 through `throughDay` (inclusive). Omit
@@ -12,7 +12,7 @@ async function countWorkingDays(y, m, throughDay) {
   const monthStart = new Date(Date.UTC(y, m - 1, 1));
   const monthEnd = new Date(Date.UTC(y, m, 1));
 
-  const holidays = await Holiday.find({ date: { $gte: monthStart, $lt: monthEnd } }, 'date');
+  const holidays = await prisma.holiday.findMany({ where: { date: { gte: monthStart, lt: monthEnd } }, select: { date: true } });
   const holidayDays = new Set(holidays.map((h) => h.date.getUTCDate()));
 
   let workingDays = 0;

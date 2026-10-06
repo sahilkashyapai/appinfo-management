@@ -1,80 +1,95 @@
-const User = require('../models/User');
-const Employee = require('../models/Employee');
-const Department = require('../models/Department');
+const { prisma, shape, shapeMany } = require('../db');
+const { toSafeUser } = require('../db/users');
 const writeAudit = require('../utils/audit');
 const { sendMail, templates } = require('../services/emailService');
 const { EMP_ID_REGEX, nextEmpId } = require('../utils/empId');
 const { excludeSuperadminUsers } = require('../utils/hideSuperadmin');
 
+const APPROVAL_STATUSES = ['approved', 'pending', 'rejected'];
+
+// Everything except credentials/secrets — the old `-passwordHash -totpSecret -passwordResetToken` projection.
+function stripSecrets(user) {
+  const { passwordHash, totpSecret, passwordResetToken, passwordResetExpires, ...rest } = user;
+  return rest;
+}
+
 async function list(req, res) {
   const { status = 'pending' } = req.query;
-  const filter = status === 'all' ? {} : { approvalStatus: status };
-  await excludeSuperadminUsers(filter, req.user.role, '_id');
-  const items = await User.find(filter).sort({ createdAt: -1 }).select('-passwordHash -totpSecret -passwordResetToken');
-  res.json({ items });
+  // approvalStatus is a MySQL enum: an unknown value would make Prisma throw,
+  // where Mongo just matched nothing.
+  if (status !== 'all' && !APPROVAL_STATUSES.includes(status)) return res.json({ items: [] });
+  const where = status === 'all' ? {} : { approvalStatus: status };
+  await excludeSuperadminUsers(where, req.user.role, 'id');
+  const rows = await prisma.user.findMany({ where, orderBy: { createdAt: 'desc' } });
+  res.json({ items: shapeMany('User', rows).map(stripSecrets) });
 }
 
 async function approve(req, res) {
   const { desig, location, managerRef } = req.body;
   if (!desig) return res.status(400).json({ message: 'Designation is required to approve this registration.' });
 
-  const user = await User.findById(req.params.id);
+  const user = await prisma.user.findUnique({ where: { id: String(req.params.id) } });
   if (!user) return res.status(404).json({ message: 'Registration not found.' });
   if (user.approvalStatus !== 'pending') return res.status(409).json({ message: 'This registration has already been reviewed.' });
 
-  const dept = await Department.findOne({ name: new RegExp(`^${user.department}$`, 'i') });
+  const dept = await prisma.department.findFirst({ where: { name: { equals: user.department } } });
   if (!dept) return res.status(400).json({ message: `Unknown department: ${user.department}` });
 
-  const empId = EMP_ID_REGEX.test(user.empId) ? user.empId : await nextEmpId(Employee);
+  const empId = EMP_ID_REGEX.test(user.empId) ? user.empId : await nextEmpId();
 
-  const employee = await Employee.create({
-    empId,
-    name: user.name,
-    dept: dept.name,
-    deptRef: dept._id,
-    desig,
-    joined: user.joined,
-    dob: user.dob,
-    email: user.email,
-    phone: user.phone,
-    location: location || '',
-    status: 'active',
-    managerRef: managerRef || null,
-    userRef: user._id,
-    avatarIndex: Math.floor(Math.random() * 10),
+  // Create the Employee and link it both ways (employees.userId <-> users.employeeId) atomically.
+  const [employee, updated] = await prisma.$transaction(async (tx) => {
+    const emp = await tx.employee.create({
+      data: {
+        empId,
+        name: user.name,
+        dept: dept.name,
+        deptId: dept.id,
+        desig,
+        joined: user.joined,
+        dob: user.dob,
+        email: user.email,
+        phone: user.phone,
+        location: location || '',
+        status: 'active',
+        managerId: managerRef ? String(managerRef) : null,
+        userId: user.id,
+        avatarIndex: Math.floor(Math.random() * 10),
+      },
+    });
+    const u = await tx.user.update({
+      where: { id: user.id },
+      data: { approvalStatus: 'approved', isActive: true, employeeId: emp.id },
+    });
+    return [emp, u];
   });
 
-  user.approvalStatus = 'approved';
-  user.isActive = true;
-  user.employeeRef = employee._id;
-  await user.save();
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: updated.id, detail: `Approved registration for ${updated.name}, created employee ${employee.empId}` });
 
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: `Approved registration for ${user.name}, created employee ${employee.empId}` });
+  const { subject, html } = templates.registrationApproved(updated.name);
+  await sendMail({ to: updated.email, subject, html });
 
-  const { subject, html } = templates.registrationApproved(user.name);
-  await sendMail({ to: user.email, subject, html });
-
-  res.json({ user: user.toSafeJSON(), employee });
+  res.json({ user: toSafeUser(shape('User', updated)), employee: shape('Employee', employee) });
 }
 
 async function reject(req, res) {
   const { reason } = req.body;
 
-  const user = await User.findById(req.params.id);
+  const user = await prisma.user.findUnique({ where: { id: String(req.params.id) }, select: { id: true, approvalStatus: true } });
   if (!user) return res.status(404).json({ message: 'Registration not found.' });
   if (user.approvalStatus !== 'pending') return res.status(409).json({ message: 'This registration has already been reviewed.' });
 
-  user.approvalStatus = 'rejected';
-  user.rejectionReason = reason || '';
-  user.isActive = false;
-  await user.save();
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { approvalStatus: 'rejected', rejectionReason: reason || '', isActive: false },
+  });
 
-  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: user._id, detail: `Rejected registration for ${user.name}${reason ? `: ${reason}` : ''}` });
+  await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'users', recordId: updated.id, detail: `Rejected registration for ${updated.name}${reason ? `: ${reason}` : ''}` });
 
-  const { subject, html } = templates.registrationRejected(user.name, reason);
-  await sendMail({ to: user.email, subject, html });
+  const { subject, html } = templates.registrationRejected(updated.name, reason);
+  await sendMail({ to: updated.email, subject, html });
 
-  res.json({ user: user.toSafeJSON() });
+  res.json({ user: toSafeUser(shape('User', updated)) });
 }
 
 module.exports = { list, approve, reject };
