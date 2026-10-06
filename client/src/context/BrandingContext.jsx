@@ -16,14 +16,17 @@ const DEFAULT_BRANDING = {
 
 const BrandingContext = createContext(DEFAULT_BRANDING);
 
+// Public endpoint (see settingsRoutes.js) — must resolve before login, so it
+// can't sit behind requireAuth like the rest of /settings. Shared with
+// PreloaderGate, which waits for it.
+export const brandingQuery = {
+  queryKey: ['branding'],
+  queryFn: () => api.get('/settings/branding').then((r) => r.data.branding),
+  staleTime: 60000,
+};
+
 export function BrandingProvider({ children }) {
-  // Public endpoint (see settingsRoutes.js) — must resolve before login, so it
-  // can't sit behind requireAuth like the rest of /settings.
-  const { data } = useQuery({
-    queryKey: ['branding'],
-    queryFn: () => api.get('/settings/branding').then((r) => r.data.branding),
-    staleTime: 60000,
-  });
+  const { data } = useQuery(brandingQuery);
 
   const branding = {
     companyName: data?.companyName || DEFAULT_BRANDING.companyName,

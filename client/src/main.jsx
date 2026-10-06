@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import PreloaderGate from './components/PreloaderGate.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <ToastProvider>
               <BrandingProvider>
                 <AuthProvider>
+                  <PreloaderGate />
                   <SocketProvider>
                     <DrawerProvider>
                       <App />

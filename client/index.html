@@ -7,9 +7,50 @@
   <link rel="icon" type="image/png" href="/images/ai-icon.png">
   <link rel="manifest" href="/manifest.json">
   <title>AI Connect – Applied Information India</title>
+  <!-- Preloader: painted before any JS loads, removed by PreloaderGate.jsx once
+       the page, the sign-in check and branding are ready. Colors mirror
+       global.css (light --bg/--accent/--t1 and body.dark). -->
+  <style>
+    #preloader {
+      --pl-bg: #F0F4F8; --pl-fg: #0D1B2A; --pl-muted: #5B6B7F; --pl-track: #D6E2EC; --pl-accent: #2E86AB;
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: var(--pl-bg); color: var(--pl-fg);
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      transition: opacity .35s ease, visibility .35s ease;
+    }
+    html.pl-dark #preloader { --pl-bg: #0F172A; --pl-fg: #F1F5F9; --pl-muted: #94A3B8; --pl-track: #1E293B; }
+    #preloader.pl-done { opacity: 0; visibility: hidden; }
+    #preloader .pl-mark { position: relative; width: 84px; height: 84px; display: grid; place-items: center; }
+    #preloader .pl-mark img { width: 44px; height: 44px; }
+    #preloader .pl-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 3px solid var(--pl-track); border-top-color: var(--pl-accent);
+      animation: pl-spin .9s linear infinite;
+    }
+    #preloader .pl-name { font-size: 18px; font-weight: 700; letter-spacing: .02em; }
+    #preloader .pl-sub { font-size: 12.5px; color: var(--pl-muted); min-height: 1.4em; text-align: center; padding: 0 16px; }
+    #preloader .pl-retry {
+      display: none; font-family: inherit; font-size: 13px; font-weight: 600; color: #fff; background: var(--pl-accent);
+      border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    }
+    #preloader.pl-slow .pl-retry { display: inline-block; }
+    @keyframes pl-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #preloader .pl-ring { animation-duration: 2.4s; } }
+  </style>
+  <script src="/preloader.js"></script>
 </head>
 
 <body>
+  <div id="preloader" role="status" aria-live="polite">
+    <div class="pl-mark">
+      <div class="pl-ring"></div>
+      <img src="/images/ai-icon.png" alt="">
+    </div>
+    <div class="pl-name">AI Connect</div>
+    <div class="pl-sub">Loading…</div>
+    <button type="button" class="pl-retry">Reload</button>
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
