@@ -12,6 +12,9 @@ async function writeAudit({ ip, user, action, entity, recordId, detail }) {
     // do, for anyone to see. This is enforced here (not client-controllable)
     // so neither role can toggle it on themselves.
     if (user?.role === 'proadmin' || user?.role === 'developer') return;
+    // Local/development servers never keep an audit trail — only production
+    // (NODE_ENV=production, the company server) records one.
+    if (process.env.NODE_ENV !== 'production') return;
     const settings = await getSettings();
     if (!settings.security.auditLogging) return;
     await prisma.auditLog.create({
