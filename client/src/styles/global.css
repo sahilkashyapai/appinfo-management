@@ -197,13 +197,13 @@ body.dark {
   z-index: 1;
 }
 
-/* Features as a single column of glass cards, as wide as the longest one. */
+/* Features as a single column of glass cards. */
 .al-feat {
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-  width: max-content;
-  max-width: 100%;
+  width: 100%;
+  max-width: 380px;
   position: relative;
   z-index: 1;
 }
@@ -216,7 +216,7 @@ body.dark {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
-  padding: 12px 22px 12px 14px;
+  padding: 14px;
   border-radius: 14px;
   background: rgba(255, 255, 255, .06);
   border: 1px solid rgba(255, 255, 255, .1);
