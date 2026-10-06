@@ -219,6 +219,10 @@ async function upsert(req, res) {
   if (await isOutsideScope(req.user, employee.location)) {
     return res.status(404).json({ message: 'Employee not found.' });
   }
+  // Superadmin attendance isn't tracked: it would be saved but never shown.
+  if ((await superadminEmployeeIds()).includes(employee.id)) {
+    return res.status(400).json({ message: `${employee.name} is a superadmin; superadmin attendance isn't tracked.` });
+  }
 
   const day = startOfDay(date);
   const record = await upsertAttendance(
@@ -254,12 +258,14 @@ async function bulkUpsert(req, res) {
   const requestedIds = [...new Set(entries.map((e) => e?.employeeRef).filter(Boolean).map(String))];
   const existing = await prisma.employee.findMany({ where: { id: { in: requestedIds } }, select: { id: true } });
   const existingIds = new Set(existing.map((e) => e.id));
+  const untracked = new Set((await superadminEmployeeIds()).map(String)); // superadmin attendance isn't tracked
 
   const results = [];
   for (const { employeeRef, status, note } of entries) {
     if (!employeeRef || !STATUSES.includes(status)) continue;
     if (allowed && !allowed.has(String(employeeRef))) continue;
     if (!existingIds.has(String(employeeRef))) continue;
+    if (untracked.has(String(employeeRef))) continue;
     const record = await upsertAttendance({ employeeId: String(employeeRef), date: day, status, note: note || '', markedById: String(req.user._id) });
     results.push(record);
   }

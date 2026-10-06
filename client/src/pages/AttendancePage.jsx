@@ -38,11 +38,14 @@ export default function AttendancePage() {
   const [correctionDate, setCorrectionDate] = useState(null);
   const [rejectingCorrection, setRejectingCorrection] = useState(null);
 
-  const { data: employees = [] } = useQuery({
+  const { data: allEmployees = [] } = useQuery({
     queryKey: ['employees-all-light'],
     queryFn: () => api.get('/employees', { params: { limit: 200 } }).then((r) => r.data.items),
     enabled: canMark || canViewTeam,
   });
+  // Superadmins' attendance isn't tracked (the API leaves them out of every
+  // attendance list), so they aren't offered for marking or history either.
+  const employees = allEmployees.filter((e) => e.userRef?.role !== 'superadmin');
 
   const { data: dayStatuses = {}, isLoading: dayLoading } = useQuery({
     queryKey: ['attendance-day', markDate],
