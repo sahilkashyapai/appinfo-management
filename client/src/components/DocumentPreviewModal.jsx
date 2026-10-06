@@ -1,20 +1,64 @@
+import { useEffect, useState } from 'react';
+
+// Full-screen preference survives between previews (per browser).
+const FULLSCREEN_KEY = 'aii_doc_preview_fullscreen';
+
+function readFullscreen() {
+  try {
+    return localStorage.getItem(FULLSCREEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default function DocumentPreviewModal({ doc, onClose }) {
   const isImage = (doc.fileType || '').startsWith('image/');
   const isPdf = doc.fileType === 'application/pdf';
+  const [fullscreen, setFullscreen] = useState(readFullscreen);
+
+  function toggleFullscreen() {
+    setFullscreen((f) => {
+      try {
+        localStorage.setItem(FULLSCREEN_KEY, f ? '0' : '1');
+      } catch {
+        /* storage unavailable: just don't remember */
+      }
+      return !f;
+    });
+  }
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   return (
     <div
-      style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(13,27,42,.65)', zIndex: 970, alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      style={{ display: 'flex', position: 'fixed', inset: 0, background: 'rgba(13,27,42,.65)', zIndex: 970, alignItems: 'center', justifyContent: 'center', padding: fullscreen ? 0 : 20 }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card" style={{ width: 'min(760px, 96vw)', height: 'min(88vh, 820px)', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="card"
+        style={{
+          width: fullscreen ? '100vw' : 'min(760px, 96vw)',
+          height: fullscreen ? '100vh' : 'min(88vh, 820px)',
+          borderRadius: fullscreen ? 0 : undefined,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="chd">
-          <div className="cht"><i className="fa-solid fa-file" /> {doc.name}</div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <div className="cht" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><i className="fa-solid fa-file" /> {doc.name}</div>
+          <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+            <button className="btn bs bxs" onClick={toggleFullscreen} title={fullscreen ? 'Exit full screen' : 'Full screen'}>
+              <i className={`fa-solid ${fullscreen ? 'fa-compress' : 'fa-expand'}`} /> {fullscreen ? 'Exit full screen' : 'Full screen'}
+            </button>
             <a className="btn bs bxs" href={doc.fileUrl} download={doc.fileName || doc.name}>
               <i className="fa-solid fa-download" /> Download
             </a>
-            <button className="btn bs bxs bico" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
+            <button className="btn bs bxs bico" title="Close (Esc)" onClick={onClose}><i className="fa-solid fa-xmark" /></button>
           </div>
         </div>
         <div style={{ flex: 1, minHeight: 0, background: 'var(--bg3)', borderRadius: 'var(--r)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto' }}>
