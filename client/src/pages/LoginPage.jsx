@@ -62,15 +62,12 @@ export default function LoginPage() {
       <div className="al">
         <div className="al-icon"><img src={branding.faviconUrl} alt={branding.companyName} /></div>
         <div className="al-h">AI Connect</div>
-        <div className="al-sub">{branding.companyName}'s unified hub for birthdays, anniversaries, events, attendance, and team collaboration.</div>
+        <div className="al-sub">{branding.companyName}'s employee portal — your attendance, leave, payslips and team updates in one place.</div>
         <div className="al-feat">
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div>Automated birthday &amp; anniversary notifications</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-days" /></div>End-to-end event management with RSVP</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-heart" /></div>Celebration Wall with reactions &amp; comments</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-check" /></div>Attendance &amp; leave tracking</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-comment-dots" /></div>Direct &amp; group team messaging</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-chart-column" /></div>Real-time analytics &amp; engagement reports</div>
-          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-shield-halved" /></div>Enterprise security — RBAC, JWT, audit logs</div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-calendar-check" /></div><div><div className="al-ft">Attendance &amp; leave</div><div className="al-fd">Mark days, apply for leave</div></div></div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-file-invoice" /></div><div><div className="al-ft">Payslips &amp; documents</div><div className="al-fd">Download them anytime</div></div></div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-cake-candles" /></div><div><div className="al-ft">Celebrations &amp; events</div><div className="al-fd">Birthdays and RSVPs</div></div></div>
+          <div className="al-fi"><div className="al-fic"><i className="fa-solid fa-comments" /></div><div><div className="al-ft">Team messages</div><div className="al-fd">Chats and announcements</div></div></div>
         </div>
       </div>
       <div className="ar">
