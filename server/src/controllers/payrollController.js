@@ -7,6 +7,7 @@ const { updateSettingsSection, SETTINGS_DEFAULTS } = getSettings;
 const { scopeEmployeeLocationFilter, isOutsideScope, resolveScopeLocation } = require('../utils/officeScope');
 const { countWorkingDays } = require('../utils/workingDays');
 const { LOP_BASES, parsePeriod, officeSettings, computeSlip, withTotals, renderSlipPdf, round2 } = require('../services/payroll');
+const { computeBalance } = require('./leaveController');
 
 // HR payroll: per-employee salary structures, monthly salary slips (draft ->
 // published), and the payroll rules in Settings.payroll. Everything is limited
@@ -125,6 +126,7 @@ async function updatePayrollSettings(req, res) {
         currency,
         companyName: String(o.companyName || '').trim().slice(0, 191),
         address: String(o.address || '').trim().slice(0, 500),
+        phone: String(o.phone || '').trim().slice(0, 50),
         statutory: !!o.statutory,
       };
     }
@@ -215,6 +217,9 @@ async function getStructure(req, res) {
         ptApplicable: true,
         pan: '',
         uan: '',
+        epfNumber: '',
+        esiNumber: '',
+        address: '',
         bankName: '',
         bankAccount: '',
         ifsc: '',
@@ -246,6 +251,9 @@ async function saveStructure(req, res) {
     ptApplicable: b.ptApplicable !== false,
     pan,
     uan: String(b.uan || '').trim().slice(0, 20),
+    epfNumber: String(b.epfNumber || '').trim().toUpperCase().slice(0, 30),
+    esiNumber: String(b.esiNumber || '').trim().slice(0, 30),
+    address: String(b.address || '').trim().slice(0, 500) || null,
     bankName: String(b.bankName || '').trim().slice(0, 191),
     bankAccount: String(b.bankAccount || '').replace(/\s+/g, '').slice(0, 50),
     ifsc,
@@ -302,9 +310,13 @@ function employeeSnapshot(employee, structure) {
     joined: employee.joined,
     pan: structure.pan || '',
     uan: structure.uan || '',
+    epfNumber: structure.epfNumber || '',
+    esiNumber: structure.esiNumber || '',
+    address: structure.address || '',
     bankName: structure.bankName || '',
     bankAccount: structure.bankAccount || '',
     ifsc: structure.ifsc || '',
+    monthlyCtc: monthlyGross(structure),
   };
 }
 
@@ -315,7 +327,14 @@ async function calculate({ employee, structure, payroll, period, absentDays, lop
   const basisDays = await basisDaysFor(period, payroll.lopBasis);
   const lopDays = lopOverride !== undefined ? Number(lopOverride) : absentDays + (await preJoinDays(employee.joined, period, payroll.lopBasis));
   const result = computeSlip({ structure, payroll, office, period, lopDays, basisDays, manualLines });
-  return { office, ...result };
+
+  // Shown on the slip: working days in the month, days actually worked
+  // (working days minus absences and days before joining), and leave balances.
+  const workingDays = await countWorkingDays(period.year, period.month);
+  const preJoinWorking = await preJoinDays(employee.joined, period, 'working');
+  const daysWorked = Math.max(workingDays - absentDays - preJoinWorking, 0);
+  const leaveBalances = await computeBalance(employee.id, period.year);
+  return { office, ...result, workingDays, daysWorked, leaveBalances };
 }
 
 function manualOnly(slip) {
@@ -331,6 +350,9 @@ function slipData({ employee, structure, period, calc, userId }) {
     office: calc.office.name,
     employeeInfo: employeeSnapshot(employee, structure),
     daysInMonth: period.daysInMonth,
+    workingDays: calc.workingDays,
+    daysWorked: calc.daysWorked,
+    leaveBalances: calc.leaveBalances,
     paidDays: calc.paidDays,
     lopDays: calc.lopDays,
     earnings: calc.earnings,
@@ -499,7 +521,14 @@ async function companyFor(slip) {
   const office = officeSettings(settings.payroll, slip.office);
   const logo = settings.branding.logoUrl;
   return {
-    company: { name: office.companyName || settings.branding.companyName, address: office.address, logoDataUrl: logo?.startsWith('data:') ? logo : defaultLogo() },
+    company: {
+      name: office.companyName || settings.branding.companyName,
+      address: office.address,
+      phone: office.phone,
+      logoDataUrl: logo?.startsWith('data:') ? logo : defaultLogo(),
+      primaryColor: settings.branding.primaryColor,
+      secondaryColor: settings.branding.secondaryColor,
+    },
     footerNote: settings.payroll.footerNote,
   };
 }

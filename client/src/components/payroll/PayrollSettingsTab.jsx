@@ -133,6 +133,10 @@ export default function PayrollSettingsTab() {
                 <label className="fl">Address</label>
                 <textarea className="fc" rows={2} value={o.address} onChange={(e) => update((f) => { f.offices[name].address = e.target.value; })} />
               </div>
+              <div className="fg">
+                <label className="fl">Phone</label>
+                <input className="fc" placeholder="e.g. 0172-4065302" value={o.phone || ''} onChange={(e) => update((f) => { f.offices[name].phone = e.target.value; })} />
+              </div>
               <ToggleRow
                 label="Apply Indian statutory deductions"
                 hint={canEditShared ? 'PF, ESI and Professional Tax' : 'PF, ESI and Professional Tax · set by a company-wide admin'}

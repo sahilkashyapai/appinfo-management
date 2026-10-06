@@ -23,9 +23,9 @@ const DEFAULTS = {
   // deductions (PF/ESI/PT) only apply to offices with `statutory: true`.
   payroll: {
     offices: {
-      'Mohali, India': { currency: 'INR', companyName: '', address: '', statutory: true },
-      'Alpharetta, United States': { currency: 'USD', companyName: '', address: '', statutory: false },
-      'Cape Town, South Africa': { currency: 'ZAR', companyName: '', address: '', statutory: false },
+      'Mohali, India': { currency: 'INR', companyName: '', address: '', phone: '', statutory: true },
+      'Alpharetta, United States': { currency: 'USD', companyName: '', address: '', phone: '', statutory: false },
+      'Cape Town, South Africa': { currency: 'ZAR', companyName: '', address: '', phone: '', statutory: false },
     },
     pf: { enabled: true, ratePct: 12, applyWageCeiling: true, wageCeiling: 15000 },
     esi: { enabled: true, ratePct: 0.75, grossThreshold: 21000 },

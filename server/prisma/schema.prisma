@@ -902,6 +902,9 @@ model SalaryStructure {
   ptApplicable  Boolean  @default(true)
   pan           String   @default("") @db.VarChar(20)
   uan           String   @default("") @db.VarChar(20)
+  epfNumber     String   @default("") @db.VarChar(30)
+  esiNumber     String   @default("") @db.VarChar(30)
+  address       String?  @db.Text // employee's address, printed on the slip
   bankName      String   @default("") @db.VarChar(191)
   bankAccount   String   @default("") @db.VarChar(50)
   ifsc          String   @default("") @db.VarChar(20)
@@ -929,6 +932,9 @@ model SalarySlip {
   office          String           @default("") @db.VarChar(191)
   employeeInfo    Json // snapshot at generation: name, empId, desig, dept, joined, pan, uan, bank…
   daysInMonth     Int
+  workingDays     Int? // Mon–Fri excluding holidays
+  daysWorked      Decimal?         @db.Decimal(5, 1)
+  leaveBalances   Json? // snapshot at generation: { casual: { allocated, used, remaining }, sick, earned }
   paidDays        Decimal          @db.Decimal(5, 1)
   lopDays         Decimal          @db.Decimal(5, 1)
   earnings        Json // [{ name, fullAmount, amount, source }]

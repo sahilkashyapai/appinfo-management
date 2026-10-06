@@ -14,6 +14,9 @@ function toForm(s) {
     ptApplicable: !!s.ptApplicable,
     pan: s.pan || '',
     uan: s.uan || '',
+    epfNumber: s.epfNumber || '',
+    esiNumber: s.esiNumber || '',
+    address: s.address || '',
     bankName: s.bankName || '',
     bankAccount: s.bankAccount || '',
     ifsc: s.ifsc || '',
@@ -162,9 +165,15 @@ export default function StructureEditorModal({ employeeId, onClose }) {
       <div className="fg2">
         <div className="fg"><label className="fl">PAN</label><input className="fc" placeholder="ABCDE1234F" value={form.pan} onChange={(e) => set('pan', e.target.value.toUpperCase())} /></div>
         <div className="fg"><label className="fl">UAN</label><input className="fc" value={form.uan} onChange={(e) => set('uan', e.target.value)} /></div>
+        <div className="fg"><label className="fl">EPF Number</label><input className="fc" placeholder="PB/MOH/0012345/000/0101" value={form.epfNumber} onChange={(e) => set('epfNumber', e.target.value.toUpperCase())} /></div>
+        <div className="fg"><label className="fl">ESI Number</label><input className="fc" placeholder="Leave empty if not covered" value={form.esiNumber} onChange={(e) => set('esiNumber', e.target.value)} /></div>
         <div className="fg"><label className="fl">Bank Name</label><input className="fc" value={form.bankName} onChange={(e) => set('bankName', e.target.value)} /></div>
         <div className="fg"><label className="fl">Account Number</label><input className="fc" value={form.bankAccount} onChange={(e) => set('bankAccount', e.target.value)} /></div>
         <div className="fg"><label className="fl">IFSC</label><input className="fc" placeholder="SBIN0001234" value={form.ifsc} onChange={(e) => set('ifsc', e.target.value.toUpperCase())} /></div>
+      </div>
+      <div className="fg">
+        <label className="fl">Employee Address</label>
+        <textarea className="fc" rows={2} maxLength={500} placeholder="Printed on the salary slip" value={form.address} onChange={(e) => set('address', e.target.value)} />
       </div>
 
       <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', flexWrap: 'wrap' }}>

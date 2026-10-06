@@ -428,4 +428,4 @@ async function cancel(req, res) {
   res.json({ item: shape('LeaveRequest', updated) });
 }
 
-module.exports = { balance, mine, list, getOne, create, approve: decide('approved'), reject: decide('rejected'), hold, addComment, cancel, report };
+module.exports = { balance, mine, list, getOne, create, approve: decide('approved'), reject: decide('rejected'), hold, addComment, cancel, report, computeBalance };
