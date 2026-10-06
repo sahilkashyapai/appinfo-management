@@ -1,0 +1,2 @@
+# Prisma checksums migration files byte-for-byte: never rewrite their line endings.
+server/prisma/migrations/** text eol=lf
