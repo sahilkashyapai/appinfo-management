@@ -117,9 +117,7 @@ body.dark {
   align-items: center;
   justify-content: center;
   padding: 48px 40px;
-  background:
-    radial-gradient(circle at 50% 38%, rgba(79, 195, 247, .16), transparent 55%),
-    linear-gradient(150deg, #0D1B2A 0%, #1E3A5F 55%, #2E86AB 100%);
+  background: linear-gradient(150deg, #0D1B2A 0%, #1E3A5F 55%, #2E86AB 100%);
   position: relative;
   overflow: hidden;
 }
@@ -149,107 +147,68 @@ body.dark {
 }
 
 .al-icon {
-  width: 78px;
-  height: 78px;
-  background: linear-gradient(145deg, rgba(79, 195, 247, .22), rgba(46, 134, 171, .12));
-  border: 1px solid rgba(79, 195, 247, .35);
-  border-radius: 22px;
+  width: 62px;
+  height: 62px;
+  background: rgba(46, 134, 171, .25);
+  border: 1.5px solid rgba(46, 134, 171, .5);
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 22px;
-  box-shadow: 0 0 0 8px rgba(79, 195, 247, .05), 0 18px 40px rgba(0, 0, 0, .25);
-  position: relative;
-  z-index: 1;
+  margin-bottom: 20px;
 }
 
 .al-icon i {
-  font-size: 36px;
+  font-size: 32px;
   color: var(--sky);
 }
 
 .al-icon img {
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
 }
 
 .al-h {
-  font-size: 34px;
+  font-size: 27px;
   font-weight: 900;
   color: #fff;
   text-align: center;
-  line-height: 1.15;
-  letter-spacing: -.6px;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
+  line-height: 1.25;
+  letter-spacing: -.5px;
+  margin-bottom: 10px;
 }
 
 .al-sub {
-  font-size: 14px;
-  color: rgba(255, 255, 255, .72);
+  font-size: 13px;
+  color: rgba(255, 255, 255, .45);
   text-align: center;
-  max-width: 400px;
-  line-height: 1.65;
-  margin-bottom: 34px;
-  position: relative;
-  z-index: 1;
+  max-width: 280px;
+  line-height: 1.6;
+  margin-bottom: 36px;
 }
 
-/* Features as a single column of glass cards. */
 .al-feat {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 100%;
-  max-width: 380px;
-  position: relative;
-  z-index: 1;
+  max-width: 300px;
 }
 
 .al-fi {
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, .9);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  padding: 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, .06);
-  border: 1px solid rgba(255, 255, 255, .1);
-  backdrop-filter: blur(6px);
-  transition: transform .2s ease, background .2s ease, border-color .2s ease;
-}
-
-.al-fi:hover {
-  transform: translateY(-2px);
-  background: rgba(255, 255, 255, .1);
-  border-color: rgba(79, 195, 247, .35);
-}
-
-.al-ft {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.3;
-}
-
-.al-fd {
-  font-size: 11.5px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, .62);
-  line-height: 1.35;
-  margin-top: 2px;
+  gap: 11px;
+  color: rgba(255, 255, 255, .65);
+  font-size: 12.5px;
 }
 
 .al-fic {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: linear-gradient(145deg, rgba(79, 195, 247, .28), rgba(46, 134, 171, .18));
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .07);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,17 +216,8 @@ body.dark {
 }
 
 .al-fic i {
-  font-size: 16px;
-  color: #fff;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .al-fi {
-    transition: none;
-  }
-  .al-fi:hover {
-    transform: none;
-  }
+  font-size: 15px;
+  color: var(--sky);
 }
 
 .ar {
