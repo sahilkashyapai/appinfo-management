@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { warnMissingProvider } from '../utils/missingProvider';
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
@@ -49,6 +50,13 @@ export function SocketProvider({ children }) {
   return <SocketContext.Provider value={{ socket: socketRef.current, connected }}>{children}</SocketContext.Provider>;
 }
 
+const NO_PROVIDER = Object.freeze({ socket: null, connected: false });
+
 export function useSocket() {
-  return useContext(SocketContext);
+  const ctx = useContext(SocketContext);
+  if (!ctx) {
+    warnMissingProvider('useSocket');
+    return NO_PROVIDER;
+  }
+  return ctx;
 }

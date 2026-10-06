@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import api, { setUnauthorizedHandler } from '../api/client';
+import { warnMissingProvider } from '../utils/missingProvider';
 
 const AuthContext = createContext(null);
 const IDLE_LOGOUT_MS = 30 * 60 * 1000; // mirrors default Settings.security.sessionTimeoutMins
@@ -82,6 +83,24 @@ export function AuthProvider({ children }) {
   );
 }
 
+// `loading: true` keeps ProtectedRoute on its spinner instead of redirecting
+// to /login while the real provider reconnects after a hot reload.
+const NO_PROVIDER = Object.freeze({
+  user: null,
+  loading: true,
+  pending2fa: null,
+  login: async () => ({ requires2fa: false }),
+  verify2fa: async () => {},
+  logout: () => {},
+  refreshUser: async () => null,
+  setUser: () => {},
+});
+
 export function useAuth() {
-  return useContext(AuthContext);
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    warnMissingProvider('useAuth');
+    return NO_PROVIDER;
+  }
+  return ctx;
 }
