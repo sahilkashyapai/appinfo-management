@@ -272,26 +272,10 @@ export default function PayrollSettingsTab() {
         </div>
       </fieldset>
 
-      {/* Sticky so Save is always in reach on this long page. */}
-      <div
-        className="card"
-        style={{
-          position: 'sticky',
-          bottom: 12,
-          zIndex: 5,
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          padding: '10px 14px',
-          boxShadow: '0 6px 24px rgba(13,27,42,.12)',
-        }}
-      >
-        <span style={{ fontSize: 12, color: dirty ? 'var(--orange, #E67E22)' : 'var(--t3)', marginRight: 'auto' }}>
-          <i className={`fa-solid ${dirty ? 'fa-circle-exclamation' : 'fa-circle-check'}`} /> {dirty ? 'You have unsaved changes' : 'All changes saved'}
-        </span>
+      <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', alignItems: 'center' }}>
+        {dirty && <span style={{ fontSize: 11.5, color: 'var(--t3)' }}>Unsaved changes</span>}
         {dirty && <button className="btn bs bsm" onClick={() => { setForm(clone(data.payroll)); setDirty(false); }}>Discard</button>}
-        <button className="btn bp bsm" disabled={!dirty || save.isPending} onClick={() => save.mutate()}><i className="fa-solid fa-check" /> Save changes</button>
+        <button className="btn bp bsm" disabled={save.isPending} onClick={() => save.mutate()}><i className="fa-solid fa-check" /> Save changes</button>
       </div>
     </>
   );
