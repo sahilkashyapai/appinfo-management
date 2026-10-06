@@ -99,6 +99,9 @@ if (process.env.SERVE_CLIENT === 'true') {
   app.use(
     express.static(clientDist, {
       index: false,
+      // Vite's output folder is dist/assets, which shares its name with the
+      // /assets page; without this, loading /assets redirects to /assets/.
+      redirect: false,
       setHeaders(res, filePath) {
         // Vite fingerprints everything under assets/, so it can be cached for good;
         // everything else (index.html, sw.js, manifest) must be revalidated.
