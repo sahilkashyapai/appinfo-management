@@ -4,12 +4,18 @@ services:
     runtime: node
     rootDir: server
     plan: free
-    buildCommand: npm install
+    # npm blocks package install scripts, so the Prisma client is generated explicitly.
+    # `npm run db:migrate` (prisma migrate deploy) must run once per release before
+    # the new build takes traffic — see the MySQL migration handover.
+    buildCommand: npm install && npm run db:generate
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false
+      # Only for the one-off copy into MySQL; remove after cutover sign-off.
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET

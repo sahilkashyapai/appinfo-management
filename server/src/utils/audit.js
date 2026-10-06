@@ -1,4 +1,4 @@
-const AuditLog = require('../models/AuditLog');
+const prisma = require('../db/prisma');
 const getSettings = require('./getSettings');
 
 // Fire-and-forget audit write, gated by the Settings.security.auditLogging toggle.
@@ -14,14 +14,16 @@ async function writeAudit({ ip, user, action, entity, recordId, detail }) {
     if (user?.role === 'proadmin' || user?.role === 'developer') return;
     const settings = await getSettings();
     if (!settings.security.auditLogging) return;
-    await AuditLog.create({
-      actorRef: user ? user._id : null,
-      actorName: user ? user.name : 'System',
-      action,
-      entity,
-      recordId: recordId != null ? String(recordId) : '—',
-      ip: ip || '',
-      detail,
+    await prisma.auditLog.create({
+      data: {
+        actorId: user ? String(user._id ?? user.id) : null,
+        actorName: user ? user.name : 'System',
+        action,
+        entity,
+        recordId: recordId != null ? String(recordId) : '—',
+        ip: ip || '',
+        detail: detail || '',
+      },
     });
   } catch (err) {
     console.error('[audit] failed to write audit log:', err.message);

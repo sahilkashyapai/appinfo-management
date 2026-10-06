@@ -5,10 +5,9 @@
 // managedLocation) have real data to be scoped to. Additive only, flagged
 // isDemo: true, no existing data touched.
 require('dotenv').config();
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
-const Department = require('../models/Department');
-const Employee = require('../models/Employee');
+const { disconnectDB } = require('../config/db');
+const { prisma } = require('../db');
 
 function pastDate(year, month, day) {
   return new Date(year, month, day);
@@ -147,18 +146,18 @@ const OFFICES = [
   },
 ];
 
-async function main() {
-  await connectDB();
-
+// `db` is the PrismaClient by default; pass an interactive-transaction client
+// to run it atomically.
+async function seedRegionalOffices(db = prisma) {
   const allDeptNames = [...new Set(OFFICES.flatMap((o) => o.branch.map((b) => b.dept)))];
-  const depts = await Department.find({ name: { $in: allDeptNames } });
+  const depts = await db.department.findMany({ where: { name: { in: allDeptNames } } });
   const deptByName = Object.fromEntries(depts.map((d) => [d.name, d]));
   for (const n of allDeptNames) {
     if (!deptByName[n]) throw new Error(`Department "${n}" not found — cannot seed regional office demo data.`);
   }
 
   for (const office of OFFICES) {
-    const existing = await Employee.findOne({ location: office.location });
+    const existing = await db.employee.findFirst({ where: { location: office.location } });
     if (existing) {
       console.log(`[seed] skipping ${office.location} — already has employees (e.g. ${existing.name})`);
       continue;
@@ -170,22 +169,24 @@ async function main() {
       const dept = deptByName[step.dept];
       const empId = `${office.empIdPrefix}${String(seq).padStart(3, '0')}`;
       seq += 1;
-      const emp = await Employee.create({
-        empId,
-        name: step.name,
-        dept: dept.name,
-        deptRef: dept._id,
-        desig: step.desig,
-        roleLabel: step.roleLabel,
-        joined: step.joined,
-        dob: step.dob,
-        email: step.email,
-        phone: step.phone,
-        location: office.location,
-        status: 'active',
-        avatarIndex: step.avatarIndex,
-        isDemo: true,
-        managerRef: step.managerName ? byName[step.managerName]._id : null,
+      const emp = await db.employee.create({
+        data: {
+          empId,
+          name: step.name,
+          dept: dept.name,
+          deptId: dept.id,
+          desig: step.desig,
+          roleLabel: step.roleLabel,
+          joined: step.joined,
+          dob: step.dob,
+          email: step.email,
+          phone: step.phone,
+          location: office.location,
+          status: 'active',
+          avatarIndex: step.avatarIndex,
+          isDemo: true,
+          managerId: step.managerName ? byName[step.managerName].id : null,
+        },
       });
       byName[step.name] = emp;
     }
@@ -193,11 +194,20 @@ async function main() {
     console.log(`[seed] ${office.location} branch built:`);
     console.log(`  ${office.branch.map((b) => `${b.roleLabel}: ${b.name}`).join(' > ')}`);
   }
-
-  await mongoose.disconnect();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+async function main() {
+  await connectDB();
+  await seedRegionalOffices();
+  await disconnectDB();
+}
+
+// Only when run directly (`node src/seed/seedRegionalOffices.js`), never as a side effect of require().
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[seed] failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedRegionalOffices };

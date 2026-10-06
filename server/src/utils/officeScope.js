@@ -1,5 +1,5 @@
-const Employee = require('../models/Employee');
-const User = require('../models/User');
+const prisma = require('../db/prisma');
+const { andWhere } = require('../db');
 
 // Resolves the one office a viewer is restricted to, or null for unrestricted
 // (company-wide) access. Three distinct ways a viewer ends up restricted:
@@ -15,7 +15,7 @@ async function resolveScopeLocation(user) {
   if (user.role === 'superadmin' || user.role === 'admin') return user.managedLocation || null;
   if (user.role === 'employee') {
     if (!user.employeeRef) return null;
-    const emp = await Employee.findById(user.employeeRef, 'location');
+    const emp = await prisma.employee.findUnique({ where: { id: String(user.employeeRef) }, select: { location: true } });
     return emp?.location || null;
   }
   return null;
@@ -34,55 +34,41 @@ async function isOutsideScope(user, location) {
   return !!loc && location !== loc;
 }
 
-// Resolves the employee _ids visible to this viewer: null means "no
+// Resolves the employee ids visible to this viewer: null means "no
 // restriction", an array means "only these employees" (the viewer's office).
 async function scopedEmployeeIds(user) {
   const loc = await resolveScopeLocation(user);
   if (!loc) return null;
-  const emps = await Employee.find({ location: loc }, '_id');
-  return emps.map((e) => e._id);
+  const emps = await prisma.employee.findMany({ where: { location: loc }, select: { id: true } });
+  return emps.map((e) => e.id);
 }
 
-// Resolves the User _ids linked to employees in the viewer's office — for
+// Resolves the User ids linked to employees in the viewer's office — for
 // content authored directly by a User (wall posts, chat, time logs) rather
-// than through an employeeRef. null means "no restriction".
+// than through an employee. null means "no restriction".
 async function scopedUserIds(user) {
   const empIds = await scopedEmployeeIds(user);
   if (!empIds) return null;
-  const users = await User.find({ employeeRef: { $in: empIds } }, '_id');
-  return users.map((u) => u._id);
+  const users = await prisma.user.findMany({ where: { employeeId: { in: empIds } }, select: { id: true } });
+  return users.map((u) => u.id);
 }
 
-// Merges an employeeRef-based restriction into an existing Mongo filter,
-// intersecting with any employeeRef condition already present (e.g. a caller
-// filtering by a specific department or a text search).
-function mergeEmployeeRefFilter(filter, field, ids) {
-  const existing = filter[field];
-  if (existing && typeof existing === 'object' && existing.$in) {
-    filter[field] = { $in: existing.$in.filter((id) => ids.some((sid) => String(sid) === String(id))) };
-  } else if (existing !== undefined) {
-    filter[field] = { $in: ids.filter((id) => String(id) === String(existing)) };
-  } else {
-    filter[field] = { $in: ids };
-  }
-  return filter;
-}
-
-// Applies office scoping to a filter that targets Employee documents directly
-// (matches on the `location` field itself, e.g. the Employees list).
-async function scopeEmployeeLocationFilter(filter, user) {
+// Applies office scoping to a Prisma `where` on Employee rows directly
+// (matches on the `location` column itself, e.g. the Employees list).
+async function scopeEmployeeLocationFilter(where, user) {
   const loc = await resolveScopeLocation(user);
-  if (loc) filter.location = loc;
-  return filter;
+  if (loc) andWhere(where, { location: loc });
+  return where;
 }
 
-// Applies office scoping to a filter on a model that references an employee via
-// `field` (default 'employeeRef') — Attendance, LeaveRequest, Document, Asset,
-// WallPost author lookups, etc. Awaits the employee id resolution itself.
-async function scopeByEmployeeRef(filter, user, field = 'employeeRef') {
+// Applies office scoping to a Prisma `where` on a model that references an
+// employee via `field` (default 'employeeId') — Attendance, LeaveRequest,
+// Document, Asset, etc. ANDed, so it intersects any existing condition on
+// the same field.
+async function scopeByEmployeeRef(where, user, field = 'employeeId') {
   const ids = await scopedEmployeeIds(user);
-  if (ids) mergeEmployeeRefFilter(filter, field, ids);
-  return filter;
+  if (ids) andWhere(where, { [field]: { in: ids } });
+  return where;
 }
 
 module.exports = {

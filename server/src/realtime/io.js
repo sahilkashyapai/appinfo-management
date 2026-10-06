@@ -1,6 +1,6 @@
 const { Server } = require('socket.io');
 const { verifyToken } = require('../utils/token');
-const User = require('../models/User');
+const { loadUser } = require('../db/users');
 
 let io = null;
 
@@ -17,7 +17,7 @@ function initSocket(httpServer, corsOrigin) {
       if (!token) return next(new Error('Not authenticated.'));
       const payload = verifyToken(token);
       if (payload.stage !== 'full') return next(new Error('Not authenticated.'));
-      const user = await User.findById(payload.sub);
+      const user = await loadUser(payload.sub);
       if (!user || !user.isActive) return next(new Error('Not authenticated.'));
       socket.userId = String(user._id);
       next();

@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const PushSubscription = require('../models/PushSubscription');
+const prisma = require('../db/prisma');
 const getSettings = require('../utils/getSettings');
 
 let configured = false;
@@ -15,10 +15,10 @@ function ensureConfigured() {
 
 async function sendOne(sub, payload) {
   try {
-    await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(payload));
+    await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload));
   } catch (err) {
     if (err.statusCode === 404 || err.statusCode === 410) {
-      await PushSubscription.deleteOne({ _id: sub._id });
+      await prisma.pushSubscription.deleteMany({ where: { id: sub.id } });
     } else {
       console.error('[push] send failed:', sub.endpoint, err.message);
     }
@@ -33,7 +33,7 @@ async function pushEnabled() {
 async function sendPushToUser(userId, payload) {
   if (!ensureConfigured()) return;
   if (!(await pushEnabled())) return;
-  const subs = await PushSubscription.find({ userRef: userId });
+  const subs = await prisma.pushSubscription.findMany({ where: { userId: String(userId) } });
   await Promise.all(subs.map((sub) => sendOne(sub, payload)));
 }
 
@@ -44,7 +44,7 @@ async function sendPushToUsers(userIds, payload) {
 async function broadcastPush(payload) {
   if (!ensureConfigured()) return;
   if (!(await pushEnabled())) return;
-  const subs = await PushSubscription.find({});
+  const subs = await prisma.pushSubscription.findMany();
   await Promise.all(subs.map((sub) => sendOne(sub, payload)));
 }
 

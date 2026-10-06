@@ -1,4 +1,5 @@
 const getSettings = require('../utils/getSettings');
+const { updateSettingsSection } = getSettings;
 const writeAudit = require('../utils/audit');
 const { sendMail, templates } = require('../services/emailService');
 
@@ -40,18 +41,14 @@ async function updateBranding(req, res) {
     updates[field] = value;
   }
 
-  const settings = await getSettings();
-  settings.branding = { ...(settings.branding.toObject?.() ?? settings.branding), ...updates };
-  await settings.save();
+  const settings = await updateSettingsSection('branding', updates);
   await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'settings', recordId: 'branding', detail: 'Updated company branding' });
   res.json({ settings });
 }
 
 function updateSection(section) {
   return async function handler(req, res) {
-    const settings = await getSettings();
-    settings[section] = { ...settings[section].toObject?.() ?? settings[section], ...req.body };
-    await settings.save();
+    const settings = await updateSettingsSection(section, req.body);
     await writeAudit({ ip: req.ip, user: req.user, action: 'UPDATE', entity: 'settings', recordId: section, detail: `Updated ${section} settings` });
     res.json({ settings });
   };

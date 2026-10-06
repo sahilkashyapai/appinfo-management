@@ -1,15 +1,18 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
+const { disconnectDB } = require('../config/db');
 const seedAll = require('./runSeed');
 
 async function main() {
   await connectDB();
   await seedAll();
-  await mongoose.disconnect();
+  await disconnectDB();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+// Only when run directly (`npm run seed`), never as a side effect of require().
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[seed] failed:', err);
+    process.exit(1);
+  });
+}

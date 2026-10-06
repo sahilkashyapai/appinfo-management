@@ -1,0 +1,879 @@
+// MySQL schema for the MongoDB -> MySQL migration (company policy).
+// One model per former Mongoose model, plus join/child tables for what Mongo
+// kept as arrays or embedded sub-documents (marked "was: ..." below).
+//
+// Conventions, chosen so the migrated data and the API shape change as little
+// as possible:
+//  - Primary keys are VARCHAR(32). Existing Mongo ObjectIds (24 hex chars) are
+//    copied across unchanged, so every reference survives the data copy; new
+//    rows get a cuid (25 chars).
+//  - A Mongo ref like `employeeRef` becomes a scalar FK `employeeId` plus a
+//    relation field still named `employeeRef`. So `include: { employeeRef: true }`
+//    returns the same nested object `.populate('employeeRef')` did.
+//  - base64 data URLs (avatars, documents, resumes, attachments, logos) are
+//    LONGTEXT; long free text is TEXT. MySQL won't put a DEFAULT on TEXT
+//    columns, so optional long text is nullable instead of defaulting to ''
+//    — the API layer treats null as ''.
+//  - Values that aren't valid Prisma enum identifiers (e.g. roleLabel
+//    "Engineer / Developer", gender "") stay plain strings, validated in code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & employees ──────────────────────────────────────────────────────
+
+enum UserRole {
+  proadmin
+  superadmin
+  admin
+  developer
+  employee
+}
+
+enum ApprovalStatus {
+  approved
+  pending
+  rejected
+}
+
+model User {
+  id                   String         @id @default(cuid()) @db.VarChar(32)
+  name                 String         @db.VarChar(191)
+  email                String         @unique @db.VarChar(191)
+  passwordHash         String         @db.VarChar(255)
+  role                 UserRole       @default(employee)
+  employeeId           String?        @db.VarChar(32)
+  managedLocation      String         @default("") @db.VarChar(191)
+  managedBranch        String         @default("") @db.VarChar(191)
+  isActive             Boolean        @default(true)
+  avatarIndex          Int            @default(0)
+  avatarUrl            String?         @db.LongText
+  phone                String         @default("") @db.VarChar(50)
+  department           String         @default("") @db.VarChar(191)
+  location             String         @default("") @db.VarChar(191)
+  branch               String         @default("Headquarters") @db.VarChar(191)
+  empId                String         @default("") @db.VarChar(50)
+  dob                  DateTime?
+  joined               DateTime?
+  approvalStatus       ApprovalStatus @default(approved)
+  rejectionReason      String?         @db.Text
+  failedAttempts       Int            @default(0)
+  lockUntil            DateTime?
+  lastLogin            DateTime?
+  totpEnabled          Boolean        @default(false)
+  totpSecret           String?        @db.VarChar(255)
+  passwordResetToken   String?        @db.VarChar(255)
+  passwordResetExpires DateTime?
+  isDemo               Boolean        @default(false)
+  promotedAdmin        Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  employeeRef Employee? @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+
+  linkedEmployees            Employee[]                    @relation("EmployeeUser")
+  announcements              Announcement[]
+  attendanceMarked           Attendance[]
+  correctionDecisions        AttendanceCorrectionRequest[]
+  auditLogs                  AuditLog[]
+  conversationsCreated       Conversation[]
+  conversationMemberships    ConversationMember[]
+  documentsUploaded          Document[]
+  documentRequestDecisions   DocumentRequest[]
+  eventsCreated              Event[]
+  referrals                  JobApplication[]
+  leaveApprovals             LeaveRequest[]
+  leaveComments              LeaveComment[]
+  messagesSent               Message[]
+  messageReads               MessageRead[]
+  notifications              Notification[]
+  notificationReads          NotificationRead[]
+  notificationClears         NotificationClear[]
+  pushSubscriptions          PushSubscription[]
+  timeLogs                   TimeLog[]
+  wallPosts                  WallPost[]
+  wallComments               WallComment[]
+  wallReactions              WallReaction[]
+  wallPollVotes              WallPollVote[]
+
+  @@index([employeeId])
+  @@index([role])
+  @@map("users")
+}
+
+enum EmployeeStatus {
+  active
+  inactive
+  leave
+}
+
+model Employee {
+  id          String         @id @default(cuid()) @db.VarChar(32)
+  empId       String         @unique @db.VarChar(50)
+  name        String         @db.VarChar(191)
+  deptId      String         @db.VarChar(32)
+  dept        String         @db.VarChar(191) // denormalized department name, kept in sync on write
+  desig       String         @db.VarChar(191)
+  roleLabel   String         @default("Engineer / Developer") @db.VarChar(100) // one of ROLE_LABEL_ORDER
+  joined      DateTime
+  dob         DateTime
+  email       String         @unique @db.VarChar(191)
+  phone       String         @default("") @db.VarChar(50)
+  location    String         @default("") @db.VarChar(191)
+  status      EmployeeStatus @default(active)
+  managerId   String?        @db.VarChar(32)
+  userId      String?        @db.VarChar(32)
+  avatarIndex Int            @default(0)
+  isDemo      Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  deptRef    Department @relation("EmployeeDept", fields: [deptId], references: [id], onDelete: Restrict)
+  managerRef Employee?  @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  userRef    User?      @relation("EmployeeUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  reports                Employee[]                    @relation("EmployeeManager")
+  headOf                 Department[]                  @relation("DepartmentHead")
+  users                  User[]                        @relation("UserEmployee")
+  assets                 Asset[]
+  attendance             Attendance[]
+  correctionRequests     AttendanceCorrectionRequest[]
+  documents              Document[]
+  documentRequests       DocumentRequest[]
+  leaveRequests          LeaveRequest[]
+  rsvps                  Rsvp[]
+  notificationsAbout     Notification[]
+
+  @@index([deptId])
+  @@index([managerId])
+  @@index([userId])
+  @@index([status])
+  @@map("employees")
+}
+
+model Department {
+  id          String   @id @default(cuid()) @db.VarChar(32)
+  name        String   @unique @db.VarChar(191)
+  code        String   @unique @db.VarChar(50) // stored uppercase
+  headId      String?  @db.VarChar(32)
+  icon        String   @default("fa-solid fa-building") @db.VarChar(100)
+  color       String   @default("#2E86AB") @db.VarChar(20)
+  description String?   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  headRef   Employee?  @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  employees Employee[] @relation("EmployeeDept")
+
+  @@map("departments")
+}
+
+// ─── Attendance, leave, time tracking ───────────────────────────────────────
+
+enum AttendanceStatus {
+  office
+  wfh
+  leave
+  absent
+}
+
+model Attendance {
+  id         String           @id @default(cuid()) @db.VarChar(32)
+  employeeId String           @db.VarChar(32)
+  date       DateTime // normalized to midnight (start of day)
+  status     AttendanceStatus
+  note       String?           @db.Text
+  markedById String?          @db.VarChar(32) // was required; nullable so deleting an admin doesn't block
+  isDemo     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  employeeRef Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  markedBy    User?    @relation(fields: [markedById], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date]) // one entry per employee per day
+  @@index([date])
+  @@map("attendance")
+}
+
+enum CorrectionCurrentStatus {
+  office
+  wfh
+  leave
+  absent
+  not_marked
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model AttendanceCorrectionRequest {
+  id              String                  @id @default(cuid()) @db.VarChar(32)
+  employeeId      String                  @db.VarChar(32)
+  date            DateTime
+  currentStatus   CorrectionCurrentStatus
+  requestedStatus AttendanceStatus
+  reason          String                  @db.Text
+  status          RequestStatus           @default(pending)
+  decidedById     String?                 @db.VarChar(32)
+  decisionNote    String?                  @db.Text
+  decidedAt       DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  employeeRef  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  decidedByRef User?    @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, date])
+  @@map("attendance_correction_requests")
+}
+
+enum LeaveType {
+  casual
+  sick
+  earned
+}
+
+enum LeaveStatus {
+  pending
+  on_hold
+  approved
+  rejected
+  cancelled
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid()) @db.VarChar(32)
+  employeeId   String      @db.VarChar(32)
+  type         LeaveType
+  startDate    DateTime
+  endDate      DateTime
+  days         Float // inclusive calendar-day count, computed server-side
+  reason       String      @db.Text
+  status       LeaveStatus @default(pending)
+  approverId   String?     @db.VarChar(32)
+  approverNote String?      @db.Text
+  decidedAt    DateTime?
+  isDemo       Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  employeeRef Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approverRef User?          @relation(fields: [approverId], references: [id], onDelete: SetNull)
+  comments    LeaveComment[]
+
+  @@index([employeeId, status])
+  @@index([employeeId, startDate])
+  @@map("leave_requests")
+}
+
+// was: LeaveRequest.comments[] (embedded sub-documents)
+model LeaveComment {
+  id             String   @id @default(cuid()) @db.VarChar(32)
+  leaveRequestId String   @db.VarChar(32)
+  authorId       String   @db.VarChar(32)
+  text           String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  authorRef    User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([leaveRequestId])
+  @@map("leave_comments")
+}
+
+enum TimeLogStatus {
+  running
+  paused
+  stopped
+}
+
+model TimeLog {
+  id            String        @id @default(cuid()) @db.VarChar(32)
+  userId        String        @db.VarChar(32)
+  date          DateTime // normalized to midnight (start of day)
+  startedAt     DateTime
+  stoppedAt     DateTime?
+  status        TimeLogStatus @default(running)
+  pausedAt      DateTime?
+  totalPausedMs BigInt        @default(0)
+  autoStopped   Boolean       @default(false)
+  ip            String        @default("") @db.VarChar(64)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  userRef User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date]) // one timer per user per day
+  @@index([status])
+  @@map("time_logs")
+}
+
+model Holiday {
+  id          String      @id @default(cuid()) @db.VarChar(32)
+  name        String      @db.VarChar(191)
+  date        DateTime
+  type        HolidayType @default(National)
+  description String?      @db.Text
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([date])
+  @@map("holidays")
+}
+
+enum HolidayType {
+  National
+  Festival
+  Optional
+}
+
+// ─── Documents & assets ─────────────────────────────────────────────────────
+
+enum DocumentCategory {
+  aadhar
+  pan
+  passport
+  joining_letter
+  offer_letter
+  salary_slip
+  experience_letter
+  salary_certificate
+  form16
+  id_proof
+  certificate
+  other
+}
+
+model Document {
+  id           String           @id @default(cuid()) @db.VarChar(32)
+  employeeId   String           @db.VarChar(32)
+  name         String           @db.VarChar(191)
+  category     DocumentCategory @default(other)
+  fileName     String           @default("") @db.VarChar(255)
+  fileType     String           @default("") @db.VarChar(100)
+  fileUrl      String           @db.LongText // base64 data URL
+  uploadedById String?          @db.VarChar(32) // was required; nullable so deleting an admin doesn't block
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  employeeRef   Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  uploadedByRef User?             @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  requests      DocumentRequest[]
+
+  @@index([employeeId, createdAt])
+  @@map("documents")
+}
+
+enum DocumentRequestType {
+  salary_slip
+  experience_letter
+  relieving_letter
+  salary_certificate
+  form16
+  other
+}
+
+enum DocumentRequestStatus {
+  pending
+  fulfilled
+  rejected
+}
+
+model DocumentRequest {
+  id           String                @id @default(cuid()) @db.VarChar(32)
+  employeeId   String                @db.VarChar(32)
+  type         DocumentRequestType
+  period       String                @default("") @db.VarChar(50) // e.g. "2026-06" for a payslip month
+  note         String?                @db.Text
+  status       DocumentRequestStatus @default(pending)
+  documentId   String?               @db.VarChar(32)
+  decidedById  String?               @db.VarChar(32)
+  decisionNote String?                @db.Text
+  decidedAt    DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  employeeRef  Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentRef  Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  decidedByRef User?     @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, status])
+  @@map("document_requests")
+}
+
+enum AssetCategory {
+  laptop
+  mobile
+  id_card
+  access_card
+  other
+}
+
+enum AssetStatus {
+  unassigned
+  assigned
+  returned
+  damaged
+  lost
+}
+
+model Asset {
+  id           String        @id @default(cuid()) @db.VarChar(32)
+  employeeId   String?       @db.VarChar(32)
+  name         String        @db.VarChar(191)
+  category     AssetCategory @default(other)
+  serialNumber String        @default("") @db.VarChar(191)
+  status       AssetStatus   @default(unassigned)
+  assignedAt   DateTime?
+  returnedAt   DateTime?
+  notes        String?        @db.Text
+  isDemo       Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  employeeRef Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([serialNumber])
+  @@map("assets")
+}
+
+// ─── Events, announcements, notifications ───────────────────────────────────
+
+enum EventType {
+  festival
+  workshop
+  town_hall
+  team_outing
+  sports
+  birthday
+  other
+}
+
+enum EventStatus {
+  draft
+  published
+}
+
+model Event {
+  id          String      @id @default(cuid()) @db.VarChar(32)
+  title       String      @db.VarChar(191)
+  type        EventType   @default(other)
+  date        DateTime
+  venue       String      @default("") @db.VarChar(255)
+  status      EventStatus @default(draft)
+  emoji       String      @default("fa-solid fa-calendar-days") @db.VarChar(100) // Font Awesome icon class
+  color       String      @default("#2E86AB") @db.VarChar(20)
+  capacity    Int         @default(100)
+  createdById String?     @db.VarChar(32)
+  isDemo      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  createdByRef User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  rsvps        Rsvp[]
+
+  @@index([date])
+  @@map("events")
+}
+
+enum RsvpStatus {
+  yes
+  maybe
+  no
+}
+
+model Rsvp {
+  id          String     @id @default(cuid()) @db.VarChar(32)
+  eventId     String     @db.VarChar(32)
+  employeeId  String     @db.VarChar(32)
+  status      RsvpStatus
+  respondedAt DateTime   @default(now())
+  isDemo      Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  eventRef    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  employeeRef Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId])
+  @@map("rsvps")
+}
+
+enum AnnouncementType {
+  general
+  hiring
+}
+
+enum Priority {
+  high
+  medium
+  low
+}
+
+model Announcement {
+  id          String           @id @default(cuid()) @db.VarChar(32)
+  title       String           @db.VarChar(255)
+  body        String           @db.Text
+  type        AnnouncementType @default(general)
+  priority    Priority         @default(medium)
+  icon        String           @default("fa-solid fa-bullhorn") @db.VarChar(100)
+  pinned      Boolean          @default(false)
+  postedById  String?          @db.VarChar(32) // was required; nullable so deleting an admin doesn't block
+  scheduledAt DateTime?
+  expiresAt   DateTime?
+  isDemo      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  postedByRef User? @relation(fields: [postedById], references: [id], onDelete: SetNull)
+
+  @@map("announcements")
+}
+
+model Notification {
+  id              String   @id @default(cuid()) @db.VarChar(32)
+  recipientId     String?  @db.VarChar(32) // null = broadcast to everyone
+  icon            String   @default("fa-solid fa-bell") @db.VarChar(100)
+  bg              String   @default("#EBF5FB") @db.VarChar(20)
+  title           String   @db.VarChar(255)
+  body            String   @db.Text
+  type            String   @default("info") @db.VarChar(50)
+  link            String   @default("") @db.VarChar(255)
+  isRead          Boolean  @default(false)
+  isDemo          Boolean  @default(false)
+  aboutEmployeeId String?  @db.VarChar(32)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  recipientRef     User?               @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  aboutEmployeeRef Employee?           @relation(fields: [aboutEmployeeId], references: [id], onDelete: SetNull)
+  readBy           NotificationRead[]
+  clearedBy        NotificationClear[]
+
+  @@index([recipientId, createdAt])
+  @@index([title, createdAt]) // cron "already notified today" lookup
+  @@map("notifications")
+}
+
+// was: Notification.readBy[] (for broadcasts)
+model NotificationRead {
+  notificationId String   @db.VarChar(32)
+  userId         String   @db.VarChar(32)
+  createdAt      DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId])
+  @@map("notification_reads")
+}
+
+// was: Notification.clearedBy[] ("Clear All" hides a shared broadcast per viewer)
+model NotificationClear {
+  notificationId String   @db.VarChar(32)
+  userId         String   @db.VarChar(32)
+  createdAt      DateTime @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId])
+  @@map("notification_clears")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid()) @db.VarChar(32)
+  userId    String   @db.VarChar(32)
+  endpoint  String   @unique @db.VarChar(512)
+  p256dh    String   @db.VarChar(255) // was: keys.p256dh
+  auth      String   @db.VarChar(255) // was: keys.auth
+  userAgent String   @default("") @db.VarChar(512)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userRef User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ─── Chat ───────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id              String   @id @default(cuid()) @db.VarChar(32)
+  isGroup         Boolean  @default(false)
+  name            String   @default("") @db.VarChar(191) // group name only; ignored for 1:1 chats
+  createdById     String?  @db.VarChar(32)
+  lastMessageAt   DateTime @default(now())
+  lastMessageText String?   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  members   ConversationMember[]
+  messages  Message[]
+
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// was: Conversation.members[]
+model ConversationMember {
+  conversationId String   @db.VarChar(32)
+  userId         String   @db.VarChar(32)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String   @id @default(cuid()) @db.VarChar(32)
+  conversationId String   @db.VarChar(32)
+  senderId       String?  @db.VarChar(32) // nullable: a deleted user's messages stay in the thread
+  text           String?   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversationRef Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderRef       User?               @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  attachments     MessageAttachment[]
+  readBy          MessageRead[]
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+// was: Message.attachments[] (embedded, no _id)
+model MessageAttachment {
+  id        Int    @id @default(autoincrement())
+  messageId String @db.VarChar(32)
+  position  Int    @default(0) // keeps the original array order
+  name      String @default("") @db.VarChar(255)
+  type      String @default("") @db.VarChar(100) // mime type
+  url       String @db.LongText // base64 data URL
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+// was: Message.readBy[]
+model MessageRead {
+  messageId String   @db.VarChar(32)
+  userId    String   @db.VarChar(32)
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+// ─── Celebration wall ───────────────────────────────────────────────────────
+
+enum WallTag {
+  birthday
+  anniversary
+  event
+  general
+  poll
+}
+
+model WallPost {
+  id           String    @id @default(cuid()) @db.VarChar(32)
+  authorId     String    @db.VarChar(32)
+  text         String    @db.Text
+  tag          WallTag   @default(general)
+  pollQuestion String?   @db.VarChar(500) // was: poll.question (poll is null when this is null)
+  pollClosesAt DateTime? // was: poll.closesAt
+  isDemo       Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  authorRef   User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    WallComment[]
+  reactions   WallReaction[]
+  pollOptions WallPollOption[]
+
+  @@index([createdAt])
+  @@map("wall_posts")
+}
+
+// was: WallPost.comments[]
+model WallComment {
+  id        String   @id @default(cuid()) @db.VarChar(32)
+  postId    String   @db.VarChar(32)
+  authorId  String   @db.VarChar(32)
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post      WallPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorRef User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("wall_comments")
+}
+
+enum ReactionType {
+  like
+  love
+  celebrate
+}
+
+// was: WallPost.reactions.{like,love,celebrate}[]
+model WallReaction {
+  postId    String       @db.VarChar(32)
+  userId    String       @db.VarChar(32)
+  type      ReactionType
+  createdAt DateTime     @default(now())
+
+  post WallPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId, type])
+  @@index([userId])
+  @@map("wall_reactions")
+}
+
+// was: WallPost.poll.options[] (no _id — addressed by array index in the API)
+model WallPollOption {
+  id       Int    @id @default(autoincrement())
+  postId   String @db.VarChar(32)
+  position Int // original array index; the API still addresses options by it
+  text     String @db.VarChar(500)
+
+  post  WallPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes WallPollVote[]
+
+  @@unique([postId, position])
+  @@map("wall_poll_options")
+}
+
+// was: WallPost.poll.options[].votes[]
+model WallPollVote {
+  optionId  Int
+  userId    String   @db.VarChar(32)
+  createdAt DateTime @default(now())
+
+  option WallPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([optionId, userId])
+  @@index([userId])
+  @@map("wall_poll_votes")
+}
+
+// ─── Jobs, audit, settings ──────────────────────────────────────────────────
+
+enum JobSource {
+  careers_page
+  referral
+}
+
+enum JobStatus {
+  new
+  reviewed
+  shortlisted
+  rejected
+  hired
+}
+
+model JobApplication {
+  id               String    @id @default(cuid()) @db.VarChar(32)
+  name             String    @db.VarChar(191)
+  email            String    @default("") @db.VarChar(191)
+  phone            String    @db.VarChar(50)
+  department       String    @db.VarChar(191)
+  gender           String    @default("") @db.VarChar(10) // 'male' | 'female' | 'other' | ''
+  experienceYears  Float?
+  permanentAddress String?    @db.Text
+  currentAddress   String?    @db.Text
+  resumeUrl        String    @db.LongText // base64 data URL
+  resumeName       String    @default("") @db.VarChar(255)
+  source           JobSource @default(careers_page)
+  referrerId       String?   @db.VarChar(32)
+  status           JobStatus @default(new)
+  notes            String?    @db.Text // internal HR notes — never shown to the referrer
+  referrerComment  String?    @db.Text // HR feedback shown to the referring employee
+  isDemo           Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  referrerRef User? @relation(fields: [referrerId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@index([status])
+  @@map("job_applications")
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  EXPORT
+}
+
+// Immutable log: no update/delete routes are exposed for this model anywhere in the API.
+model AuditLog {
+  id        String      @id @default(cuid()) @db.VarChar(32)
+  actorId   String?     @db.VarChar(32)
+  actorName String      @default("System") @db.VarChar(191)
+  action    AuditAction
+  entity    String      @db.VarChar(100)
+  recordId  String      @default("—") @db.VarChar(191)
+  ip        String      @default("") @db.VarChar(64)
+  detail    String?      @db.Text
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  actorRef User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entity])
+  @@map("audit_logs")
+}
+
+// Singleton row (singletonKey = 'global'). Each former nested object is one
+// JSON column; MySQL can't default a JSON column, so getSettings() must merge
+// the defaults (same values as the old Mongoose schema) over what's stored.
+model Settings {
+  id           String   @id @default(cuid()) @db.VarChar(32)
+  singletonKey String   @unique @default("global") @db.VarChar(50)
+  notifications Json // { birthday, anniversary, eventReminder7, eventReminder1, emailDelivery, browserPush }
+  integrations  Json // { teams, slack, whatsapp }
+  smtp          Json // { host, port, fromEmail, fromName } — display only; real creds stay in .env
+  security      Json // { accountLockout, twoFactor, sessionTimeoutMins, auditLogging, csrfProtection }
+  timeTracking  Json // { enabled }
+  leavePolicy   Json // { allocations: { casual, sick, earned }, blockOverlapping }
+  branding      Json // { companyName, logoUrl, faviconUrl, bannerUrl, primaryColor, secondaryColor }
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("settings")
+}

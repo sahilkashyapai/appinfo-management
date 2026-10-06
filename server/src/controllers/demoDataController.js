@@ -1,42 +1,34 @@
-const Employee = require('../models/Employee');
-const User = require('../models/User');
-const Attendance = require('../models/Attendance');
-const LeaveRequest = require('../models/LeaveRequest');
-const Asset = require('../models/Asset');
-const Event = require('../models/Event');
-const Rsvp = require('../models/Rsvp');
-const WallPost = require('../models/WallPost');
-const Notification = require('../models/Notification');
-const Announcement = require('../models/Announcement');
-const JobApplication = require('../models/JobApplication');
+const { prisma } = require('../db');
 const writeAudit = require('../utils/audit');
 
-// Order matters: dependents (attendance, leave, assets, rsvps, linked users)
-// before the employees they reference, though deleteMany doesn't cascade —
-// this is just for a tidy audit/log read, not a functional requirement.
+// Order matters for the FKs: dependents (attendance, leave, assets, rsvps,
+// wall posts, notifications, ...) before the users/employees/events they
+// reference. Every FK pointing at users/employees/events is ON DELETE CASCADE
+// or SET NULL, so a demo user/employee/event also takes any non-demo child
+// rows still attached to it with it (those are not included in `counts`).
 const MODELS = {
-  attendance: Attendance,
-  leaveRequests: LeaveRequest,
-  assets: Asset,
-  rsvps: Rsvp,
-  wallPosts: WallPost,
-  notifications: Notification,
-  announcements: Announcement,
-  jobApplications: JobApplication,
-  users: User,
-  employees: Employee,
-  events: Event,
+  attendance: prisma.attendance,
+  leaveRequests: prisma.leaveRequest,
+  assets: prisma.asset,
+  rsvps: prisma.rsvp,
+  wallPosts: prisma.wallPost,
+  notifications: prisma.notification,
+  announcements: prisma.announcement,
+  jobApplications: prisma.jobApplication,
+  users: prisma.user,
+  employees: prisma.employee,
+  events: prisma.event,
 };
 
 // Superadmin-only: wipe every record flagged isDemo (seeded sample/demo data)
-// across every collection it can appear in, leaving real data untouched.
+// across every table it can appear in, leaving real data untouched.
 async function clearAll(req, res) {
   const counts = {};
   let total = 0;
-  for (const [key, Model] of Object.entries(MODELS)) {
-    const result = await Model.deleteMany({ isDemo: true });
-    counts[key] = result.deletedCount;
-    total += result.deletedCount;
+  for (const [key, delegate] of Object.entries(MODELS)) {
+    const result = await delegate.deleteMany({ where: { isDemo: true } });
+    counts[key] = result.count;
+    total += result.count;
   }
 
   await writeAudit({

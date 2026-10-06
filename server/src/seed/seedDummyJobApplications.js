@@ -2,11 +2,9 @@
 // Hiring Management for demoing the feature. Every record is flagged isDemo: true
 // so a superadmin can wipe them cleanly from Settings > Danger Zone before go-live.
 require('dotenv').config();
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
-const Department = require('../models/Department');
-const User = require('../models/User');
-const JobApplication = require('../models/JobApplication');
+const { disconnectDB } = require('../config/db');
+const { prisma } = require('../db');
 
 function resumeText({ name, department, experienceYears, email, phone }) {
   return `${name}
@@ -63,14 +61,25 @@ function daysAgo(n) {
   return d;
 }
 
-async function main() {
-  await connectDB();
-
-  const depts = await Department.find({ name: { $not: /Leadership/i } }).select('name');
+// `db` is the PrismaClient by default; pass an interactive-transaction client
+// to run it atomically.
+async function seedJobApplications(db = prisma) {
+  const natural = [{ createdAt: 'asc' }, { id: 'asc' }];
+  const depts = await db.department.findMany({
+    where: { NOT: { name: { contains: 'Leadership' } } },
+    select: { id: true, name: true },
+    orderBy: natural,
+  });
   if (depts.length === 0) throw new Error('No departments found — seed departments first.');
 
-  const referrers = await User.find({ isActive: true, employeeRef: { $ne: null } }).limit(3).select('_id name');
-  const fallbackReferrer = referrers[0] || (await User.findOne({ isActive: true }).select('_id name'));
+  const referrers = await db.user.findMany({
+    where: { isActive: true, employeeId: { not: null } },
+    select: { id: true, name: true },
+    orderBy: natural,
+    take: 3,
+  });
+  const fallbackReferrer =
+    referrers[0] || (await db.user.findFirst({ where: { isActive: true }, select: { id: true, name: true }, orderBy: natural }));
 
   const docs = CANDIDATES.map((c, i) => {
     const dept = depts[i % depts.length].name;
@@ -93,7 +102,7 @@ async function main() {
     };
 
     if (isReferral) {
-      return { ...base, source: 'referral', referrerRef: referrers[i % referrers.length]?._id || fallbackReferrer._id };
+      return { ...base, source: 'referral', referrerId: referrers[i % referrers.length]?.id || fallbackReferrer.id };
     }
     return {
       ...base,
@@ -106,13 +115,22 @@ async function main() {
     };
   });
 
-  await JobApplication.insertMany(docs);
+  await db.jobApplication.createMany({ data: docs });
   console.log(`[seed] inserted ${docs.length} dummy job application(s), flagged isDemo: true.`);
-
-  await mongoose.disconnect();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+async function main() {
+  await connectDB();
+  await seedJobApplications();
+  await disconnectDB();
+}
+
+// Only when run directly (`node src/seed/seedDummyJobApplications.js`), never as a side effect of require().
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[seed] failed:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = { seedJobApplications };

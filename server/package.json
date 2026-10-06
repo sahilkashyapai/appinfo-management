@@ -8,9 +8,14 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seed/seed.js",
-    "seed:developer": "node src/seed/createDeveloperUser.js"
+    "seed:developer": "node src/seed/createDeveloperUser.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:copy-from-mongo": "node src/scripts/migrateMongoToMysql.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -29,7 +34,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "mongodb-memory-server": "^11.2.0",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "prisma": "^6.19.3"
   }
 }

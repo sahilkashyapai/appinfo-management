@@ -9,9 +9,8 @@
 // Muharram, Id-e-Milad) are officially "tentative" pending moon-sighting and
 // may shift by a day.
 require('dotenv').config();
-const mongoose = require('mongoose');
 const connectDB = require('../config/db');
-const Holiday = require('../models/Holiday');
+const prisma = require('../db/prisma');
 
 const HOLIDAYS_2026 = [
   { name: 'Republic Day', date: '2026-01-26', type: 'National' },
@@ -40,20 +39,24 @@ async function main() {
   let skipped = 0;
   for (const h of HOLIDAYS_2026) {
     const date = new Date(h.date);
-    const exists = await Holiday.findOne({ name: h.name, date });
+    const exists = await prisma.holiday.findFirst({ where: { name: h.name, date }, select: { id: true } });
     if (exists) {
       skipped += 1;
       continue;
     }
-    await Holiday.create({ name: h.name, date, type: h.type, description: h.description || '' });
+    await prisma.holiday.create({ data: { name: h.name, date, type: h.type, description: h.description || '' } });
     inserted += 1;
   }
 
   console.log(`[seed] inserted ${inserted} government holiday(s) for 2026, skipped ${skipped} already present.`);
-  await mongoose.disconnect();
+  await prisma.$disconnect();
 }
 
-main().catch((err) => {
-  console.error('[seed] failed:', err);
-  process.exit(1);
-});
+// Runs only when executed directly (node <file>), never when required.
+if (require.main === module) {
+  main().catch(async (err) => {
+    console.error('[seed] failed:', err);
+    await prisma.$disconnect().catch(() => {});
+    process.exit(1);
+  });
+}
