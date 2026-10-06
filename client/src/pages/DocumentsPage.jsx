@@ -9,6 +9,9 @@ import DocumentUploadModal from '../components/DocumentUploadModal';
 import DocumentRequestModal from '../components/DocumentRequestModal';
 import DocumentFulfillModal from '../components/DocumentFulfillModal';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
+import SalaryQueryModal from '../components/payroll/SalaryQueryModal';
+import { QUERY_STATUS_BADGE, QUERY_STATUS_LABEL } from '../components/payroll/QueriesTab';
+import { periodLabel } from '../components/payroll/payrollUtils';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/avatar';
@@ -53,6 +56,7 @@ export default function DocumentsPage() {
   const [fulfilling, setFulfilling] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [queryDoc, setQueryDoc] = useState(null);
   const toast = useToast();
   const qc = useQueryClient();
 
@@ -61,6 +65,11 @@ export default function DocumentsPage() {
   const { data: myDocs } = useQuery({
     queryKey: ['my-documents'],
     queryFn: () => api.get('/documents', { params: { employeeRef: user.employeeRef } }).then((r) => r.data.items),
+    enabled: hasEmployeeRecord,
+  });
+  const { data: myQueries = [] } = useQuery({
+    queryKey: ['salary-queries', 'mine'],
+    queryFn: () => api.get('/salary-queries/mine').then((r) => r.data.items),
     enabled: hasEmployeeRecord,
   });
   const { data: myRequests } = useQuery({
@@ -121,9 +130,12 @@ export default function DocumentsPage() {
     onError: (err) => toast(err.response?.data?.message || 'Could not reject request.', 'error'),
   });
 
+  // Salary slips are managed from Payroll, so they can't be edited or removed here.
   function canDeleteDoc(d) {
+    if (d.category === 'salary_slip' && d.uploadedByRef?._id !== user?.id && !ADMIN_ROLES.includes(user?.role)) return false;
     return ADMIN_ROLES.includes(user?.role) || d.uploadedByRef?._id === user?.id || String(d.employeeRef) === String(user?.employeeRef);
   }
+  const isOwnSlip = (d) => d.category === 'salary_slip' && String(d.employeeRef) === String(user?.employeeRef);
 
   return (
     <div className="page on">
@@ -175,6 +187,11 @@ export default function DocumentsPage() {
                           <button className="btn bs bxs bico" onClick={() => download.mutate(d._id)} disabled={download.isPending} title="Download">
                             <i className="fa-solid fa-download" />
                           </button>
+                          {isOwnSlip(d) && (
+                            <button className="btn bs bxs" onClick={() => setQueryDoc(d)} title="Ask HR about this salary slip">
+                              <i className="fa-solid fa-circle-question" /> Raise query
+                            </button>
+                          )}
                           {canDeleteDoc(d) && (
                             <button className="btn bs bxs bico" onClick={() => setEditingDoc(d)} title="Edit / Replace">
                               <i className="fa-solid fa-pen" />
@@ -196,6 +213,33 @@ export default function DocumentsPage() {
               </table>
             </div>
           </div>
+
+          {myQueries.length > 0 && (
+            <div className="card" style={{ marginBottom: 13 }}>
+              <div className="chd"><div className="cht"><i className="fa-solid fa-circle-question" /> My Salary Queries</div></div>
+              <div className="tbl">
+                <table>
+                  <thead>
+                    <tr><th>Salary Slip</th><th>Your Query</th><th>Status</th><th>HR Reply</th><th>Raised</th></tr>
+                  </thead>
+                  <tbody>
+                    {myQueries.map((q) => (
+                      <tr key={q._id}>
+                        <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{periodLabel(q.slip?.period)}</td>
+                        <td style={{ maxWidth: 320, whiteSpace: 'pre-wrap' }}>{q.message}</td>
+                        <td><span className={`badge ${QUERY_STATUS_BADGE[q.status]}`}>{QUERY_STATUS_LABEL[q.status]}</span></td>
+                        <td style={{ maxWidth: 320, whiteSpace: 'pre-wrap', color: q.response ? 'var(--t1)' : 'var(--t3)' }}>
+                          {q.response || 'Waiting for HR'}
+                          {q.respondedByRef?.name && <div style={{ fontSize: 10.5, color: 'var(--t3)', marginTop: 2 }}>— {q.respondedByRef.name}</div>}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap', color: 'var(--t3)' }}>{formatDate(q.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="card">
             <div className="chd"><div className="cht"><i className="fa-solid fa-file-circle-check" /> My Document Requests</div></div>
@@ -299,6 +343,7 @@ export default function DocumentsPage() {
       {requestOpen && <DocumentRequestModal onClose={() => setRequestOpen(false)} />}
       {fulfilling && <DocumentFulfillModal request={fulfilling} onClose={() => setFulfilling(null)} />}
       {previewDoc && <DocumentPreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
+      {queryDoc && <SalaryQueryModal doc={queryDoc} onClose={() => setQueryDoc(null)} />}
       {rejecting && (
         <PromptModal
           title="Reject Document Request"

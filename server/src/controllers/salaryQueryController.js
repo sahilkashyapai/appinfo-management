@@ -74,7 +74,7 @@ async function create(req, res) {
     type: 'payroll',
     title: `Salary query from ${slip.employeeRef.name}`,
     body: `${slip.employeeRef.name} raised a query about their ${label} salary slip.`,
-    link: '/payroll',
+    link: '/payroll?tab=queries',
   });
   await writeAudit({ ip: req.ip, user: req.user, action: 'CREATE', entity: 'payroll', recordId: query.id, detail: `Raised a salary query for ${label}` });
   res.status(201).json({ item: shape('SalaryQuery', query) });

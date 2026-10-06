@@ -573,7 +573,8 @@ async function publishOne(slipRow, user) {
         fileName: `salary-slip-${slip.period}-${empId}.pdf`,
         fileType: 'application/pdf',
         fileUrl: `data:application/pdf;base64,${pdf.toString('base64')}`,
-        uploadedById: String(user._id),
+        // A proadmin stays invisible everywhere, so it is never shown as the uploader.
+        uploadedById: user.role === 'proadmin' ? null : String(user._id),
       },
     });
     return tx.salarySlip.update({

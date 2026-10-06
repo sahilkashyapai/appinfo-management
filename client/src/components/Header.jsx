@@ -23,6 +23,7 @@ const TITLES = {
   '/registrations': 'Employee Registrations',
   '/profile': 'My Profile',
   '/payroll': 'Payroll',
+  '/documents': 'My Documents',
 };
 
 export default function Header({ onToggleSidebar, onOpenNotifications }) {
